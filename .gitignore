@@ -1,0 +1,70 @@
+# ─── Secrets ──────────────────────────────────────────────────────────────
+.env
+.env.local
+*.pem
+*.key
+*.p12
+*.pfx
+
+# ─── Internal project notes (not for public repo) ─────────────────────────
+/CLAUDE.md
+
+# ─── Compiled binaries (root level) ───────────────────────────────────────
+/fgctl
+/fg-agent
+/intel-agent
+/fgctl.exe
+/fg-agent.exe
+/intel-agent.exe
+
+# ─── Build output ─────────────────────────────────────────────────────────
+/bin/
+/dist/
+*.test
+coverage.out
+*.out
+*.prof
+
+# ─── Go ───────────────────────────────────────────────────────────────────
+vendor/
+
+# ─── TypeScript / Node (dashboard) ────────────────────────────────────────
+dashboard/node_modules/
+dashboard/dist/
+dashboard/.vite/
+dashboard/*.tsbuildinfo
+
+# ─── VS Code extension ────────────────────────────────────────────────────
+vscode-extension/out/
+vscode-extension/node_modules/
+vscode-extension/*.vsix
+vscode-extension/*.tsbuildinfo
+
+# ─── Docker / local service data ──────────────────────────────────────────
+infra/dependency-track/
+postgres-data/
+redis-data/
+minio-data/
+
+# ─── Logs ─────────────────────────────────────────────────────────────────
+*.log
+*.log.*
+
+# ─── OS & Editor ──────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.idea/
+.vscode/settings.json
+.vscode/launch.json
+*.swp
+*.swo
+*~
+
+# ─── Test artifacts ───────────────────────────────────────────────────────
+/tmp/fg-test-results/
+testenv/targets/ai-model-unsafe/model.pkl
