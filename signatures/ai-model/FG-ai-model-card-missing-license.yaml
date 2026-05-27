@@ -1,0 +1,28 @@
+id: FG-ai-model-card-missing-license
+name: HuggingFace model missing model card, license, or safety evaluation
+
+type: pickle_rule
+ecosystem: huggingface
+severity: MEDIUM
+
+rule: |
+  Model repository has zero downloads in the past 30 days OR was published < 7 days ago
+  AND model card (README.md) is absent or < 100 characters
+  AND no license field is set in model metadata
+  AND model contains .bin or .safetensors weight files
+
+description: |
+  Models uploaded to HuggingFace without a model card, license, or any documentation
+  are a significant supply chain risk vector. Legitimate model releases — even small
+  research releases — include at minimum a README describing the model's purpose.
+  Missing documentation combined with newly published weight files is a pattern
+  consistent with typosquat model uploads (e.g., a model named `gpt2-fast` targeting
+  the legitimate `gpt2` namespace) and quick-publish malware drops. These models should
+  be reviewed before loading, especially in automated pipelines that pull models by name.
+
+references:
+  - https://huggingface.co/blog/model-cards
+  - https://jfrog.com/blog/data-scientists-targeted-with-malicious-hugging-face-models/
+
+author: mah3sec
+tags: [missing-model-card, undocumented-model, supply-chain, ai-model]
