@@ -1,0 +1,25 @@
+id: FG-pypi-ctx-cryptominer
+name: ctx PyPI package hijack — cryptominer via expired domain takeover
+
+type: blocklisted_package
+ecosystem: pypi
+severity: CRITICAL
+
+package: ctx
+version_range: ">=0.2.0"
+
+description: |
+  The legitimate ctx package (version 0.1.2, 22k monthly downloads) was abandoned and its
+  maintainer's email domain expired. An attacker registered the expired domain, reset the
+  PyPI account password, and uploaded ctx 0.2.0 containing code that reads all environment
+  variables (including cloud credentials, API keys, and secrets) and exfiltrates them via
+  HTTP POST to a Heroku endpoint. The attack exploited PyPI's trust in email-based account
+  recovery. Affected installations should rotate all secrets immediately.
+
+references:
+  - https://www.bleepingcomputer.com/news/security/pypi-package-ctx-and-phpass-are-malicious/
+  - https://github.com/rmoskal/malicious-context/
+  - https://therecord.media/malicious-pypi-packages-steal-developer-data/
+
+author: mah3sec
+tags: [exfiltration, env-harvest, domain-takeover, maintainer-hijack]
