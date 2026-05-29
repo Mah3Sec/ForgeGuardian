@@ -1,0 +1,24 @@
+id: FG-npm-behavioral-ssh-key-exfil
+name: Package reads ~/.ssh/ private keys or ~/.aws/credentials during install
+
+type: behavioral_rule
+ecosystem: npm
+severity: CRITICAL
+
+rule: |
+  Package lifecycle script or main module contains path references to any of:
+    ~/.ssh/id_rsa, ~/.ssh/id_ed25519, ~/.ssh/id_ecdsa, ~/.ssh/config,
+    ~/.aws/credentials, ~/.aws/config, ~/.gcp/, ~/.config/gcloud/,
+    ~/.kube/config, ~/.docker/config.json
+  AND contains any of: fs.readFile, fs.readFileSync, open(), read(), readFile()
+  AND the file content is subsequently sent over a network connection
+
+description: |
+  Reading SSH private keys, AWS credential files, GCP service account tokens, or
+  kubeconfig files during package install is unambiguously malicious. These files
+  contain cryptographic material that grants persistent access to developer machines,
+  cloud infrastructure, and CI/CD pipelines. This pattern was observed in the PyPI
+  `ctx` attack and multiple npm malware campaigns in 2022–2024.
+
+author: mah3sec
+tags: [ssh-key-theft, credential-theft, postinstall, exfiltration, aws, gcp]

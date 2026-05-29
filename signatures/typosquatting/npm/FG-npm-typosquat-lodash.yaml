@@ -1,0 +1,38 @@
+id: FG-npm-typosquat-lodash
+name: Typosquatting target — lodash (50M+ weekly downloads)
+
+type: typosquatting_target
+ecosystem: npm
+severity: HIGH
+
+target: lodash
+
+similar_names:
+  - lodahs
+  - 1odash
+  - lodsh
+  - lod4sh
+  - lodash_
+  - _lodash
+  - lodash2
+  - ldoash
+  - lodahh
+  - lodassh
+  - loddash
+  - l0dash
+  - lodach
+  - lodasz
+  - loda5h
+
+description: |
+  lodash has over 50 million weekly npm downloads and is one of the most depended-upon
+  packages in the entire JavaScript ecosystem. Its extreme popularity makes it a prime
+  target for typosquatting attacks. Any package published under these variant names should
+  be treated as a potential typosquatting attempt and flagged for manual review before use.
+
+references:
+  - https://www.npmjs.com/package/lodash
+  - https://blog.sonatype.com/npm-typosquatting-attack
+
+author: mah3sec
+tags: [typosquatting]
