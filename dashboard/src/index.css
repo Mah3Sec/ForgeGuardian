@@ -1,0 +1,256 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* ── ForgeGuardian design tokens — "Technical Security OS" (light) ── */
+  --bg-base:       #FAFAF8;
+  --surface:       #FFFFFF;
+  --surface-muted: #F5F6F4;
+  --border-color:  #E6E8E6;
+  --text-primary:  #111315;
+  --text-secondary:#667085;
+  --text-muted:    #98A2B3;
+  --primary-blue:  #2563EB;
+  --blue-light:    #DBEAFE;
+  --cyan:          #06B6D4;
+  --success:       #16A34A;
+  --warning:       #D97706;
+  --critical:      #DC2626;
+  --font-mono:     'JetBrains Mono', 'IBM Plex Mono', 'Fira Code', 'Consolas', monospace;
+
+  /* ── shadcn/ui HSL tokens — recomputed for the light palette ─────── */
+  --background:            60 17% 98%;   /* #FAFAF8 */
+  --foreground:            210 11% 7%;   /* #111315 */
+  --card:                  0 0% 100%;    /* #FFFFFF */
+  --card-foreground:       210 11% 7%;   /* #111315 */
+  --popover:               0 0% 100%;    /* #FFFFFF */
+  --popover-foreground:    210 11% 7%;   /* #111315 */
+  --primary:               221 83% 53%;  /* #2563EB */
+  --primary-foreground:    0 0% 100%;    /* #FFFFFF */
+  --secondary:             90 10% 96%;   /* #F5F6F4 */
+  --secondary-foreground:  210 11% 7%;   /* #111315 */
+  --muted:                 90 10% 96%;   /* #F5F6F4 */
+  --muted-foreground:      221 13% 46%;  /* #667085 */
+  --accent:                214 95% 93%;  /* #DBEAFE */
+  --accent-foreground:     221 83% 53%;  /* #2563EB */
+  --destructive:           0 72% 51%;    /* #DC2626 */
+  --destructive-foreground:0 0% 100%;    /* #FFFFFF */
+  --border:                120 4% 91%;   /* #E6E8E6 */
+  --input:                 120 4% 91%;   /* #E6E8E6 */
+  --ring:                  221 83% 53%;  /* #2563EB */
+  --radius:                0.75rem;      /* 12px default card radius */
+
+  /* ── Transitional backward-compat aliases ─────────────────────────
+     These map the OLD dark-theme custom property names (used throughout
+     src/pages/* and src/components/* via inline style={{color:'var(--x)'}})
+     onto the NEW token set so existing pages keep rendering sanely until
+     they are individually reworked in later retheme phases. Remove this
+     block once every page has been migrated to the new tokens/Tailwind
+     utilities directly. */
+  --bg-surface:    var(--surface);
+  --surface-2:     var(--surface-muted);
+  --bg-elevated:   var(--surface-muted);
+  --color-safe:    var(--success);
+  --color-warn:    var(--warning);
+  --color-warning: var(--warning);
+  --color-critical:var(--critical);
+  --color-text:    var(--text-primary);
+  --fg:            var(--text-primary);
+  --color-muted:   var(--text-secondary);
+  --color-indigo:  #6366F1;
+  --color-info:    var(--cyan);
+  --color-purple:  #A855F7;
+  --color-high:    #EA580C;
+  --color-medium:  var(--warning);
+  --color-low:     var(--cyan);
+}
+
+.dark {
+  /* ── ForgeGuardian design tokens — dark mode ──────────────────────── */
+  --bg-base:       #0B0D0F;
+  --surface:       #111418;
+  --surface-muted: #161A1F;
+  --border-color:  #252A31;
+  --text-primary:  #F5F7FA;
+  --text-secondary:#8B95A5;
+  --text-muted:    #6B7280;
+  --primary-blue:  #4F8CFF;
+  --blue-light:    #1E3A5F;
+  --cyan:          #22D3EE;
+  --success:       #22C55E;
+  --warning:       #F59E0B;
+  --critical:      #F87171;
+
+  /* ── shadcn/ui HSL tokens — dark equivalents ──────────────────────── */
+  --background:            210 15% 5%;   /* #0B0D0F */
+  --foreground:            216 33% 97%;  /* #F5F7FA */
+  --card:                  214 17% 8%;   /* #111418 */
+  --card-foreground:       216 33% 97%;  /* #F5F7FA */
+  --popover:               214 17% 8%;   /* #111418 */
+  --popover-foreground:    216 33% 97%;  /* #F5F7FA */
+  --primary:               219 100% 65%; /* #4F8CFF */
+  --primary-foreground:    210 15% 5%;   /* #0B0D0F */
+  --secondary:             213 17% 10%;  /* #161A1F */
+  --secondary-foreground:  216 33% 97%;  /* #F5F7FA */
+  --muted:                 213 17% 10%;  /* #161A1F */
+  --muted-foreground:      217 13% 60%;  /* #8B95A5 */
+  --accent:                214 52% 25%;  /* #1E3A5F */
+  --accent-foreground:     216 33% 97%;  /* #F5F7FA */
+  --destructive:           0 91% 71%;    /* #F87171 */
+  --destructive-foreground:210 15% 5%;   /* #0B0D0F */
+  --border:                215 14% 17%;  /* #252A31 */
+  --input:                 215 14% 17%;  /* #252A31 */
+  --ring:                  219 100% 65%; /* #4F8CFF */
+
+  /* ── Transitional backward-compat aliases (dark) — see :root comment */
+  --bg-surface:    var(--surface);
+  --surface-2:     var(--surface-muted);
+  --bg-elevated:   var(--surface-muted);
+  --color-safe:    var(--success);
+  --color-warn:    var(--warning);
+  --color-warning: var(--warning);
+  --color-critical:var(--critical);
+  --color-text:    var(--text-primary);
+  --fg:            var(--text-primary);
+  --color-muted:   var(--text-secondary);
+  --color-indigo:  #818CF8;
+  --color-info:    var(--cyan);
+  --color-purple:  #C084FC;
+  --color-high:    #FB923C;
+  --color-medium:  var(--warning);
+  --color-low:     var(--cyan);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--color-text);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+code, pre, .mono {
+  font-family: var(--font-mono);
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+
+input, select, textarea { outline: none; }
+input:focus, select:focus, textarea:focus {
+  border-color: var(--primary-blue) !important;
+  box-shadow: 0 0 0 1px rgba(37,99,235,0.2);
+}
+
+button { cursor: pointer; border: none; transition: opacity 0.15s; }
+button:hover:not(:disabled) { opacity: 0.85; }
+button:disabled { cursor: not-allowed; }
+
+/* ── Developer Docs markdown rendering ────────────────────────────── */
+.fg-docs { color: var(--fg); font-size: 0.875rem; line-height: 1.65; }
+.fg-docs h1, .fg-docs h2, .fg-docs h3, .fg-docs h4 {
+  color: var(--fg);
+  font-weight: 700;
+  margin: 1.25em 0 0.5em;
+  line-height: 1.3;
+}
+.fg-docs h1 { font-size: 1.4rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.4em; }
+.fg-docs h2 { font-size: 1.15rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.3em; }
+.fg-docs h3 { font-size: 1rem; }
+.fg-docs p { margin: 0.75em 0; color: var(--fg); }
+.fg-docs a { color: var(--primary-blue); text-decoration: none; }
+.fg-docs a:hover { text-decoration: underline; }
+.fg-docs ul, .fg-docs ol { margin: 0.5em 0 0.5em 1.25em; }
+.fg-docs li { margin: 0.25em 0; }
+.fg-docs code {
+  font-family: var(--font-mono);
+  background: var(--bg-elevated);
+  color: var(--primary-blue);
+  padding: 0.1em 0.4em;
+  border-radius: 0.25rem;
+  font-size: 0.85em;
+}
+.fg-docs pre {
+  font-family: var(--font-mono);
+  background: var(--bg-elevated);
+  color: var(--fg);
+  padding: 0.9em 1em;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin: 0.75em 0;
+  border: 1px solid var(--border-color);
+}
+.fg-docs pre code { background: transparent; padding: 0; color: var(--fg); }
+.fg-docs blockquote {
+  border-left: 3px solid var(--primary-blue);
+  padding-left: 1em;
+  margin: 0.75em 0;
+  color: var(--color-muted);
+}
+.fg-docs table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75em 0;
+  font-size: 0.85em;
+}
+.fg-docs th, .fg-docs td {
+  border: 1px solid var(--border-color);
+  padding: 0.5em 0.75em;
+  text-align: left;
+}
+.fg-docs th { background: var(--bg-elevated); color: var(--fg); }
+.fg-docs hr { border: none; border-top: 1px solid var(--border-color); margin: 1.5em 0; }
+.fg-docs img { max-width: 100%; }
+
+/* Brief highlight when "search this page" scrolls to a match. */
+.fg-search-hit {
+  background: var(--blue-light);
+  border-radius: 0.2em;
+  transition: background 1.2s ease-out;
+}
+
+/* ── Motion system ─────────────────────────────────────────────────────
+   Small, reusable entrance + "alive" pulse utilities. Plain CSS keyframes,
+   no animation library — applied selectively (metric card rows, healthy
+   status dots), not globally. */
+@keyframes fg-fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fg-entrance {
+  animation: fg-fade-in-up 480ms ease-out both;
+}
+.fg-entrance-delay-1 { animation-delay: 60ms; }
+.fg-entrance-delay-2 { animation-delay: 120ms; }
+.fg-entrance-delay-3 { animation-delay: 180ms; }
+.fg-entrance-delay-4 { animation-delay: 240ms; }
+.fg-entrance-delay-5 { animation-delay: 300ms; }
+
+@keyframes fg-pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+.fg-pulse-healthy {
+  animation: fg-pulse-slow 3s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fg-entrance,
+  .fg-entrance-delay-1,
+  .fg-entrance-delay-2,
+  .fg-entrance-delay-3,
+  .fg-entrance-delay-4,
+  .fg-entrance-delay-5,
+  .fg-pulse-healthy {
+    animation: none !important;
+  }
+}
