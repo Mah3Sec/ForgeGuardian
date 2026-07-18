@@ -1,0 +1,37 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: forgeguardian
+  namespace: forgeguardian
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - forgeguardian.example.com
+        - api.forgeguardian.example.com
+      secretName: forgeguardian-tls
+  rules:
+    - host: forgeguardian.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: forgeguardian-dashboard
+                port:
+                  number: 80
+    - host: api.forgeguardian.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: forgeguardian-api
+                port:
+                  number: 80
