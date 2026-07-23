@@ -1,0 +1,3 @@
+[submodule "forgeguardian-signatures"]
+	path = forgeguardian-signatures
+	url = https://github.com/Mah3Sec/forgeguardian-signatures.git
