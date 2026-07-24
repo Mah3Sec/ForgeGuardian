@@ -1,0 +1,16 @@
+{
+  "name": "vuln-node-app",
+  "version": "1.0.0",
+  "description": "FORGEGUARDIAN TEST PROJECT — vulnerable Node.js app for patch agent testing",
+  "dependencies": {
+    "lodash": "4.17.20",
+    "minimist": "1.2.5",
+    "axios": "0.21.1",
+    "node-fetch": "2.6.0",
+    "qs": "6.5.2",
+    "ansi-html": "0.0.7"
+  },
+  "devDependencies": {
+    "mocha": "9.2.0"
+  }
+}

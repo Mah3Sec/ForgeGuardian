@@ -1,0 +1,7 @@
+{
+  "name": "forgeguardian-test-mcp-injection",
+  "version": "1.0.0",
+  "description": "FORGEGUARDIAN TEST FIXTURE: MCP server with injection patterns and excessive permissions. MCP scanner should flag: prompt injection in tool descriptions, overly broad filesystem permissions.",
+  "main": "server.js",
+  "license": "MIT"
+}

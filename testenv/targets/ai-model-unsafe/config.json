@@ -1,0 +1,10 @@
+{
+  "model_type": "transformer",
+  "serialization": "pickle",
+  "safe_serialization": false,
+  "torch_dtype": "float32",
+  "vocab_size": 50257,
+  "hidden_size": 768,
+  "forgeguardian_test": true,
+  "test_note": "This config intentionally sets safe_serialization=false to trigger AI model scanner pickle detection"
+}

@@ -1,0 +1,10 @@
+# FORGEGUARDIAN TEST PROJECT — vulnerable Python app for patch agent testing
+# Each of these has known CVEs that ForgeGuardian's scanner should catch
+
+PyYAML==5.3.1           # CVE-2020-14343 — yaml.load() RCE (CVSS 9.8)
+Pillow==8.3.1           # CVE-2021-34552 — buffer overflow (CVSS 9.8)
+requests==2.25.0        # CVE-2023-32681 — credential leak via redirect (CVSS 6.1)
+cryptography==3.3.1     # CVE-2023-23931 — memory corruption (CVSS 4.0)
+urllib3==1.26.4         # CVE-2021-33503 — ReDoS (CVSS 7.5)
+paramiko==2.7.1         # CVE-2022-24302 — race condition on key gen (CVSS 5.1)
+Django==2.2.0           # CVE-2019-14232, CVE-2019-14233 — ReDoS + SQL injection

@@ -1,0 +1,7 @@
+{
+  "name": "expres",
+  "version": "1.0.0",
+  "description": "FORGEGUARDIAN TEST FIXTURE: Typosquatted package simulating 'express' (missing final 's'). Behavioral scanner should detect: name closely matches popular package 'express' (Levenshtein distance 1).",
+  "main": "index.js",
+  "license": "MIT"
+}

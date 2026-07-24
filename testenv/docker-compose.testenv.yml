@@ -1,0 +1,75 @@
+version: "3.9"
+
+# ForgeGuardian — Vulnerable Test Environment
+# Spins up ForgeGuardian + a set of intentionally vulnerable targets.
+#
+# Usage:
+#   docker compose -f docker-compose.testenv.yml up -d
+#   docker compose -f docker-compose.testenv.yml exec forgeguardian sh
+#
+# All targets are ISOLATED on the test network.
+# NEVER expose ports 8888/9999 externally.
+
+networks:
+  testnet:
+    driver: bridge
+    internal: true   # no external egress from test containers
+  external_allowed:
+    driver: bridge   # forgeguardian needs internet for OSV API + package downloads
+
+volumes:
+  test_results:
+  test_packages:
+
+services:
+
+  # ─── ForgeGuardian Scanner ───────────────────────────────────────────
+  forgeguardian:
+    build:
+      context: ..
+      dockerfile: testenv/Dockerfile.testenv
+    container_name: fg-testenv
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    volumes:
+      - test_results:/results
+      - ./targets:/targets:ro
+      - ./projects:/projects
+      - ./run-tests.sh:/run-tests.sh:ro
+    networks:
+      - testnet
+      - external_allowed
+    # Keep alive for interactive testing
+    command: ["tail", "-f", "/dev/null"]
+
+  # ─── Vulnerable Web App (DVWA-style, for context) ────────────────────
+  vuln-webapp:
+    image: webpwnized/mutillidae:latest
+    container_name: fg-vuln-webapp
+    networks:
+      - testnet
+    ports:
+      - "127.0.0.1:8888:80"   # bind to localhost only
+    restart: unless-stopped
+
+  # ─── Juice Shop (OWASP — realistic vulnerable Node app) ──────────────
+  juice-shop:
+    image: bkimminich/juice-shop:latest
+    container_name: fg-juice-shop
+    networks:
+      - testnet
+    ports:
+      - "127.0.0.1:3333:3000"  # localhost only
+    restart: unless-stopped
+
+  # ─── Vulnerable Python API ───────────────────────────────────────────
+  vuln-python-api:
+    build:
+      context: ./targets/pypi-vuln-app
+      dockerfile: ../../testenv/Dockerfile.vuln-python
+    container_name: fg-vuln-python
+    networks:
+      - testnet
+    ports:
+      - "127.0.0.1:5555:5000"
+    restart: unless-stopped

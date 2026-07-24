@@ -1,0 +1,11 @@
+{
+  "name": "evil-pkg-forgeguardian-test",
+  "version": "1.0.0",
+  "description": "Simulated malicious npm package for ForgeGuardian testing. Demonstrates: postinstall exfiltration pattern, obfuscated env var harvesting, reverse-shell attempt via child_process.",
+  "main": "index.js",
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "keywords": ["test", "forgeguardian", "malicious-simulation"],
+  "license": "MIT"
+}
