@@ -1,0 +1,123 @@
+name: Validate Signatures
+
+on:
+  pull_request:
+    paths: ['signatures/**/*.yaml', 'signatures/**/*.json']
+  push:
+    branches: [main]
+    paths: ['signatures/**/*.yaml', 'signatures/**/*.json']
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  validate:
+    name: Validate signature YAML
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install fgctl
+        run: |
+          curl -sSfL https://forgeguardian.dev/install.sh | sh
+          echo "$HOME/.forgeguardian/bin" >> $GITHUB_PATH
+
+      - name: Validate all changed signatures
+        id: validate
+        run: |
+          # On PRs, validate only changed files; on push to main, validate all
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD \
+              | grep -E '^signatures/.*\.(yaml|json)$' || true)
+          else
+            FILES=$(find signatures -name '*.yaml' -o -name '*.json' 2>/dev/null || true)
+          fi
+
+          if [ -z "$FILES" ]; then
+            echo "No signature files changed."
+            exit 0
+          fi
+
+          echo "Validating:"
+          echo "$FILES"
+          echo ""
+
+          FAILED=0
+          for f in $FILES; do
+            if ! fgctl intel validate "$f"; then
+              FAILED=$((FAILED + 1))
+            fi
+          done
+
+          if [ "$FAILED" -gt 0 ]; then
+            echo ""
+            echo "$FAILED signature(s) failed validation."
+            echo "Run: fgctl intel validate <file> to see details."
+            exit 1
+          fi
+
+          echo ""
+          echo "All signatures valid."
+
+      - name: Post PR comment on failure
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## ❌ Signature validation failed\n\nOne or more signature files in this PR failed schema validation.\n\nRun locally to see errors:\n\`\`\`bash\nfgctl intel validate ./your-signature.yaml\n\`\`\`\n\nSee [SIGNATURES.md](./SIGNATURES.md) for the full field reference.`
+            })
+
+  check-duplicates:
+    name: Check for duplicate IDs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for duplicate signature IDs
+        run: |
+          # Extract all id: fields and check for duplicates
+          IDS=$(grep -rh '^id:' signatures/ | sed 's/^id: *//' | sort)
+          DUPS=$(echo "$IDS" | uniq -d)
+          if [ -n "$DUPS" ]; then
+            echo "Duplicate signature IDs found:"
+            echo "$DUPS"
+            exit 1
+          fi
+          echo "No duplicate IDs found."
+
+  build-bundle:
+    name: Build signatures bundle
+    runs-on: ubuntu-latest
+    needs: [validate, check-duplicates]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install fgctl
+        run: |
+          curl -sSfL https://forgeguardian.dev/install.sh | sh
+          echo "$HOME/.forgeguardian/bin" >> $GITHUB_PATH
+
+      - name: Install yq
+        run: |
+          wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          chmod +x /usr/local/bin/yq
+
+      - name: Build signatures.json bundle
+        run: |
+          # Convert all YAML signatures to the JSON bundle format
+          python3 scripts/build_bundle.py signatures/ dist/signatures.json
+          echo "Bundle:"
+          cat dist/signatures.json | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'  {len(d[\"signatures\"])} signatures')"
+
+      - name: Upload bundle as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: signatures-bundle
+          path: dist/signatures.json
+          retention-days: 90
