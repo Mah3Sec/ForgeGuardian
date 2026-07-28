@@ -1,0 +1,131 @@
+{
+  "name": "forgeguardian",
+  "displayName": "ForgeGuardian",
+  "description": "AI-driven supply chain security — scan packages, generate advisories, verify SBOMs and attestations from VS Code",
+  "version": "0.1.0",
+  "publisher": "forgeguardian",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other", "Linters"],
+  "keywords": ["security", "supply chain", "sbom", "cve", "ai"],
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/forgeguardian/forgeguardian"
+  },
+  "activationEvents": [
+    "onStartupFinished",
+    "onLanguage:json",
+    "onLanguage:python",
+    "onLanguage:go",
+    "onLanguage:toml",
+    "onLanguage:ruby"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "forgeguardian.scanPackage",
+        "title": "ForgeGuardian: Scan Package",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "forgeguardian.generateAdvisory",
+        "title": "ForgeGuardian: Generate AI Advisory",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "forgeguardian.generateSBOM",
+        "title": "ForgeGuardian: Generate SBOM",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "forgeguardian.verifyAttestation",
+        "title": "ForgeGuardian: Verify Attestation",
+        "icon": "$(verified)"
+      },
+      {
+        "command": "forgeguardian.openDashboard",
+        "title": "ForgeGuardian: Open Dashboard",
+        "icon": "$(browser)"
+      },
+      {
+        "command": "forgeguardian.refreshSignatures",
+        "title": "ForgeGuardian: Refresh Intelligence Signatures",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "forgeguardian.scanCurrentFile",
+        "title": "ForgeGuardian: Scan Current File",
+        "icon": "$(shield)"
+      }
+    ],
+    "configuration": {
+      "title": "ForgeGuardian",
+      "properties": {
+        "forgeguardian.apiUrl": {
+          "type": "string",
+          "default": "http://localhost:8080",
+          "description": "ForgeGuardian API server URL"
+        },
+        "forgeguardian.anthropicApiKey": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Anthropic API key for AI advisories (or set `ANTHROPIC_API_KEY` env var)"
+        },
+        "forgeguardian.autoScanOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically scan package.json / requirements.txt on save"
+        },
+        "forgeguardian.failOnSeverity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "none"],
+          "default": "high",
+          "description": "Minimum severity that shows a warning decoration in the editor"
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "forgeguardian",
+          "title": "ForgeGuardian",
+          "icon": "media/shield.svg"
+        }
+      ]
+    },
+    "views": {
+      "forgeguardian": [
+        { "id": "forgeguardian.scanResults",  "name": "Scan Results" },
+        { "id": "forgeguardian.signatures",   "name": "Intelligence Signatures" }
+      ]
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "when": "editorTextFocus",
+          "command": "forgeguardian.scanPackage",
+          "group": "ForgeGuardian"
+        },
+        {
+          "when": "editorTextFocus",
+          "command": "forgeguardian.generateAdvisory",
+          "group": "ForgeGuardian"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.0.0",
+    "typescript": "^5.7.0"
+  }
+}
