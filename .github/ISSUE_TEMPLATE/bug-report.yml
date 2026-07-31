@@ -1,0 +1,40 @@
+name: Bug Report
+description: Something isn't working as expected.
+title: "[bug] <short description>"
+labels: ["bug"]
+body:
+  - type: input
+    id: command
+    attributes:
+      label: Command you ran
+      placeholder: "fgctl scan --recipe=npm --package=lodash --version=4.17.20"
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What actually happened
+      description: Paste the full output including any error messages.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: fgctl version
+      description: Run `fgctl version` or `fgctl --version`
+      placeholder: "v0.1.0"
+
+  - type: input
+    id: os
+    attributes:
+      label: OS and architecture
+      placeholder: "macOS 14 arm64 / Ubuntu 22.04 amd64 / Windows 11 amd64"

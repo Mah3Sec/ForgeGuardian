@@ -1,0 +1,37 @@
+name: Contribute a Detection Signature
+description: Already written a signature YAML and want to discuss it before opening a PR? Start here.
+title: "[sig] <FG-id> — <one line description>"
+labels: ["community-signature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        If your signature file already passes `fgctl sig validate ./your-file.json`, you can go straight to a PR.
+        Use this issue if you want feedback first or have questions about the format.
+
+  - type: textarea
+    id: signature
+    attributes:
+      label: Your signature (paste JSON here)
+      description: Paste the contents of your signature file. Run `fgctl sig validate` first to check it.
+      render: json
+      placeholder: |
+        {
+          "id": "FG-npm-evil-pkg",
+          "type": "blocklisted_package",
+          "ecosystem": "npm",
+          "severity": "critical",
+          "title": "evil-pkg data exfiltration",
+          "description": "...",
+          "package": "evil-pkg",
+          "source": "manual"
+        }
+
+  - type: checkboxes
+    id: validated
+    attributes:
+      label: Checklist
+      options:
+        - label: I ran `fgctl sig validate` and it passed
+        - label: This signature catches a real threat (not a test/placeholder)
+        - label: I'm not including exploit code — detection only

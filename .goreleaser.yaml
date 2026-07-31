@@ -1,0 +1,151 @@
+version: 2
+
+project_name: forgeguardian
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: fgctl
+    main: ./cmd/fgctl/
+    binary: fgctl
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.buildTime={{.Date}}
+      - -X github.com/mah3sec/forgeguardian/internal/license.secret={{.Env.FG_LICENSE_SECRET}}
+
+  - id: fg-agent
+    main: ./cmd/fg-agent/
+    binary: fg-agent
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.buildTime={{.Date}}
+      - -X github.com/mah3sec/forgeguardian/internal/license.secret={{.Env.FG_LICENSE_SECRET}}
+
+  - id: intel-agent
+    main: ./cmd/intel-agent/
+    binary: intel-agent
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.buildTime={{.Date}}
+      - -X github.com/mah3sec/forgeguardian/internal/license.secret={{.Env.FG_LICENSE_SECRET}}
+
+archives:
+  - id: default
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+      - LICENSE
+      - GUIDE.md
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - Merge pull request
+      - Merge branch
+
+brews:
+  - name: forgeguardian
+    ids:
+      - default
+    repository:
+      owner: mah3sec
+      name: homebrew-forgeguardian
+      branch: main
+    directory: Formula
+    homepage: "https://github.com/mah3sec/forgeguardian"
+    description: "AI-powered supply chain security scanner for software packages"
+    license: "MIT"
+    install: |
+      bin.install "fgctl"
+      bin.install "fg-agent"
+      bin.install "intel-agent"
+    test: |
+      assert_match version.to_s, shell_output("#{bin}/fgctl version")
+
+release:
+  github:
+    owner: mah3sec
+    name: forgeguardian
+  draft: false
+  prerelease: auto
+  name_template: "ForgeGuardian {{.Version}}"
+  header: |
+    ## ForgeGuardian {{.Version}}
+
+    ### Install
+
+    **One command (requires Go):**
+    ```bash
+    go install github.com/mah3sec/forgeguardian/cmd/fgctl@{{.Tag}}
+    ```
+
+    **Homebrew:**
+    ```bash
+    brew tap mah3sec/forgeguardian
+    brew install forgeguardian
+    ```
+
+    **Curl installer:**
+    ```bash
+    curl -sSfL https://raw.githubusercontent.com/mah3sec/forgeguardian/main/install.sh | bash
+    ```
+
+    Or download a prebuilt binary below.

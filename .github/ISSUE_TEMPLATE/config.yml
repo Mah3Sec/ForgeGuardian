@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Discussions (questions & ideas)
+    url: https://github.com/mah3sec/forgeguardian/discussions
+    about: Ask questions or share ideas here — not in issues.
+  - name: Security vulnerability in ForgeGuardian itself
+    url: https://github.com/mah3sec/forgeguardian/security/advisories/new
+    about: Report a vulnerability in ForgeGuardian privately.

