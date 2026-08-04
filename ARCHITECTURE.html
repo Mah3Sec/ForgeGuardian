@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ForgeGuardian — Architecture & Workflow</title>
+<style>
+  :root {
+    --bg: #0A0B0D;
+    --surface: #141618;
+    --surface2: #1C1F23;
+    --border: #2A2D32;
+    --green: #00FF87;
+    --amber: #FFAB40;
+    --red: #FF3D3D;
+    --blue: #4FC3F7;
+    --purple: #CE93D8;
+    --text: #F8F9FA;
+    --muted: #6B7280;
+    --cyan: #26C6DA;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 32px 24px;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--green);
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-bottom: 48px;
+    letter-spacing: 1px;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .badge-green  { background: rgba(0,255,135,0.15); color: var(--green); border: 1px solid rgba(0,255,135,0.3); }
+  .badge-blue   { background: rgba(79,195,247,0.15); color: var(--blue); border: 1px solid rgba(79,195,247,0.3); }
+  .badge-amber  { background: rgba(255,171,64,0.15); color: var(--amber); border: 1px solid rgba(255,171,64,0.3); }
+  .badge-red    { background: rgba(255,61,61,0.15); color: var(--red); border: 1px solid rgba(255,61,61,0.3); }
+  .badge-purple { background: rgba(206,147,216,0.15); color: var(--purple); border: 1px solid rgba(206,147,216,0.3); }
+  .badge-cyan   { background: rgba(38,198,218,0.15); color: var(--cyan); border: 1px solid rgba(38,198,218,0.3); }
+
+  /* ─── SECTION TITLES ─── */
+  .section-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ─── PIPELINE FLOW ─── */
+  .pipeline {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin-bottom: 56px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+
+  .pipe-stage {
+    flex: 1;
+    min-width: 140px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0;
+    padding: 20px 14px;
+    position: relative;
+    transition: background 0.2s;
+  }
+  .pipe-stage:first-child { border-radius: 10px 0 0 10px; }
+  .pipe-stage:last-child  { border-radius: 0 10px 10px 0; }
+  .pipe-stage:hover { background: var(--surface2); }
+
+  .pipe-stage::after {
+    content: '▶';
+    position: absolute;
+    right: -14px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.1rem;
+    color: var(--border);
+    z-index: 2;
+    background: var(--bg);
+    padding: 2px 0;
+  }
+  .pipe-stage:last-child::after { display: none; }
+
+  .pipe-num {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--muted);
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+  }
+  .pipe-icon { font-size: 1.6rem; margin-bottom: 8px; }
+  .pipe-name {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+  .pipe-desc {
+    font-size: 0.72rem;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .pipe-tags { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 4px; }
+
+  /* ─── THREE COLUMN GRID ─── */
+  .three-col {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 40px;
+  }
+  @media (max-width: 900px) {
+    .three-col { grid-template-columns: 1fr; }
+    .two-col   { grid-template-columns: 1fr; }
+  }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 40px;
+  }
+
+  /* ─── CARDS ─── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+  .card-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-icon { font-size: 1.1rem; }
+
+  /* ─── ECOSYSTEM LIST ─── */
+  .eco-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px,1fr));
+    gap: 8px;
+  }
+  .eco-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 10px 8px;
+    text-align: center;
+    font-size: 0.75rem;
+  }
+  .eco-item .eco-icon { font-size: 1.3rem; display: block; margin-bottom: 4px; }
+  .eco-item .eco-name { color: var(--text); font-weight: 600; display: block; }
+  .eco-item .eco-type { color: var(--muted); font-size: 0.65rem; display: block; margin-top: 2px; }
+
+  /* ─── SCANNER ENGINES ─── */
+  .engine-list { display: flex; flex-direction: column; gap: 8px; }
+  .engine-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 9px 12px;
+    font-size: 0.78rem;
+  }
+  .engine-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .engine-name { font-weight: 600; flex: 1; }
+  .engine-desc { color: var(--muted); font-size: 0.7rem; }
+
+  /* ─── AGENT FLOW ─── */
+  .agent-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .agent-step {
+    display: flex;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .agent-step:last-child { border-bottom: none; }
+  .step-num {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: rgba(0,255,135,0.1);
+    border: 1px solid rgba(0,255,135,0.3);
+    color: var(--green);
+    font-size: 0.72rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .step-body {}
+  .step-title { font-size: 0.82rem; font-weight: 700; margin-bottom: 3px; }
+  .step-detail { font-size: 0.72rem; color: var(--muted); line-height: 1.4; }
+
+  /* ─── SERVICES TABLE ─── */
+  .services-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px,1fr));
+    gap: 10px;
+  }
+  .svc-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 12px;
+  }
+  .svc-name { font-size: 0.8rem; font-weight: 700; margin-bottom: 4px; }
+  .svc-port { font-family: 'Courier New', monospace; font-size: 0.7rem; color: var(--cyan); margin-bottom: 4px; }
+  .svc-desc { font-size: 0.7rem; color: var(--muted); }
+
+  /* ─── COMMAND BLOCKS ─── */
+  .cmd-block {
+    background: #0D1117;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.78rem;
+    line-height: 1.7;
+    margin-top: 8px;
+    overflow-x: auto;
+  }
+  .cmd-comment { color: var(--muted); }
+  .cmd-prompt { color: var(--green); }
+  .cmd-flag { color: var(--amber); }
+  .cmd-value { color: var(--blue); }
+  .cmd-cmd { color: var(--text); }
+
+  /* ─── PHASE TABLE ─── */
+  .phase-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+  .phase-table th {
+    text-align: left;
+    padding: 8px 12px;
+    color: var(--muted);
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-size: 0.68rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .phase-table td {
+    padding: 9px 12px;
+    border-bottom: 1px solid rgba(42,45,50,0.5);
+    vertical-align: middle;
+  }
+  .phase-table tr:last-child td { border-bottom: none; }
+  .phase-table tr:hover td { background: var(--surface2); }
+  .phase-num { font-family: monospace; color: var(--muted); }
+  .phase-done { color: var(--green); font-weight: 700; }
+
+  /* ─── ARCH DIAGRAM ─── */
+  .arch-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 28px;
+    margin-bottom: 40px;
+    overflow-x: auto;
+  }
+
+  .arch-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+
+  .arch-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 10px 16px;
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    min-width: 110px;
+    position: relative;
+  }
+
+  .arch-box.highlight-green { border-color: rgba(0,255,135,0.4); color: var(--green); }
+  .arch-box.highlight-blue  { border-color: rgba(79,195,247,0.4); color: var(--blue); }
+  .arch-box.highlight-amber { border-color: rgba(255,171,64,0.4); color: var(--amber); }
+  .arch-box.highlight-red   { border-color: rgba(255,61,61,0.4); color: var(--red); }
+  .arch-box.highlight-purple{ border-color: rgba(206,147,216,0.4); color: var(--purple); }
+  .arch-box.highlight-cyan  { border-color: rgba(38,198,218,0.4); color: var(--cyan); }
+
+  .arch-label {
+    font-size: 0.65rem;
+    color: var(--muted);
+    display: block;
+    margin-top: 2px;
+    font-weight: 400;
+  }
+
+  .arch-arrow-down {
+    text-align: center;
+    color: var(--border);
+    font-size: 1.4rem;
+    line-height: 1;
+    margin: 2px 0;
+  }
+
+  .arch-layer-label {
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-align: center;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+
+  .arch-divider {
+    border: none;
+    border-top: 1px dashed var(--border);
+    margin: 16px 0;
+  }
+
+  /* ─── MISC ─── */
+  .spacer { height: 48px; }
+  .tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+
+  .info-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(42,45,50,0.5);
+    font-size: 0.78rem;
+  }
+  .info-row:last-child { border-bottom: none; }
+  .info-key { color: var(--muted); min-width: 130px; flex-shrink: 0; }
+  .info-val { color: var(--text); font-family: monospace; }
+
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.72rem;
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+
+<h1>⚔ FORGEGUARDIAN</h1>
+<p class="subtitle">LOCAL-FIRST · AI-NATIVE · OPEN SOURCE · SOFTWARE SUPPLY CHAIN SECURITY</p>
+
+<!-- ═══════════════════════════════════════════════════════
+     SECTION 1 — CORE PIPELINE FLOW
+═══════════════════════════════════════════════════════ -->
+<p class="section-title">01 — End-to-End Pipeline Flow</p>
+
+<div class="pipeline">
+  <div class="pipe-stage">
+    <div class="pipe-num">STEP 01</div>
+    <div class="pipe-icon">🔍</div>
+    <div class="pipe-name">Registry Scraper</div>
+    <div class="pipe-desc">Polls 9 package ecosystems for new releases. Downloads source archives, validates checksums.</div>
+    <div class="pipe-tags">
+      <span class="badge badge-blue">npm</span>
+      <span class="badge badge-blue">PyPI</span>
+      <span class="badge badge-blue">Maven</span>
+      <span class="badge badge-blue">+6</span>
+    </div>
+  </div>
+
+  <div class="pipe-stage">
+    <div class="pipe-num">STEP 02</div>
+    <div class="pipe-icon">🏗️</div>
+    <div class="pipe-name">Hermetic Build</div>
+    <div class="pipe-desc">Reproducible build inside a process sandbox. Verifies bit-for-bit reproducibility if enabled.</div>
+    <div class="pipe-tags">
+      <span class="badge badge-amber">Sandbox</span>
+      <span class="badge badge-amber">SHA256</span>
+    </div>
+  </div>
+
+  <div class="pipe-stage">
+    <div class="pipe-num">STEP 03</div>
+    <div class="pipe-icon">🛡️</div>
+    <div class="pipe-name">Multi-Engine Scan</div>
+    <div class="pipe-desc">8 scanners run in parallel: CVE, SAST, behavioral, malware, AI-model, MCP. Findings deduplicated. A–F risk grade computed.</div>
+    <div class="pipe-tags">
+      <span class="badge badge-red">CVE</span>
+      <span class="badge badge-red">SAST</span>
+      <span class="badge badge-red">Behavioral</span>
+      <span class="badge badge-amber">A–F Grade</span>
+    </div>
+  </div>
+
+  <div class="pipe-stage">
+    <div class="pipe-num">STEP 04</div>
+    <div class="pipe-icon">📋</div>
+    <div class="pipe-name">SBOM Generation</div>
+    <div class="pipe-desc">CycloneDX 1.5 + SPDX 2.3 in JSON/XML/TV formats. AI/MCP signals embedded as first-class fields.</div>
+    <div class="pipe-tags">
+      <span class="badge badge-cyan">CycloneDX</span>
+      <span class="badge badge-cyan">SPDX</span>
+    </div>
+  </div>
+
+  <div class="pipe-stage">
+    <div class="pipe-num">STEP 05</div>
+    <div class="pipe-icon">🤖</div>
+    <div class="pipe-name">AI Triage</div>
+    <div class="pipe-desc">Claude generates advisory: severity, confidence, exploitability rationale, agentic risk score.</div>
+    <div class="pipe-tags">
+      <span class="badge badge-purple">Claude</span>
+      <span class="badge badge-purple">Advisory</span>
+    </div>
+  </div>
+
+  <div class="pipe-stage">
+    <div class="pipe-num">STEP 06</div>
+    <div class="pipe-icon">🔧</div>
+    <div class="pipe-name">Patch Agent</div>
+    <div class="pipe-desc">Multi-turn tool-use loop plans, dry-runs, and optionally applies version upgrades to manifests.</div>
+    <div class="pipe-tags">
+      <span class="badge badge-purple">Auto-fix</span>
+      <span class="badge badge-amber">Dry-run</span>
+    </div>
+  </div>
+
+  <div class="pipe-stage">
+    <div class="pipe-num">STEP 07</div>
+    <div class="pipe-icon">✍️</div>
+    <div class="pipe-name">Sigstore Sign</div>
+    <div class="pipe-desc">Keyless ECDSA signing + Rekor transparency log upload + SLSA v1.0 provenance generation.</div>
+    <div class="pipe-tags">
+      <span class="badge badge-green">SLSA L3</span>
+      <span class="badge badge-green">Rekor</span>
+    </div>
+  </div>
+
+  <div class="pipe-stage">
+    <div class="pipe-num">STEP 08</div>
+    <div class="pipe-icon">📡</div>
+    <div class="pipe-name">Continuous Monitor</div>
+    <div class="pipe-desc">SBOM uploaded to Dependency-Track. Polling loop detects new CVEs against the live SBOM.</div>
+    <div class="pipe-tags">
+      <span class="badge badge-blue">Dep-Track</span>
+      <span class="badge badge-blue">SBOM</span>
+    </div>
+  </div>
+
+  <div class="pipe-stage">
+    <div class="pipe-num">STEP 09</div>
+    <div class="pipe-icon">📜</div>
+    <div class="pipe-name">Policy Enforcement</div>
+    <div class="pipe-desc">policy.yaml enforced post-scan. POLICY-* findings appended. Webhooks fired to Slack/Discord if threshold met.</div>
+    <div class="pipe-tags">
+      <span class="badge badge-green">Policy</span>
+      <span class="badge badge-amber">Webhooks</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SECTION 2 — SYSTEM ARCHITECTURE DIAGRAM
+═══════════════════════════════════════════════════════ -->
+<p class="section-title">02 — System Architecture</p>
+
+<div class="arch-diagram">
+
+  <div class="arch-layer-label">▌ INGESTION LAYER</div>
+  <div class="arch-row">
+    <div class="arch-box highlight-blue">npm<span class="arch-label">registry.npmjs.org</span></div>
+    <div class="arch-box highlight-blue">PyPI<span class="arch-label">pypi.org/simple</span></div>
+    <div class="arch-box highlight-blue">Maven<span class="arch-label">search.maven.org</span></div>
+    <div class="arch-box highlight-blue">Go<span class="arch-label">proxy.golang.org</span></div>
+    <div class="arch-box highlight-blue">RubyGems<span class="arch-label">rubygems.org</span></div>
+    <div class="arch-box highlight-blue">crates.io<span class="arch-label">crates.io/api</span></div>
+    <div class="arch-box highlight-blue">HuggingFace<span class="arch-label">huggingface.co/api</span></div>
+    <div class="arch-box highlight-blue">MCP Registry<span class="arch-label">smithery.ai</span></div>
+    <div class="arch-box highlight-blue">OCI<span class="arch-label">Docker Hub / GHCR</span></div>
+  </div>
+
+  <div class="arch-arrow-down">↓</div>
+
+  <div class="arch-row">
+    <div class="arch-box highlight-cyan" style="min-width:200px;">📦 Scraper Orchestrator<span class="arch-label">internal/scrapers/orchestrator.go</span></div>
+    <div style="color:var(--muted);font-size:0.8rem;">→</div>
+    <div class="arch-box highlight-cyan" style="min-width:200px;">🔁 Redis Job Queue<span class="arch-label">internal/scrapers/queue/</span></div>
+    <div style="color:var(--muted);font-size:0.8rem;">→</div>
+    <div class="arch-box highlight-cyan" style="min-width:200px;">🗄️ MinIO Artifact Store<span class="arch-label">S3-compatible</span></div>
+  </div>
+
+  <hr class="arch-divider">
+  <div class="arch-layer-label">▌ PROCESSING LAYER</div>
+
+  <div class="arch-row">
+    <div class="arch-box highlight-amber" style="min-width:220px;">🏗️ Build Engine<span class="arch-label">8 hermetic recipes + sandbox</span></div>
+    <div style="color:var(--muted);font-size:0.8rem;">→</div>
+    <div class="arch-box highlight-red" style="min-width:220px;">🛡️ Scanner (8 engines)<span class="arch-label">parallel fan-out + merge</span></div>
+    <div style="color:var(--muted);font-size:0.8rem;">→</div>
+    <div class="arch-box highlight-cyan" style="min-width:220px;">📋 SBOM Generator<span class="arch-label">CycloneDX + SPDX</span></div>
+  </div>
+
+  <div class="arch-arrow-down">↓</div>
+
+  <div class="arch-row">
+    <div class="arch-box highlight-purple" style="min-width:280px;">🤖 AI Triage Engine (Claude)<span class="arch-label">advisory + exploitability + agentic risk</span></div>
+    <div style="color:var(--muted);font-size:0.8rem;">→</div>
+    <div class="arch-box highlight-purple" style="min-width:280px;">🔧 Autonomous Patch Agent<span class="arch-label">plan → dry-run → review → apply</span></div>
+    <div style="color:var(--muted);font-size:0.8rem;">→</div>
+    <div class="arch-box highlight-green" style="min-width:220px;">✍️ Sigstore Signer<span class="arch-label">ECDSA + Rekor + SLSA</span></div>
+  </div>
+
+  <hr class="arch-divider">
+  <div class="arch-layer-label">▌ POLICY &amp; NOTIFICATION LAYER</div>
+
+  <div class="arch-row">
+    <div class="arch-box highlight-green" style="min-width:200px;">📜 Policy Engine<span class="arch-label">~/.forgeguardian/policy.yaml · internal/policy/</span></div>
+    <div style="color:var(--muted);font-size:0.8rem;">→</div>
+    <div class="arch-box highlight-amber" style="min-width:200px;">🔔 Notify<span class="arch-label">Slack · Discord · Generic HTTP webhook</span></div>
+    <div style="color:var(--muted);font-size:0.8rem;">→</div>
+    <div class="arch-box highlight-red" style="min-width:200px;">📊 Risk Score (A–F)<span class="arch-label">0–100 · weighted factors · internal/core/</span></div>
+  </div>
+
+  <hr class="arch-divider">
+  <div class="arch-layer-label">▌ INTELLIGENCE LAYER</div>
+
+  <div class="arch-row">
+    <div class="arch-box highlight-amber">📡 OSV Feed<span class="arch-label">osv.dev/api</span></div>
+    <div class="arch-box highlight-amber">📡 OpenSSF Feed<span class="arch-label">malicious-packages</span></div>
+    <div class="arch-box highlight-amber">📡 Popularity APIs<span class="arch-label">npm downloads etc.</span></div>
+    <div style="color:var(--muted);font-size:0.8rem;">→</div>
+    <div class="arch-box highlight-purple" style="min-width:200px;">🧠 Intel Agent (Claude)<span class="arch-label">signature generation</span></div>
+    <div style="color:var(--muted);font-size:0.8rem;">→</div>
+    <div class="arch-box highlight-amber" style="min-width:200px;">🗂️ Signature Store<span class="arch-label">~/.forgeguardian/signatures.json</span></div>
+  </div>
+
+  <hr class="arch-divider">
+  <div class="arch-layer-label">▌ PERSISTENCE LAYER</div>
+
+  <div class="arch-row">
+    <div class="arch-box highlight-cyan">🐘 PostgreSQL<span class="arch-label">packages · scan_results · advisories · attestations</span></div>
+    <div class="arch-box highlight-cyan">🔴 Redis<span class="arch-label">job queue</span></div>
+    <div class="arch-box highlight-cyan">🗃️ MinIO / S3<span class="arch-label">artifacts · SBOMs</span></div>
+    <div class="arch-box highlight-cyan">📜 Rekor<span class="arch-label">transparency log</span></div>
+    <div class="arch-box highlight-cyan">🔍 Dep-Track<span class="arch-label">SBOM monitoring</span></div>
+  </div>
+
+  <hr class="arch-divider">
+  <div class="arch-layer-label">▌ INTERFACE LAYER</div>
+
+  <div class="arch-row">
+    <div class="arch-box highlight-green" style="min-width:160px;">🌐 REST API (Gin)<span class="arch-label">40 endpoints · :8080</span></div>
+    <div class="arch-box highlight-green" style="min-width:160px;">📊 React Dashboard<span class="arch-label">28 routes · SOC dark theme</span></div>
+    <div class="arch-box highlight-green" style="min-width:160px;">⌨️ fgctl CLI<span class="arch-label">scan · policy · sign · sbom · advisory</span></div>
+    <div class="arch-box highlight-green" style="min-width:160px;">🧩 VS Code Extension<span class="arch-label">9 commands · 2 tree views</span></div>
+    <div class="arch-box highlight-green" style="min-width:160px;">🔬 Intel Agent CLI<span class="arch-label">daemon · --loop · --interval</span></div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SECTION 3 — TWO-COL: ECOSYSTEMS + SCAN ENGINES
+═══════════════════════════════════════════════════════ -->
+<p class="section-title">03 — Coverage</p>
+
+<div class="two-col">
+  <div class="card">
+    <div class="card-title"><span class="card-icon">🌐</span> Supported Ecosystems (9)</div>
+    <div class="eco-grid">
+      <div class="eco-item">
+        <span class="eco-icon">📦</span>
+        <span class="eco-name">npm</span>
+        <span class="eco-type">JavaScript</span>
+      </div>
+      <div class="eco-item">
+        <span class="eco-icon">🐍</span>
+        <span class="eco-name">PyPI</span>
+        <span class="eco-type">Python</span>
+      </div>
+      <div class="eco-item">
+        <span class="eco-icon">☕</span>
+        <span class="eco-name">Maven</span>
+        <span class="eco-type">Java</span>
+      </div>
+      <div class="eco-item">
+        <span class="eco-icon">🐹</span>
+        <span class="eco-name">Go Modules</span>
+        <span class="eco-type">Go</span>
+      </div>
+      <div class="eco-item">
+        <span class="eco-icon">💎</span>
+        <span class="eco-name">RubyGems</span>
+        <span class="eco-type">Ruby</span>
+      </div>
+      <div class="eco-item">
+        <span class="eco-icon">🦀</span>
+        <span class="eco-name">crates.io</span>
+        <span class="eco-type">Rust</span>
+      </div>
+      <div class="eco-item">
+        <span class="eco-icon">🤗</span>
+        <span class="eco-name">HuggingFace</span>
+        <span class="eco-type">AI Models</span>
+      </div>
+      <div class="eco-item">
+        <span class="eco-icon">🔌</span>
+        <span class="eco-name">MCP Registry</span>
+        <span class="eco-type">AI Agents</span>
+      </div>
+      <div class="eco-item">
+        <span class="eco-icon">🐳</span>
+        <span class="eco-name">OCI Images</span>
+        <span class="eco-type">Containers</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="card-icon">🔬</span> Scanner Engines (8, parallel)</div>
+    <div class="engine-list">
+      <div class="engine-item">
+        <div class="engine-dot" style="background:#FF3D3D;"></div>
+        <div class="engine-name">Grype</div>
+        <div class="engine-desc">Anchore CVE matching against Grype DB</div>
+        <span class="badge badge-red">CVE</span>
+      </div>
+      <div class="engine-item">
+        <div class="engine-dot" style="background:#FF3D3D;"></div>
+        <div class="engine-name">OSV</div>
+        <div class="engine-desc">Google Open Source Vulnerabilities database</div>
+        <span class="badge badge-red">CVE</span>
+      </div>
+      <div class="engine-item">
+        <div class="engine-dot" style="background:#FFAB40;"></div>
+        <div class="engine-name">Semgrep</div>
+        <div class="engine-desc">Static code analysis (SAST patterns)</div>
+        <span class="badge badge-amber">SAST</span>
+      </div>
+      <div class="engine-item">
+        <div class="engine-dot" style="background:#FF3D3D;"></div>
+        <div class="engine-name">Trivy</div>
+        <div class="engine-desc">Aqua Security container + artifact scan</div>
+        <span class="badge badge-red">CVE</span>
+      </div>
+      <div class="engine-item">
+        <div class="engine-dot" style="background:#FFAB40;"></div>
+        <div class="engine-name">Behavioral</div>
+        <div class="engine-desc">Typosquatting, name confusion, supply-chain patterns</div>
+        <span class="badge badge-amber">Behavioral</span>
+      </div>
+      <div class="engine-item">
+        <div class="engine-dot" style="background:#FFAB40;"></div>
+        <div class="engine-name">Malware</div>
+        <div class="engine-desc">Byte-pattern + intel-store signature matching</div>
+        <span class="badge badge-amber">Malware</span>
+      </div>
+      <div class="engine-item">
+        <div class="engine-dot" style="background:#CE93D8;"></div>
+        <div class="engine-name">AI Model Scanner</div>
+        <div class="engine-desc">Pickle safety, safetensors, model card policy</div>
+        <span class="badge badge-purple">AI/ML</span>
+      </div>
+      <div class="engine-item">
+        <div class="engine-dot" style="background:#CE93D8;"></div>
+        <div class="engine-name">MCP Scanner</div>
+        <div class="engine-desc">Injection patterns, permission auditing, type defs</div>
+        <span class="badge badge-purple">MCP</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SECTION 4 — AGENT WORKFLOW + SIGNING CHAIN
+═══════════════════════════════════════════════════════ -->
+<p class="section-title">04 — Autonomous Patch Agent & Trust Chain</p>
+
+<div class="two-col">
+  <div class="card">
+    <div class="card-title"><span class="card-icon">🤖</span> Autonomous Patch Agent — 5 Steps</div>
+    <div class="agent-steps">
+      <div class="agent-step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Download &amp; Build</div>
+          <div class="step-detail">Fetches package, verifies SHA256, runs hermetic build inside sandbox. Output: BuiltArtifact with reproducibility flag.</div>
+        </div>
+      </div>
+      <div class="agent-step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Multi-Engine Scan</div>
+          <div class="step-detail">All 8 scan engines run in parallel. Findings deduplicated and severity-sorted. Output: []Finding.</div>
+        </div>
+      </div>
+      <div class="agent-step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Claude AI Triage</div>
+          <div class="step-detail">Claude receives findings + package metadata. Returns: severity, confidence, exploitability rationale, agentic risk score, patch suggestion.</div>
+        </div>
+      </div>
+      <div class="agent-step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Patch Planning</div>
+          <div class="step-detail">Multi-turn tool-use loop identifies affected manifest files (package.json, requirements.txt, go.mod, Gemfile, Cargo.toml). Generates PatchPlan with auto_apply flag.</div>
+        </div>
+      </div>
+      <div class="agent-step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <div class="step-title">Execute &amp; Review</div>
+          <div class="step-detail">Executor applies patches (dry-run by default). Claude reviewer assesses risk. <code>--apply</code> writes changes. Output: full report.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="card-icon">🔐</span> Trust Chain — SLSA Level 3</div>
+    <div class="agent-steps">
+      <div class="agent-step">
+        <div class="step-num" style="background:rgba(0,255,135,0.1);border-color:rgba(0,255,135,0.3);color:var(--green);">A</div>
+        <div class="step-body">
+          <div class="step-title">Hermetic Build</div>
+          <div class="step-detail">Isolated environment, no network post-fetch. Deterministic output. Reproducibility flag in artifact metadata.</div>
+        </div>
+      </div>
+      <div class="agent-step">
+        <div class="step-num" style="background:rgba(0,255,135,0.1);border-color:rgba(0,255,135,0.3);color:var(--green);">B</div>
+        <div class="step-body">
+          <div class="step-title">Artifact SHA256</div>
+          <div class="step-detail">SHA256 computed from BuiltArtifact content. Stored in attestation and SBOM. Used for later verification.</div>
+        </div>
+      </div>
+      <div class="agent-step">
+        <div class="step-num" style="background:rgba(0,255,135,0.1);border-color:rgba(0,255,135,0.3);color:var(--green);">C</div>
+        <div class="step-body">
+          <div class="step-title">ECDSA Signing</div>
+          <div class="step-detail">Ephemeral ECDSA keypair generated. No key management needed — keyless via Sigstore OIDC token exchange.</div>
+        </div>
+      </div>
+      <div class="agent-step">
+        <div class="step-num" style="background:rgba(0,255,135,0.1);border-color:rgba(0,255,135,0.3);color:var(--green);">D</div>
+        <div class="step-body">
+          <div class="step-title">Rekor Transparency Log</div>
+          <div class="step-detail">Signed attestation published to Rekor. Returns log_id + log_index. Tamper-evident, publicly auditable.</div>
+        </div>
+      </div>
+      <div class="agent-step">
+        <div class="step-num" style="background:rgba(0,255,135,0.1);border-color:rgba(0,255,135,0.3);color:var(--green);">E</div>
+        <div class="step-body">
+          <div class="step-title">SLSA v1.0 Provenance</div>
+          <div class="step-detail">in-toto statement with build invocation, materials, byproducts, completeness. Satisfies SLSA Level 3.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SECTION 5 — HOW TO OPERATE (QUICK-START COMMANDS)
+═══════════════════════════════════════════════════════ -->
+<p class="section-title">05 — How to Operate</p>
+
+<div class="three-col">
+  <div class="card">
+    <div class="card-title"><span class="card-icon">🚀</span> 1. Install &amp; Update Signatures</div>
+    <div class="cmd-block">
+<span class="cmd-comment"># Curl installer (auto-detects platform)</span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">curl -fsSL https://raw.githubusercontent.com/mah3sec/forgeguardian/main/install.sh | sh</span>
+
+<span class="cmd-comment"># Install modes (FORGEGUARDIAN_INSTALL_MODE)</span>
+<span class="cmd-comment">#   auto    default — probes GitHub, falls back gracefully</span>
+<span class="cmd-comment">#   local   use locally built binary</span>
+<span class="cmd-comment">#   offline air-gapped bundle (set FORGEGUARDIAN_LOCAL_BUNDLE=)</span>
+<span class="cmd-comment">#   minimal CLI only (no optional tools)</span>
+<span class="cmd-comment">#   full    all optional tools + signatures</span>
+<span class="cmd-comment">#   dev     symlinks from repo working tree</span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">export <span class="cmd-flag">FORGEGUARDIAN_INSTALL_MODE</span>=<span class="cmd-value">offline</span></span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">export <span class="cmd-flag">FORGEGUARDIAN_LOCAL_BUNDLE</span>=<span class="cmd-value">/path/to/bundle.tar.gz</span></span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">curl -fsSL https://raw.githubusercontent.com/mah3sec/forgeguardian/main/install.sh | sh</span>
+
+<span class="cmd-comment"># Or via Go</span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">go install <span class="cmd-value">github.com/mah3sec/forgeguardian/cmd/fgctl@latest</span></span>
+
+<span class="cmd-comment"># Download community signatures</span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">fgctl update</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="card-icon">🔑</span> 2. Set API Key</div>
+    <div class="cmd-block">
+<span class="cmd-comment"># Required for AI features</span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">export <span class="cmd-flag">ANTHROPIC_API_KEY</span>=<span class="cmd-value">sk-ant-...</span></span>
+
+<span class="cmd-comment"># Persist across sessions</span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">echo 'export ANTHROPIC_API_KEY=<span class="cmd-value">sk-ant-...</span>' \
+    >> ~/.zshrc</span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">source ~/.zshrc</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="card-icon">🛡️</span> 3. Scan a Package</div>
+    <div class="cmd-block">
+<span class="cmd-comment"># Basic scan</span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">./fgctl scan \
+  <span class="cmd-flag">--recipe</span>=<span class="cmd-value">npm</span> \
+  <span class="cmd-flag">--package</span>=<span class="cmd-value">lodash</span> \
+  <span class="cmd-flag">--version</span>=<span class="cmd-value">4.17.20</span></span>
+
+<span class="cmd-comment"># JSON output</span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">./fgctl scan ... <span class="cmd-flag">--json</span> | jq .</span>
+
+<span class="cmd-comment"># CI — fail on HIGH</span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">./fgctl scan ... <span class="cmd-flag">--fail-on</span>=<span class="cmd-value">high</span></span>
+
+<span class="cmd-comment"># New flags (v1.2.0 / v1.3.0)</span>
+<span class="cmd-comment"># --verbose · --debug        verbosity levels</span>
+<span class="cmd-comment"># --prod-only / --exclude-dev skip devDependencies</span>
+<span class="cmd-comment"># --ci                       quiet + SARIF + fail-on=high (pure stdout, v1.3.0 fix)</span>
+<span class="cmd-comment"># --executive                summary-only output</span>
+<span class="cmd-comment"># --no-banner / --no-color   suppress ASCII art / ANSI</span>
+<span class="cmd-comment"># --format=json|sarif        pure machine output (v1.3.0: no banner leak)</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="card-icon">🤖</span> 4. AI Advisory</div>
+    <div class="cmd-block">
+<span class="cmd-comment"># Generate advisory (needs API key)</span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">./fgctl advisory \
+  <span class="cmd-flag">--recipe</span>=<span class="cmd-value">npm</span> \
+  <span class="cmd-flag">--package</span>=<span class="cmd-value">lodash</span> \
+  <span class="cmd-flag">--version</span>=<span class="cmd-value">4.17.20</span> \
+  <span class="cmd-flag">--json</span></span>
+
+<span class="cmd-comment"># Output includes:</span>
+<span class="cmd-comment"># severity, confidence, exploitability,</span>
+<span class="cmd-comment"># agentic_risk, patch_suggestion</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="card-icon">📋</span> 5. Generate SBOM</div>
+    <div class="cmd-block">
+<span class="cmd-comment"># CycloneDX JSON</span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">./fgctl sbom \
+  <span class="cmd-flag">--recipe</span>=<span class="cmd-value">npm</span> \
+  <span class="cmd-flag">--package</span>=<span class="cmd-value">chalk</span> \
+  <span class="cmd-flag">--version</span>=<span class="cmd-value">5.3.0</span> \
+  <span class="cmd-flag">--format</span>=<span class="cmd-value">cyclonedx-json</span> \
+  <span class="cmd-flag">--out</span>=<span class="cmd-value">chalk-sbom.json</span></span>
+
+<span class="cmd-comment"># Formats: cyclonedx-json, cyclonedx-xml,</span>
+<span class="cmd-comment">#          spdx-json, spdx-tv</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="card-icon">✍️</span> 6. Sign &amp; Verify</div>
+    <div class="cmd-block">
+<span class="cmd-comment"># Sign (keyless Sigstore)</span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">./fgctl sign \
+  <span class="cmd-flag">--recipe</span>=<span class="cmd-value">npm</span> \
+  <span class="cmd-flag">--package</span>=<span class="cmd-value">chalk</span> \
+  <span class="cmd-flag">--version</span>=<span class="cmd-value">5.3.0</span> \
+  <span class="cmd-flag">--out</span>=<span class="cmd-value">chalk.att.json</span></span>
+
+<span class="cmd-comment"># Verify</span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">SHA=$(jq -r '.sha256' chalk.att.json)</span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">./fgctl verify \
+  <span class="cmd-flag">--attestation</span>=<span class="cmd-value">chalk.att.json</span> \
+  <span class="cmd-flag">--sha256</span>=<span class="cmd-value">$SHA</span></span>
+    </div>
+  </div>
+</div>
+
+<!-- POLICY + DOCTOR -->
+<div class="two-col" style="margin-bottom:0;">
+  <div class="card">
+    <div class="card-title"><span class="card-icon">📜</span> 8. Policy-as-Code</div>
+    <div class="cmd-block">
+<span class="cmd-comment"># Create default policy</span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">fgctl policy init</span>
+
+<span class="cmd-comment"># Block high+ findings, enable typosquat blocking</span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">fgctl policy set <span class="cmd-flag">fail_on</span>=<span class="cmd-value">high</span></span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">fgctl policy set <span class="cmd-flag">block_typosquatting</span>=<span class="cmd-value">true</span></span>
+
+<span class="cmd-comment"># Deny a specific package</span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">fgctl policy set <span class="cmd-flag">deny_packages</span>=<span class="cmd-value">evil-pkg</span></span>
+
+<span class="cmd-comment"># Show + validate</span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">fgctl policy show</span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">fgctl policy validate</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="card-icon">🔧</span> 9. Doctor --fix + Webhooks</div>
+    <div class="cmd-block">
+<span class="cmd-comment"># Auto-repair your environment</span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">fgctl doctor <span class="cmd-flag">--fix</span></span>
+<span class="cmd-comment"># [PASS] grype          — installed (v0.79.0)</span>
+<span class="cmd-comment"># [PASS] semgrep        — installed (v1.72.0)</span>
+<span class="cmd-comment"># [FIX]  policy         — created ~/.forgeguardian/policy.yaml</span>
+<span class="cmd-comment"># [PASS] signatures     — fresh (updated 2h ago)</span>
+<span class="cmd-comment"># [PASS] docker         — running (v26.1.4)</span>
+<span class="cmd-comment"># [PASS] node           — v20.14.0 (≥20 required)</span>
+<span class="cmd-comment"># [WARN] dashboard dist — run: make dashboard-build</span>
+<span class="cmd-comment"># [PASS] config yaml    — ~/.forgeguardian/config.yaml valid</span>
+
+<span class="cmd-comment"># Signature runtime statistics (v1.3.0)</span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">fgctl stats</span>
+<span class="cmd-comment"># ForgeGuardian Runtime Statistics</span>
+<span class="cmd-comment"># Detection signatures: 2413  |  Malware patterns: 183  |  Typosquat targets: 94</span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">fgctl stats <span class="cmd-flag">--json</span> | jq .total_signatures</span>
+
+<span class="cmd-comment"># Configure Slack notifications</span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">fgctl config set \
+  <span class="cmd-flag">notify.slack_webhook_url</span>=<span class="cmd-value">https://hooks.slack.com/...</span></span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">fgctl config set <span class="cmd-flag">notify.on_severity</span>=<span class="cmd-value">high</span></span>
+    </div>
+  </div>
+</div>
+
+<!-- AGENT -->
+<div class="card" style="margin-bottom:40px;margin-top:20px;">
+  <div class="card-title"><span class="card-icon">🤖</span> 7. Autonomous Patch Agent — Full Pipeline</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div>
+      <div style="font-size:0.75rem;color:var(--muted);margin-bottom:8px;">DRY-RUN (default — no files changed, safe anywhere)</div>
+      <div class="cmd-block">
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">./fg-agent \
+  <span class="cmd-flag">--recipe</span>=<span class="cmd-value">npm</span> \
+  <span class="cmd-flag">--package</span>=<span class="cmd-value">lodash</span> \
+  <span class="cmd-flag">--version</span>=<span class="cmd-value">4.17.20</span> \
+  <span class="cmd-flag">--project-dir</span>=<span class="cmd-value">./my-project</span></span>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:0.75rem;color:var(--amber);margin-bottom:8px;">⚠ APPLY (writes to manifests — run in VM or container)</div>
+      <div class="cmd-block">
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">./fg-agent \
+  <span class="cmd-flag">--recipe</span>=<span class="cmd-value">npm</span> \
+  <span class="cmd-flag">--package</span>=<span class="cmd-value">lodash</span> \
+  <span class="cmd-flag">--version</span>=<span class="cmd-value">4.17.20</span> \
+  <span class="cmd-flag">--project-dir</span>=<span class="cmd-value">./my-project</span> \
+  <span class="cmd-flag">--apply</span></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SECTION 6 — DOCKER SERVICES
+═══════════════════════════════════════════════════════ -->
+<p class="section-title">06 — Local Dev Stack (docker-compose up)</p>
+
+<div class="card" style="margin-bottom:40px;">
+  <div class="services-grid">
+    <div class="svc-item">
+      <div class="svc-name">🐘 postgres</div>
+      <div class="svc-port">:5432</div>
+      <div class="svc-desc">Package metadata, scan results, advisories, attestations</div>
+    </div>
+    <div class="svc-item">
+      <div class="svc-name">🔴 redis</div>
+      <div class="svc-port">:6379</div>
+      <div class="svc-desc">Build + scan job queue</div>
+    </div>
+    <div class="svc-item">
+      <div class="svc-name">🗃️ minio</div>
+      <div class="svc-port">:9000 / :9001</div>
+      <div class="svc-desc">S3-compatible artifact store (SBOMs, attestations)</div>
+    </div>
+    <div class="svc-item">
+      <div class="svc-name">📜 rekor-server</div>
+      <div class="svc-port">:3001</div>
+      <div class="svc-desc">Sigstore transparency log</div>
+    </div>
+    <div class="svc-item">
+      <div class="svc-name">🌲 trillian + db</div>
+      <div class="svc-port">internal</div>
+      <div class="svc-desc">Rekor's Merkle tree backend (MySQL)</div>
+    </div>
+    <div class="svc-item">
+      <div class="svc-name">🔍 dependency-track</div>
+      <div class="svc-port">:8081</div>
+      <div class="svc-desc">Continuous SBOM monitoring + new CVE alerts</div>
+    </div>
+    <div class="svc-item">
+      <div class="svc-name">📊 prometheus</div>
+      <div class="svc-port">:9090</div>
+      <div class="svc-desc">Metrics collection from all services</div>
+    </div>
+    <div class="svc-item">
+      <div class="svc-name">📈 grafana</div>
+      <div class="svc-port">:3002</div>
+      <div class="svc-desc">Dashboards for scan activity, signatures, Rekor</div>
+    </div>
+    <div class="svc-item">
+      <div class="svc-name">⚙️ forgeguardian-api</div>
+      <div class="svc-port">:8080</div>
+      <div class="svc-desc">Main REST API (40 endpoints)</div>
+    </div>
+  </div>
+  <div class="cmd-block" style="margin-top:16px;">
+<span class="cmd-comment"># Start the full stack</span>
+<span class="cmd-prompt">$</span> <span class="cmd-cmd">docker compose up -d</span>
+
+<span class="cmd-comment"># API      → http://localhost:8080</span>
+<span class="cmd-comment"># Dashboard is not a docker service — run `make dashboard-dev` → http://localhost:3000</span>
+<span class="cmd-comment"># Grafana  → http://localhost:3002  (admin / admin)</span>
+<span class="cmd-comment"># MinIO    → http://localhost:9001  (minioadmin / minioadmin)</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SECTION 7 — PHASE ROADMAP
+═══════════════════════════════════════════════════════ -->
+<p class="section-title">07 — Phase Status</p>
+
+<div class="card" style="margin-bottom:40px;">
+  <table class="phase-table">
+    <thead>
+      <tr>
+        <th>Phase</th>
+        <th>Status</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td class="phase-num">1</td><td class="phase-done">✅ Complete</td><td>Scaffold, single Go module, docker-compose, CI/CD, dashboard skeleton</td></tr>
+      <tr><td class="phase-num">2</td><td class="phase-done">✅ Complete</td><td>9 registry scrapers — npm, PyPI, Maven, Go, RubyGems, crates, HuggingFace, MCP, OCI</td></tr>
+      <tr><td class="phase-num">3</td><td class="phase-done">✅ Complete</td><td>Hermetic build engine — 8 recipes, ProcessSandbox, reproducibility verification</td></tr>
+      <tr><td class="phase-num">4</td><td class="phase-done">✅ Complete</td><td>SBOM generation — CycloneDX 1.5 + SPDX 2.3, JSON/XML/TV, AI/MCP extensions</td></tr>
+      <tr><td class="phase-num">5</td><td class="phase-done">✅ Complete</td><td>Multi-engine scanner — 8 parallel engines, deduplication, severity sorting</td></tr>
+      <tr><td class="phase-num">6</td><td class="phase-done">✅ Complete</td><td>AI triage engine + autonomous patch agent — 5-step pipeline with dry-run + apply</td></tr>
+      <tr><td class="phase-num">6b</td><td class="phase-done">✅ Complete</td><td>Real-time intelligence — OSV/OpenSSF feeds + Claude signature generation daemon</td></tr>
+      <tr><td class="phase-num">7</td><td class="phase-done">✅ Complete</td><td>Sigstore keyless signing + Rekor transparency log + SLSA v1.0 provenance</td></tr>
+      <tr><td class="phase-num">8</td><td class="phase-done">✅ Complete</td><td>Continuous monitoring — Dependency-Track client + SBOM upload worker</td></tr>
+      <tr><td class="phase-num">9</td><td class="phase-done">✅ Complete</td><td>REST API (14 endpoints, Gin) + React dashboard (initial 7 pages, SOC dark theme) + PostgreSQL</td></tr>
+      <tr><td class="phase-num">10</td><td class="phase-done">✅ Complete</td><td>K8s manifests (Kustomize) + Terraform (EKS+RDS / GKE+CloudSQL) + GitHub Actions CI/CD</td></tr>
+      <tr><td class="phase-num">VS</td><td class="phase-done">✅ Complete</td><td>VS Code extension — 6 commands, 2 tree views, auto-scan on manifest save</td></tr>
+      <tr><td class="phase-num">11A</td><td class="phase-done">✅ Complete</td><td>CLI polish — ASCII banner, colored severity, spinner, fgctl doctor, dot-notation</td></tr>
+      <tr><td class="phase-num">11B</td><td class="phase-done">✅ Complete</td><td>Local project scanning — localscanner walker, 7 manifest parsers, fgctl scan .</td></tr>
+      <tr><td class="phase-num">11C</td><td class="phase-done">✅ Complete</td><td>Dashboard upgrade — shadcn/ui, DependencyGraph, MonitorPage, recharts timeline</td></tr>
+      <tr><td class="phase-num">11D</td><td class="phase-done">✅ Complete</td><td>Docker profiles — minimal/dev/enterprise compose files, Makefile targets</td></tr>
+      <tr><td class="phase-num">11E</td><td class="phase-done">✅ Complete</td><td>VSCode inline diagnostics — debounce + cache, hoverProvider, codeLensProvider</td></tr>
+      <tr><td class="phase-num">11F</td><td class="phase-done">✅ Complete</td><td>Distribution — install.sh curl installer, Homebrew formula, goreleaser</td></tr>
+      <tr><td class="phase-num">11G</td><td class="phase-done">✅ Complete</td><td>Production stabilisation — Vite proxy fix, TOOL-NOT-INSTALLED dedup, FixedVersion + inline fix hints, malware LocalPath="" graceful handling, --compact/--summary/--quiet/--severity/--only-fixable/--format=sarif scan flags, SARIF 2.1.0 output, fgctl monitor --watch, fgctl audit system, fgctl debug, fgctl config, fgctl patch, scripts/bootstrap.sh, make up/down/logs/health, ApiStatusBanner, 30s AbortController timeout, skeleton loaders, empty states</td></tr>
+      <tr><td class="phase-num">12</td><td class="phase-done">✅ Complete</td><td>Platform maturity upgrade — "local-first AI-native" repositioning, policy-as-code (internal/policy/, fgctl policy), webhook notifications (Slack/Discord/generic, internal/notify/), A–F risk score (ScoreFindings), fgctl doctor --fix auto-repair, CLI help/banner rewrite, 4 new API endpoints (/dashboard/activity, /risks, /policy/status, /webhooks/test), dashboard SOC redesign (ActivityFeed, RiskHeatmap, RisksPage, InventoryPage, PolicyPage + 3 new nav items), README + WORKFLOWS + THREAT_MODEL + COMPETITIVE + PRIVACY + MODES docs created</td></tr>
+      <tr>
+        <td><span class="badge badge-green">13</span></td>
+        <td><span class="badge badge-green">✅ Complete</span></td>
+        <td><strong>Production Hardening &amp; Release Readiness</strong> — symlink cycle detection, <code>IsDevDependency</code> filtering, scan caching (<code>sync.Map</code>), 8 new scan flags (<code>--verbose</code> / <code>--debug</code> / <code>--prod-only</code> / <code>--ci</code> / <code>--executive</code> / <code>--no-banner</code>), grouped finding output (top-3 + grade badge), installer rewrite (<code>FORGEGUARDIAN_INSTALL_MODE</code> + <code>FORGEGUARDIAN_LOCAL_BUNDLE</code> + offline fallback), dashboard ErrorBoundary + load-more pagination, 5 new doctor checks, malware error wording, bold-green fix hints</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-green">14</span></td>
+        <td><span class="badge badge-green">✅ Complete</span></td>
+        <td><strong>Production Polish &amp; Operational Consistency</strong> — <code>preParseOutputFlags()</code> (banner/quiet/CI suppressed before <code>flag.Parse</code>), positional arg reordering fix (<code>scan . --format json</code> now works), <code>--quiet</code> early return (no stdout leaks), <code>fgctl sbom .</code> banner suppression, <code>severityOrd</code> -1 fix (<code>--severity high</code> no longer passes MEDIUM/INFO), <code>--only-fixable</code> excludes INFORMATIONAL, <code>PrintCompactGrouped</code> (one line per package with bracket counts), <code>fgctl stats</code> command (signature runtime statistics), <code>runAudit</code> ecosystem summary table (replaces per-package flood), monitor UX polish (timestamps + package labels + color delta), dashboard Content-Type validation before <code>res.json()</code>, ApiStatusBanner + MonitorPage retry/backoff + reconnect state</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-green">15</span></td>
+        <td><span class="badge badge-green">✅ Complete</span></td>
+        <td><strong>Final Pre-Release Platform Hardening</strong> — competitor branding removed from marketing copy (Nuclei/Snyk/Wiz/ProjectDiscovery refs stripped from README, COMPETITIVE.md, GUIDE.md, DOCS.md; engines kept in technical docs), INFORMATIONAL findings hidden by default (<code>--verbose</code> reveals), banner stats line ("Loaded: • N signatures • N heuristics • N scan engines"), HIGH SevBadge color fix (<code>FgHiRed</code>), scan timing footer ("Completed in X.Xs"), duplicate <code>stats</code> help entry removed, <code>auditBrewPackages</code> / <code>auditGemPackages</code> / <code>auditDockerImages</code> / <code>checkPATHHijack</code> added to <code>fgctl audit system</code>, dashboard enterprise UX (TopBar with live engine/severity counts, Sidebar System Audit + Agents + Settings, 3 new stub pages), <code>SECURITY.md</code> ("How ForgeGuardian Secures Itself"), npm audit CI gate (<code>--audit-level=moderate</code>), printer <code>SetHeuristicCount</code> / <code>SetEngineCount</code> setters</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SECTION 8 — COMMUNITY MODEL
+═══════════════════════════════════════════════════════ -->
+<p class="section-title">08 — Community &amp; Roadmap</p>
+
+<div class="three-col">
+  <div class="card">
+    <div class="card-title" style="color:var(--green);">🟢 Free Forever (Open Core)</div>
+    <div class="tag-list">
+      <span class="badge badge-green">fgctl CLI</span>
+      <span class="badge badge-green">All scan engines</span>
+      <span class="badge badge-green">SBOM generation</span>
+      <span class="badge badge-green">Sigstore signing</span>
+      <span class="badge badge-green">AI triage</span>
+      <span class="badge badge-green">Patch agent</span>
+      <span class="badge badge-green">Intel daemon</span>
+      <span class="badge badge-green">REST API (40 endpoints)</span>
+      <span class="badge badge-green">Dashboard (28 routes)</span>
+      <span class="badge badge-green">VS Code ext</span>
+      <span class="badge badge-green">Policy-as-code</span>
+      <span class="badge badge-green">Webhook alerts</span>
+      <span class="badge badge-green">A–F Risk Score</span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title" style="color:var(--amber);">🟡 Planned (v2)</div>
+    <div class="tag-list">
+      <span class="badge badge-amber">GitHub App</span>
+      <span class="badge badge-amber">PR auto-comment</span>
+      <span class="badge badge-amber">ONNX model hub</span>
+      <span class="badge badge-amber">LangChain registry</span>
+      <span class="badge badge-amber">LlamaIndex registry</span>
+      <span class="badge badge-amber">SSO / RBAC</span>
+      <span class="badge badge-amber">Team management</span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title" style="color:var(--purple);">🟣 Commercial (SaaS)</div>
+    <div class="tag-list">
+      <span class="badge badge-purple">Hosted platform</span>
+      <span class="badge badge-purple">Team management</span>
+      <span class="badge badge-purple">Enterprise SSO</span>
+      <span class="badge badge-purple">SLA + support</span>
+      <span class="badge badge-purple">Private sig store</span>
+      <span class="badge badge-purple">Audit logs</span>
+      <span class="badge badge-purple">Compliance reports</span>
+    </div>
+  </div>
+</div>
+
+<footer>
+  FORGEGUARDIAN v2.0.0 — LOCAL-FIRST AI-NATIVE SOFTWARE SUPPLY CHAIN SECURITY · Community-driven · Apache License 2.0<br>
+  Architecture diagram updated 2026-05-24 · Phase 15 complete — dashboard/API detail below may lag the latest release; see README.md changelog for current state
+</footer>
+
+</body>
+</html>
