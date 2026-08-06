@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ForgeGuardian — Who Uses It, Where It Runs</title>
+<style>
+  :root {
+    --bg: #0A0B0D;
+    --surface: #141618;
+    --surface2: #1C1F23;
+    --border: #2A2D32;
+    --green: #00FF87;
+    --amber: #FFAB40;
+    --red: #FF3D3D;
+    --blue: #4FC3F7;
+    --purple: #CE93D8;
+    --text: #F8F9FA;
+    --muted: #6B7280;
+    --cyan: #26C6DA;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 40px 24px 64px;
+  }
+
+  .wrap { max-width: 1080px; margin: 0 auto; }
+
+  header { text-align: center; margin-bottom: 8px; }
+
+  .logo-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .logo-mark {
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--green), var(--cyan));
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; color: #05100b; font-size: 1rem;
+  }
+
+  h1 {
+    font-size: 2.1rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.95rem;
+    margin-bottom: 8px;
+    letter-spacing: 0.3px;
+  }
+
+  .tagline {
+    text-align: center;
+    color: var(--text);
+    font-size: 1.05rem;
+    font-weight: 500;
+    max-width: 620px;
+    margin: 20px auto 44px;
+    line-height: 1.55;
+  }
+  .tagline b { color: var(--green); }
+
+  .section-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin: 56px 0 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-title::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ---- deployment flow ---- */
+  .flow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    justify-content: center;
+    align-items: stretch;
+  }
+  .node {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 16px;
+    width: 168px;
+    text-align: center;
+    position: relative;
+  }
+  .node .icon { font-size: 1.6rem; margin-bottom: 8px; display: block; }
+  .node .name { font-weight: 700; font-size: 0.86rem; margin-bottom: 6px; }
+  .node .desc { font-size: 0.72rem; color: var(--muted); line-height: 1.4; }
+  .node .status {
+    margin-top: 10px;
+    display: inline-block;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+  .status-live { background: rgba(0,255,135,0.15); color: var(--green); border: 1px solid rgba(0,255,135,0.3); }
+  .status-build { background: rgba(255,171,64,0.15); color: var(--amber); border: 1px solid rgba(255,171,64,0.3); }
+
+  .arrow {
+    display: flex;
+    align-items: center;
+    color: var(--border);
+    font-size: 1.4rem;
+    align-self: center;
+  }
+
+  /* ---- role cards ---- */
+  .roles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .role {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 22px;
+  }
+  .role .head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .role .head .emoji { font-size: 1.4rem; }
+  .role .head .title { font-weight: 700; font-size: 1rem; }
+  .role .cmd {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.72rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    color: var(--green);
+    margin: 8px 0;
+    display: block;
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.5;
+  }
+  .role .usecase {
+    font-size: 0.8rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .role .usecase b { color: var(--text); font-weight: 600; }
+
+  footer {
+    margin-top: 60px;
+    text-align: center;
+    font-size: 0.72rem;
+    color: var(--muted);
+    letter-spacing: 0.4px;
+  }
+  footer .pill {
+    display: inline-block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 14px;
+    margin: 0 4px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo-row">
+      <div class="logo-mark">FG</div>
+      <h1>ForgeGuardian</h1>
+    </div>
+    <div class="subtitle">AI-NATIVE SOFTWARE SUPPLY CHAIN SECURITY · LOCAL-FIRST · OPEN-CORE</div>
+  </header>
+
+  <p class="tagline">
+    One tool, <b>9 ecosystems</b>, <b>8 scan engines</b> — from a developer's laptop
+    to a suspected-compromised production server. This flyer shows exactly
+    <b>where it runs</b> and <b>who uses it</b>.
+  </p>
+
+  <div class="section-title">Where It Runs — Deployment Nodes</div>
+  <div class="flow">
+    <div class="node">
+      <span class="icon">💻</span>
+      <div class="name">Dev Laptop</div>
+      <div class="desc">fgctl CLI + VS Code extension, pre-commit checks</div>
+      <span class="status status-live">LIVE</span>
+    </div>
+    <div class="arrow">→</div>
+    <div class="node">
+      <span class="icon">⚙️</span>
+      <div class="name">CI Runner</div>
+      <div class="desc">GitHub Actions / GitLab — gate merges on findings</div>
+      <span class="status status-live">LIVE</span>
+    </div>
+    <div class="arrow">→</div>
+    <div class="node">
+      <span class="icon">🖥️</span>
+      <div class="name">Central Server</div>
+      <div class="desc">API + web dashboard, Docker / K8s</div>
+      <span class="status status-live">LIVE</span>
+    </div>
+    <div class="arrow">→</div>
+    <div class="node">
+      <span class="icon">📦</span>
+      <div class="name">Package Registries</div>
+      <div class="desc">npm, PyPI, Go, crates, Maven, RubyGems, HF, MCP, OCI</div>
+      <span class="status status-live">LIVE</span>
+    </div>
+    <div class="arrow">→</div>
+    <div class="node">
+      <span class="icon">🔎</span>
+      <div class="name">Remote Host<br>(SSH)</div>
+      <div class="desc">Suspected-vulnerable server — pull manifests, scan, leave nothing behind</div>
+      <span class="status status-build">IN BUILD</span>
+    </div>
+  </div>
+
+  <div class="section-title">Who Uses It — Job Roles &amp; Real Test Cases</div>
+  <div class="roles">
+
+    <div class="role">
+      <div class="head"><span class="emoji">👩‍💻</span><span class="title">Developer</span></div>
+      <code class="cmd">fgctl scan .</code>
+      <div class="usecase">
+        <b>Test case:</b> add a new npm dependency, scan flags it as
+        typosquatted before the commit lands. VS Code shows the finding
+        inline as you type.
+      </div>
+    </div>
+
+    <div class="role">
+      <div class="head"><span class="emoji">🛠️</span><span class="title">DevOps / Platform Engineer</span></div>
+      <code class="cmd">fgctl scan . --ci --fail-on=high --format=sarif</code>
+      <div class="usecase">
+        <b>Test case:</b> a PR opens, CI pipeline fails the build on a
+        critical finding, SARIF results show up natively in the GitHub
+        Security tab.
+      </div>
+    </div>
+
+    <div class="role">
+      <div class="head"><span class="emoji">🛡️</span><span class="title">Security / AppSec Engineer</span></div>
+      <code class="cmd">fgctl policy set block_typosquatting=true</code>
+      <div class="usecase">
+        <b>Test case:</b> org-wide policy rejects a known-bad package
+        automatically; SBOM + Sigstore provenance attached to every
+        release artifact for audit trail.
+      </div>
+    </div>
+
+    <div class="role">
+      <div class="head"><span class="emoji">📡</span><span class="title">SOC Analyst</span></div>
+      <code class="cmd">Dashboard → Risks / Attack Surface / Alerts</code>
+      <div class="usecase">
+        <b>Test case:</b> new CVE lands in a scanned dependency, dashboard
+        surfaces it with a risk grade, analyst triages without touching
+        the CLI.
+      </div>
+    </div>
+
+    <div class="role">
+      <div class="head"><span class="emoji">🚨</span><span class="title">Incident Responder</span></div>
+      <code class="cmd">fgctl scan --remote user@suspect-host</code>
+      <div class="usecase">
+        <b>Test case:</b> a prod box is flagged suspicious — SSH in,
+        pull its <code>package.json</code>/<code>go.mod</code>, scan,
+        get a full finding report. No agent installed, nothing left behind.
+      </div>
+    </div>
+
+    <div class="role">
+      <div class="head"><span class="emoji">📋</span><span class="title">Compliance / GRC</span></div>
+      <code class="cmd">fgctl sbom npm/pkg@1.0.0 --format cyclonedx-json</code>
+      <div class="usecase">
+        <b>Test case:</b> auditor asks "prove what's in this release" —
+        SBOM + SLSA provenance answers it in one command, no manual
+        inventory spreadsheet.
+      </div>
+    </div>
+
+    <div class="role">
+      <div class="head"><span class="emoji">🌍</span><span class="title">Community Contributor</span></div>
+      <code class="cmd">fgctl intel new · validate · test</code>
+      <div class="usecase">
+        <b>Test case:</b> someone spots a new supply-chain attack
+        pattern, authors a detection signature via PR, it ships to
+        every user via <code>fgctl update</code>.
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    <span class="pill">Local-first</span>
+    <span class="pill">Open-core</span>
+    <span class="pill">AI-native</span>
+    <span class="pill">9 ecosystems</span>
+    <span class="pill">8 scan engines</span>
+  </footer>
+
+</div>
+</body>
+</html>
