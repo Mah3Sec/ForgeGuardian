@@ -28,11 +28,8 @@ coverage.out
 # ─── Go ───────────────────────────────────────────────────────────────────
 vendor/
 
-# ─── TypeScript / Node (dashboard) ────────────────────────────────────────
-dashboard/node_modules/
-dashboard/dist/
-dashboard/.vite/
-dashboard/*.tsbuildinfo
+# ─── Dashboard (moved to forgeguardian-site repo) ────────────────────────
+/dashboard/
 
 # ─── VS Code extension ────────────────────────────────────────────────────
 vscode-extension/out/
