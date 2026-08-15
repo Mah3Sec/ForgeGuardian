@@ -85,8 +85,8 @@ func (s *Scanner) checkInstallScripts(log string, pkg core.PackageVersion) []cor
 						"Do NOT install this package.", pattern),
 				Source: "behavioral",
 				Metadata: map[string]any{
-					"pattern":  pattern,
-					"scripts":  scripts,
+					"pattern":   pattern,
+					"scripts":   scripts,
 					"ecosystem": pkg.Ecosystem,
 				},
 			})
@@ -106,9 +106,6 @@ var builtinScriptPatterns = []string{
 	"reverse", "shell", "backdoor",
 	"exfil", "keylog", "credential",
 }
-
-// maliciousScriptPatterns kept for backward compatibility with existing callers.
-var maliciousScriptPatterns = builtinScriptPatterns
 
 // scriptPatterns returns the combined set of built-in and store-loaded patterns.
 func (s *Scanner) scriptPatterns() []string {

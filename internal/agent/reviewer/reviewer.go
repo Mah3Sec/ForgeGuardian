@@ -147,11 +147,5 @@ func parseReview(raw string, plan planner.PatchPlan) (Review, error) {
 		}, nil
 	}
 
-	return Review{
-		Approved:        resp.Approved,
-		RiskAssessment:  resp.RiskAssessment,
-		Concerns:        resp.Concerns,
-		Recommendation:  resp.Recommendation,
-		ConfidenceScore: resp.ConfidenceScore,
-	}, nil
+	return Review(resp), nil
 }

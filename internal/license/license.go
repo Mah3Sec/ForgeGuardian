@@ -1,13 +1,15 @@
 // Package license provides tier detection and feature gating for ForgeGuardian.
 //
 // Tiers:
-//   Community — free forever, full CLI scan + signatures + SBOM + signing
-//   Pro        — AI advisory, autonomous patch, continuous monitoring, full dashboard
-//   Enterprise — Pro + RBAC, SSO, team management, SLA
+//
+//	Community — free forever, full CLI scan + signatures + SBOM + signing
+//	Pro        — AI advisory, autonomous patch, continuous monitoring, full dashboard
+//	Enterprise — Pro + RBAC, SSO, team management, SLA
 //
 // License key format: fg{tier}-{expiry-unix}-{hmac16}
-//   fgp-1893456000-abc123def456  (Pro, expires 2030-01-01)
-//   fge-1893456000-abc123def456  (Enterprise)
+//
+//	fgp-1893456000-abc123def456  (Pro, expires 2030-01-01)
+//	fge-1893456000-abc123def456  (Enterprise)
 //
 // Set via: export FG_LICENSE_KEY=fgp-...
 // Dev mode: FG_LICENSE_KEY=dev skips validation (local dev only)

@@ -34,9 +34,9 @@ type githubEntry struct {
 }
 
 type ossfOSV struct {
-	ID      string `json:"id"`
-	Summary string `json:"summary"`
-	Details string `json:"details"`
+	ID       string `json:"id"`
+	Summary  string `json:"summary"`
+	Details  string `json:"details"`
 	Affected []struct {
 		Package struct {
 			Name      string `json:"name"`

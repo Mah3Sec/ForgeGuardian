@@ -20,8 +20,8 @@ type VersionStore interface {
 
 // versionStore is the production implementation backed by PostgreSQL + Redis.
 type versionStore struct {
-	db  *store.Store
-	q   *queue.Queue
+	db *store.Store
+	q  *queue.Queue
 }
 
 // NewVersionStore creates a VersionStore backed by PostgreSQL (connStr) and Redis (redisURL).

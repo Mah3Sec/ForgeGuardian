@@ -46,7 +46,7 @@ type gemVersion struct {
 	Info             string `json:"info"`
 	GemURI           string `json:"gem_uri"`
 	SHA              string `json:"sha"`
-	Dependencies struct {
+	Dependencies     struct {
 		Runtime []struct {
 			Name         string `json:"name"`
 			Requirements string `json:"requirements"`

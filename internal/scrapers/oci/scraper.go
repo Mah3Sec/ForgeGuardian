@@ -23,10 +23,10 @@ const (
 
 // Scraper watches OCI registries for new image tags.
 type Scraper struct {
-	client       *http.Client
+	client         *http.Client
 	dockerHubToken string
-	ghcrToken    string
-	log          *slog.Logger
+	ghcrToken      string
+	log            *slog.Logger
 }
 
 // New creates a new OCI Scraper.
@@ -44,9 +44,9 @@ func (s *Scraper) Name() string { return "oci" }
 
 // dockerHubTagResponse is the Docker Hub tags API response.
 type dockerHubTagResponse struct {
-	Count    int               `json:"count"`
-	Next     string            `json:"next"`
-	Results  []dockerHubTag    `json:"results"`
+	Count   int            `json:"count"`
+	Next    string         `json:"next"`
+	Results []dockerHubTag `json:"results"`
 }
 
 type dockerHubTag struct {
@@ -64,8 +64,8 @@ type dockerHubTag struct {
 
 // dockerHubRepoResponse is the Docker Hub repositories list.
 type dockerHubRepoResponse struct {
-	Count   int              `json:"count"`
-	Results []dockerHubRepo  `json:"results"`
+	Count   int             `json:"count"`
+	Results []dockerHubRepo `json:"results"`
 }
 
 type dockerHubRepo struct {

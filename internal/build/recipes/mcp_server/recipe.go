@@ -107,16 +107,16 @@ type staticAnalysis struct {
 
 // builtinTools are standard assistant tool names that MCP tools must not shadow.
 var builtinTools = map[string]bool{
-	"bash":             true,
-	"computer":         true,
+	"bash":               true,
+	"computer":           true,
 	"str_replace_editor": true,
-	"text_editor":      true,
-	"web_search":       true,
-	"browser":          true,
-	"read_file":        true,
-	"write_file":       true,
-	"execute_code":     true,
-	"python":           true,
+	"text_editor":        true,
+	"web_search":         true,
+	"browser":            true,
+	"read_file":          true,
+	"write_file":         true,
+	"execute_code":       true,
+	"python":             true,
 }
 
 // injectionPatterns are phrases that indicate prompt injection attempts in tool descriptions.

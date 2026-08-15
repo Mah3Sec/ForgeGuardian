@@ -20,25 +20,25 @@ const (
 // intelligence agent or populated directly from threat feeds.
 type DetectionSignature struct {
 	// ID is auto-assigned: "FG-SIG-{unix_nano}"
-	ID          string        `json:"id"`
-	Type        SignatureType `json:"type"`
+	ID   string        `json:"id"`
+	Type SignatureType `json:"type"`
 	// Ecosystem is the package ecosystem this applies to, or "*" for all.
-	Ecosystem   string        `json:"ecosystem"`
+	Ecosystem string `json:"ecosystem"`
 	// Target is the canonical package name for typosquat targets.
-	Target      string        `json:"target,omitempty"`
+	Target string `json:"target,omitempty"`
 	// Pattern is a hex-encoded byte sequence for malware_pattern entries.
-	Pattern     string        `json:"pattern,omitempty"`
+	Pattern string `json:"pattern,omitempty"`
 	// Package is the exact package name for blocklisted_package entries.
-	Package     string        `json:"package,omitempty"`
+	Package string `json:"package,omitempty"`
 	// Rule is a regex pattern string for behavioral_rule, mcp_injection_pattern, and pickle_rule entries.
-	Rule        string        `json:"rule,omitempty"`
-	Severity    string        `json:"severity"`
-	Title       string        `json:"title"`
-	Description string        `json:"description"`
+	Rule        string `json:"rule,omitempty"`
+	Severity    string `json:"severity"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
 	// Source indicates origin: osv | ossf | ai-generated | manual
-	Source      string        `json:"source"`
-	CVE         string        `json:"cve,omitempty"`
-	CreatedAt   time.Time     `json:"created_at"`
+	Source    string    `json:"source"`
+	CVE       string    `json:"cve,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // SignatureStore is the on-disk JSON structure holding all detection signatures.

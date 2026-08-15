@@ -63,20 +63,20 @@ func (p PackageVersion) MarshalJSON() ([]byte, error) {
 
 // SourceArtifact is a downloaded, locally-cached source archive.
 type SourceArtifact struct {
-	Package  PackageVersion `json:"package"`
-	LocalPath string        `json:"local_path"`
-	Size     int64          `json:"size"`
-	SHA256   string         `json:"sha256"`
+	Package   PackageVersion `json:"package"`
+	LocalPath string         `json:"local_path"`
+	Size      int64          `json:"size"`
+	SHA256    string         `json:"sha256"`
 }
 
 // BuiltArtifact is the output of the hermetic build engine.
 type BuiltArtifact struct {
-	Source      SourceArtifact `json:"source"`
-	LocalPath   string         `json:"local_path"`
-	SHA256      string         `json:"sha256"`
-	BuildLog    string         `json:"build_log"`
-	BuildTime   time.Time      `json:"build_time"`
-	Reproducible *bool         `json:"reproducible,omitempty"`
+	Source       SourceArtifact `json:"source"`
+	LocalPath    string         `json:"local_path"`
+	SHA256       string         `json:"sha256"`
+	BuildLog     string         `json:"build_log"`
+	BuildTime    time.Time      `json:"build_time"`
+	Reproducible *bool          `json:"reproducible,omitempty"`
 }
 
 // Severity represents the risk level of a security finding.
@@ -97,23 +97,23 @@ type Finding struct {
 	Type         string         `json:"type"` // "cve", "static", "behavioral", "malware"
 	Title        string         `json:"title"`
 	Description  string         `json:"description"`
-	Source       string         `json:"source"` // "grype", "semgrep", "behavioral", etc.
+	Source       string         `json:"source"`                  // "grype", "semgrep", "behavioral", etc.
 	FixedVersion string         `json:"fixed_version,omitempty"` // known safe version, e.g. "4.17.21"
 	Metadata     map[string]any `json:"metadata,omitempty"`
 }
 
 // Advisory is the AI-generated, human-readable security advisory for a package version.
 type Advisory struct {
-	Package              PackageVersion `json:"package"`
-	Severity             Severity       `json:"severity"`
-	Confidence           float64        `json:"confidence"`
-	Advisory             string         `json:"advisory"`
-	ExploitabilityRationale string      `json:"exploitability_rationale"`
-	AgenticRisk          *string        `json:"agentic_risk,omitempty"`
-	RecommendedAction    string         `json:"recommended_action"`
-	PatchSuggestion      *string        `json:"patch_suggestion,omitempty"`
-	Findings             []Finding      `json:"findings"`
-	GeneratedAt          time.Time      `json:"generated_at"`
+	Package                 PackageVersion `json:"package"`
+	Severity                Severity       `json:"severity"`
+	Confidence              float64        `json:"confidence"`
+	Advisory                string         `json:"advisory"`
+	ExploitabilityRationale string         `json:"exploitability_rationale"`
+	AgenticRisk             *string        `json:"agentic_risk,omitempty"`
+	RecommendedAction       string         `json:"recommended_action"`
+	PatchSuggestion         *string        `json:"patch_suggestion,omitempty"`
+	Findings                []Finding      `json:"findings"`
+	GeneratedAt             time.Time      `json:"generated_at"`
 }
 
 // RiskFactors are the component scores that make up an overall risk score.
@@ -126,8 +126,8 @@ type RiskFactors struct {
 
 // RiskScore is the ForgeGuardian composite security risk score for a package.
 type RiskScore struct {
-	Overall int         // 0–100
-	Grade   string      // "A" (0–20), "B" (21–40), "C" (41–60), "D" (61–80), "F" (81–100)
+	Overall int    // 0–100
+	Grade   string // "A" (0–20), "B" (21–40), "C" (41–60), "D" (61–80), "F" (81–100)
 	Factors RiskFactors
 }
 

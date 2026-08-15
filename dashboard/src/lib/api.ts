@@ -36,12 +36,12 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     }
     let data: unknown
     try { data = await res.json() }
-    catch { throw new Error(`API ${res.status}: response is not JSON`) }
+    catch (e) { throw new Error(`API ${res.status}: response is not JSON`, { cause: e }) }
     return data as T
   } catch (err) {
     clearTimeout(timeoutId)
     if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error('API request timed out after 30s')
+      throw new Error('API request timed out after 30s', { cause: err })
     }
     throw err
   }
@@ -223,7 +223,7 @@ export async function scanUpload(file: File, name?: string): Promise<import('../
     return normalizeRemoteScanJob(job);
   } catch (err) {
     clearTimeout(timeoutId);
-    if (err instanceof Error && err.name === 'AbortError') throw new Error('Upload timed out after 5 minutes');
+    if (err instanceof Error && err.name === 'AbortError') throw new Error('Upload timed out after 5 minutes', { cause: err });
     throw err;
   }
 }
@@ -266,7 +266,7 @@ export const getSBOM = async (ecosystem: string, pkg: string, version: string, f
   } catch (err) {
     clearTimeout(timeoutId)
     if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error('API request timed out after 30s')
+      throw new Error('API request timed out after 30s', { cause: err })
     }
     throw err
   }

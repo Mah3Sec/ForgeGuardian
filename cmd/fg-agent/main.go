@@ -19,8 +19,8 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/mah3sec/forgeguardian/internal/build/recipes/all"
 	"github.com/mah3sec/forgeguardian/internal/build/recipes"
+	_ "github.com/mah3sec/forgeguardian/internal/build/recipes/all"
 	"github.com/mah3sec/forgeguardian/internal/core"
 	"github.com/mah3sec/forgeguardian/internal/scanner"
 

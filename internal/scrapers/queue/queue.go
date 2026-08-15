@@ -18,9 +18,9 @@ const (
 
 // BuildJob is the payload pushed to the build queue.
 type BuildJob struct {
-	PackageVersionID int64              `json:"package_version_id"`
+	PackageVersionID int64               `json:"package_version_id"`
 	Package          core.PackageVersion `json:"package"`
-	EnqueuedAt       time.Time          `json:"enqueued_at"`
+	EnqueuedAt       time.Time           `json:"enqueued_at"`
 }
 
 // Queue wraps a Redis client.

@@ -8,11 +8,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"sync"
 	"log/slog"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mah3sec/forgeguardian/internal/core"
@@ -60,22 +60,22 @@ type changeDetail struct {
 
 // packument is the npm registry document for a single package.
 type packument struct {
-	Name     string                      `json:"name"`
-	Versions map[string]packageVersion   `json:"versions"`
-	Time     map[string]string           `json:"time"`
-	DistTags map[string]string           `json:"dist-tags"`
+	Name     string                    `json:"name"`
+	Versions map[string]packageVersion `json:"versions"`
+	Time     map[string]string         `json:"time"`
+	DistTags map[string]string         `json:"dist-tags"`
 }
 
 type packageVersion struct {
-	Name    string  `json:"name"`
-	Version string  `json:"version"`
-	Dist    distObj `json:"dist"`
+	Name    string            `json:"name"`
+	Version string            `json:"version"`
+	Dist    distObj           `json:"dist"`
 	Scripts map[string]string `json:"scripts"`
 }
 
 type distObj struct {
-	Tarball string `json:"tarball"`
-	Shasum  string `json:"shasum"` // sha1 from npm
+	Tarball   string `json:"tarball"`
+	Shasum    string `json:"shasum"`    // sha1 from npm
 	Integrity string `json:"integrity"` // sha512 sri
 }
 

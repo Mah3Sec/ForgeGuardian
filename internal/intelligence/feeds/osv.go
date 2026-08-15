@@ -53,12 +53,12 @@ func NewOSVPoller() *OSVPoller {
 
 // osvEcosystem maps ForgeGuardian ecosystem names to OSV ecosystem names.
 var osvEcosystem = map[string]string{
-	"npm":        "npm",
-	"pypi":       "PyPI",
-	"go":         "Go",
-	"rubygems":   "RubyGems",
-	"crates":     "crates.io",
-	"maven":      "Maven",
+	"npm":         "npm",
+	"pypi":        "PyPI",
+	"go":          "Go",
+	"rubygems":    "RubyGems",
+	"crates":      "crates.io",
+	"maven":       "Maven",
 	"huggingface": "PyPI", // HF models have PyPI-style deps
 }
 

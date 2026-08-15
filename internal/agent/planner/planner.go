@@ -22,17 +22,17 @@ const (
 
 // PatchPlan describes the actions the planner decided to take.
 type PatchPlan struct {
-	PackageName    string       `json:"package_name"`
-	CurrentVersion string       `json:"current_version"`
+	PackageName    string        `json:"package_name"`
+	CurrentVersion string        `json:"current_version"`
 	Actions        []PatchAction `json:"actions"`
-	Rationale      string       `json:"rationale"`
-	RiskLevel      string       `json:"risk_level"` // low|medium|high
-	AutoApply      bool         `json:"auto_apply"`  // true if safe to apply without human review
+	Rationale      string        `json:"rationale"`
+	RiskLevel      string        `json:"risk_level"` // low|medium|high
+	AutoApply      bool          `json:"auto_apply"` // true if safe to apply without human review
 }
 
 // PatchAction is a single concrete remediation step.
 type PatchAction struct {
-	Type        string `json:"type"`        // upgrade|pin|replace|remove|noaction
+	Type        string `json:"type"` // upgrade|pin|replace|remove|noaction
 	Description string `json:"description"`
 	OldValue    string `json:"old_value,omitempty"`
 	NewValue    string `json:"new_value,omitempty"`
@@ -178,8 +178,8 @@ func buildTools() []anthropic.ToolUnionParam {
 
 // plannerState holds the tool state across iterations.
 type plannerState struct {
-	advisory   core.Advisory
-	patchPlan  *PatchPlan
+	advisory  core.Advisory
+	patchPlan *PatchPlan
 }
 
 // dispatchTool executes a tool call and returns the result string.

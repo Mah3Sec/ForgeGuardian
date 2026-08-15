@@ -101,10 +101,7 @@ func SaveStore(path string, store *SignatureStore) error {
 // Deduplication key: type + ecosystem + (package | pattern | rule | target).
 // Returns the count of signatures actually added.
 func MergeSignatures(store *SignatureStore, incoming []DetectionSignature) int {
-	type key struct {
-		t, eco, val string
-	}
-	seen := make(map[key]bool, len(store.Signatures))
+	seen := make(map[string]bool, len(store.Signatures))
 	for _, s := range store.Signatures {
 		seen[dedupeKey(s)] = true
 	}
@@ -122,9 +119,8 @@ func MergeSignatures(store *SignatureStore, incoming []DetectionSignature) int {
 	return added
 }
 
-func dedupeKey(s DetectionSignature) struct{ t, eco, val string } {
-	val := s.Package + s.Pattern + s.Rule + s.Target
-	return struct{ t, eco, val string }{string(s.Type), s.Ecosystem, val}
+func dedupeKey(s DetectionSignature) string {
+	return string(s.Type) + "\x00" + s.Ecosystem + "\x00" + s.Package + s.Pattern + s.Rule + s.Target
 }
 
 // LoadYAMLSignatures walks dir for *.yaml/*.yml community signature files and

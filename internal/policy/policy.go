@@ -101,7 +101,7 @@ func (pol *Policy) Enforce(pkgName, pkgVersion string, findings []core.Finding) 
 					ID:       "POLICY-TYPOSQUAT-BLOCKED",
 					Severity: core.SeverityCritical,
 					Type:     "policy",
-					Title:    fmt.Sprintf("Typosquatting detected — blocked by policy"),
+					Title:    "Typosquatting detected — blocked by policy",
 					Description: fmt.Sprintf(
 						"%s@%s appears to be a typosquat. Policy block_typosquatting=true prevents use.",
 						pkgName, pkgVersion,

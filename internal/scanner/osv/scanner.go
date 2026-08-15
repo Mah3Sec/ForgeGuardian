@@ -64,7 +64,7 @@ func (s *Scanner) scanBinary(ctx context.Context, artifact core.BuiltArtifact, b
 
 type osvBinaryReport struct {
 	Results []struct {
-		Source  struct{ Path string } `json:"source"`
+		Source   struct{ Path string } `json:"source"`
 		Packages []struct {
 			Package struct {
 				Name      string `json:"name"`
@@ -160,15 +160,15 @@ type osvQueryResponse struct {
 }
 
 type osvVuln struct {
-	ID       string         `json:"id"`
-	Summary  string         `json:"summary"`
-	Details  string         `json:"details"`
-	Severity []osvSeverity  `json:"severity"`
-	Aliases  []string       `json:"aliases"`
-	Modified string         `json:"modified"`
-	Published string        `json:"published"`
-	References []osvRef     `json:"references"`
-	Affected []osvAffected  `json:"affected"`
+	ID         string        `json:"id"`
+	Summary    string        `json:"summary"`
+	Details    string        `json:"details"`
+	Severity   []osvSeverity `json:"severity"`
+	Aliases    []string      `json:"aliases"`
+	Modified   string        `json:"modified"`
+	Published  string        `json:"published"`
+	References []osvRef      `json:"references"`
+	Affected   []osvAffected `json:"affected"`
 }
 
 type osvSeverity struct {

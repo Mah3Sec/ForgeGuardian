@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mah3sec/forgeguardian/internal/core"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mah3sec/forgeguardian/internal/core"
 )
 
 // Store wraps a pgx connection pool and provides typed query methods.

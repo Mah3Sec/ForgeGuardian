@@ -55,8 +55,8 @@ type mcpServer struct {
 }
 
 type mcpTool struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
 	InputSchema map[string]any `json:"inputSchema"`
 }
 
@@ -141,15 +141,15 @@ func (s *Scraper) pollOfficialRegistry(ctx context.Context, lastRun time.Time) (
 		analysis := s.analyzeMCPServer(srv)
 
 		meta := map[string]any{
-			"description":             srv.Description,
-			"repository":              srv.Repository,
-			"npm_package":             srv.NPMPackage,
-			"tool_count":              len(srv.Tools),
-			"tool_names":              toolNames(srv.Tools),
-			"shadows_builtin":         analysis.shadowsBuiltin,
-			"prompt_injection_risk":   analysis.promptInjectionRisk,
-			"overly_broad_perms":      analysis.overlyBroadPerms,
-			"source":                  "official_registry",
+			"description":           srv.Description,
+			"repository":            srv.Repository,
+			"npm_package":           srv.NPMPackage,
+			"tool_count":            len(srv.Tools),
+			"tool_names":            toolNames(srv.Tools),
+			"shadows_builtin":       analysis.shadowsBuiltin,
+			"prompt_injection_risk": analysis.promptInjectionRisk,
+			"overly_broad_perms":    analysis.overlyBroadPerms,
+			"source":                "official_registry",
 		}
 
 		name := srv.NPMPackage
@@ -206,12 +206,12 @@ func (s *Scraper) pollNPMMCPPackages(ctx context.Context, lastRun time.Time) ([]
 			npmRegistryBase, pkg.Name, pkg.Name, pkg.Version)
 
 		meta := map[string]any{
-			"description":           pkg.Description,
-			"keywords":              pkg.Keywords,
-			"repository":            pkg.Links.Repository,
-			"npm_url":               pkg.Links.NPM,
-			"source":                "npm_keyword_search",
-			"dependency_confusion":  s.checkDependencyConfusion(pkg.Name),
+			"description":          pkg.Description,
+			"keywords":             pkg.Keywords,
+			"repository":           pkg.Links.Repository,
+			"npm_url":              pkg.Links.NPM,
+			"source":               "npm_keyword_search",
+			"dependency_confusion": s.checkDependencyConfusion(pkg.Name),
 		}
 
 		versions = append(versions, core.PackageVersion{

@@ -14,9 +14,9 @@ import (
 // SARIF types (subset of SARIF 2.1.0 needed for supply chain findings).
 
 type sarifLog struct {
-	Schema  string      `json:"$schema"`
-	Version string      `json:"version"`
-	Runs    []sarifRun  `json:"runs"`
+	Schema  string     `json:"$schema"`
+	Version string     `json:"version"`
+	Runs    []sarifRun `json:"runs"`
 }
 
 type sarifRun struct {
@@ -49,10 +49,10 @@ type sarifDefaultConfig struct {
 }
 
 type sarifResult struct {
-	RuleID  string          `json:"ruleId"`
-	Level   string          `json:"level"`
-	Message sarifMessage    `json:"message"`
-	Locations []sarifLoc    `json:"locations,omitempty"`
+	RuleID    string       `json:"ruleId"`
+	Level     string       `json:"level"`
+	Message   sarifMessage `json:"message"`
+	Locations []sarifLoc   `json:"locations,omitempty"`
 }
 
 type sarifLoc struct {
@@ -89,8 +89,8 @@ func WriteSARIF(w io.Writer, pkg, manifestURI string, findings []core.Finding, s
 		}
 		rulesSeen[f.ID] = true
 		rules = append(rules, sarifRule{
-			ID:   f.ID,
-			Name: sanitizeName(f.ID),
+			ID:               f.ID,
+			Name:             sanitizeName(f.ID),
 			ShortDescription: sarifMessage{Text: f.Title},
 			FullDescription:  sarifMessage{Text: firstN(f.Description, 512)},
 			DefaultConfig:    sarifDefaultConfig{Level: sarifLevel(f.Severity)},

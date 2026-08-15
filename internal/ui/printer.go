@@ -30,14 +30,14 @@ const asciiLogo = `
 
 // Printer is a terminal output helper for all fgctl commands.
 type Printer struct {
-	NoColor  bool
-	JSON     bool
-	Verbose  bool // show informational findings and expand all grouped output
-	Debug    bool // show engine errors, raw metadata
-	NoBanner bool // suppress the ASCII banner
-	Quiet    bool // suppress all output except errors
-	Out      io.Writer
-	Err      io.Writer
+	NoColor        bool
+	JSON           bool
+	Verbose        bool // show informational findings and expand all grouped output
+	Debug          bool // show engine errors, raw metadata
+	NoBanner       bool // suppress the ASCII banner
+	Quiet          bool // suppress all output except errors
+	Out            io.Writer
+	Err            io.Writer
 	version        string
 	sigCount       int
 	heuristicCount int

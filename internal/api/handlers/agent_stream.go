@@ -12,11 +12,11 @@ import (
 
 // AgentEvent is a single event pushed to listeners over SSE.
 type AgentEvent struct {
-	SessionID string    `json:"session_id"`
-	Type      string    `json:"type"`   // "start" | "step" | "patch" | "done" | "error"
-	Message   string    `json:"message"`
-	Package   string    `json:"package,omitempty"`
-	Version   string    `json:"version,omitempty"`
+	SessionID  string    `json:"session_id"`
+	Type       string    `json:"type"` // "start" | "step" | "patch" | "done" | "error"
+	Message    string    `json:"message"`
+	Package    string    `json:"package,omitempty"`
+	Version    string    `json:"version,omitempty"`
 	OccurredAt time.Time `json:"occurred_at"`
 }
 

@@ -11,8 +11,8 @@ import (
 	"time"
 
 	cdx "github.com/CycloneDX/cyclonedx-go"
-	"github.com/mah3sec/forgeguardian/internal/core"
 	"github.com/google/uuid"
+	"github.com/mah3sec/forgeguardian/internal/core"
 )
 
 const (

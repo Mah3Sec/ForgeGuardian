@@ -60,18 +60,18 @@ type grypeReport struct {
 }
 
 type grypeMatch struct {
-	Vulnerability grypeVuln    `json:"vulnerability"`
+	Vulnerability grypeVuln     `json:"vulnerability"`
 	Artifact      grypeArtifact `json:"artifact"`
 }
 
 type grypeVuln struct {
-	ID          string   `json:"id"`
-	DataSource  string   `json:"dataSource"`
-	Severity    string   `json:"severity"`
-	Description string   `json:"description"`
+	ID          string      `json:"id"`
+	DataSource  string      `json:"dataSource"`
+	Severity    string      `json:"severity"`
+	Description string      `json:"description"`
 	CVSSs       []grypeCVSS `json:"cvss"`
-	Fix         grypeFix `json:"fix"`
-	URLs        []string `json:"urls"`
+	Fix         grypeFix    `json:"fix"`
+	URLs        []string    `json:"urls"`
 }
 
 type grypeCVSS struct {

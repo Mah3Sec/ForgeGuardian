@@ -66,8 +66,8 @@ func (g *Generator) buildDocument(artifact core.BuiltArtifact) *spdx23.Document 
 		},
 		Relationships: []*spdx23.Relationship{
 			{
-				RefA: spdxcommon.DocElementID{ElementRefID: "DOCUMENT"},
-				RefB: spdxcommon.DocElementID{ElementRefID: spdxcommon.ElementID(pkgID)},
+				RefA:         spdxcommon.DocElementID{ElementRefID: "DOCUMENT"},
+				RefB:         spdxcommon.DocElementID{ElementRefID: spdxcommon.ElementID(pkgID)},
 				Relationship: spdxcommon.TypeRelationshipDescribe,
 			},
 		},

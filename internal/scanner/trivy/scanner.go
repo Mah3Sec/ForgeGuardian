@@ -120,12 +120,12 @@ func parseTrivyOutput(data []byte, artifact core.BuiltArtifact) ([]core.Finding,
 	for _, result := range report.Results {
 		for _, v := range result.Vulnerabilities {
 			findings = append(findings, core.Finding{
-				ID:       v.VulnerabilityID,
-				Severity: mapSeverity(v.Severity),
-				Type:     "cve",
-				Title:    buildVulnTitle(v),
+				ID:          v.VulnerabilityID,
+				Severity:    mapSeverity(v.Severity),
+				Type:        "cve",
+				Title:       buildVulnTitle(v),
 				Description: buildVulnDesc(v, result.Target),
-				Source:   "trivy",
+				Source:      "trivy",
 				Metadata: map[string]any{
 					"pkg_name":          v.PkgName,
 					"installed_version": v.InstalledVersion,

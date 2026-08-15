@@ -93,10 +93,10 @@ type semgrepReport struct {
 }
 
 type semgrepResult struct {
-	CheckID string         `json:"check_id"`
-	Path    string         `json:"path"`
-	Start   semgrepPos     `json:"start"`
-	Extra   semgrepExtra   `json:"extra"`
+	CheckID string       `json:"check_id"`
+	Path    string       `json:"path"`
+	Start   semgrepPos   `json:"start"`
+	Extra   semgrepExtra `json:"extra"`
 }
 
 type semgrepPos struct {
@@ -105,9 +105,9 @@ type semgrepPos struct {
 }
 
 type semgrepExtra struct {
-	Message  string         `json:"message"`
-	Severity string         `json:"severity"`
-	Metadata semgrepMeta    `json:"metadata"`
+	Message  string      `json:"message"`
+	Severity string      `json:"severity"`
+	Metadata semgrepMeta `json:"metadata"`
 }
 
 type semgrepMeta struct {

@@ -88,7 +88,7 @@ export function NetworkGraph({ mode, data, opacity = 0.08, width = 600, height =
 
   useEffect(() => {
     if (mode !== 'ambient' || reducedMotion || graphData.nodes.length === 0) return
-    let timeouts: ReturnType<typeof setTimeout>[] = []
+    const timeouts: ReturnType<typeof setTimeout>[] = []
 
     const runCycle = () => {
       const node = graphData.nodes[Math.floor(Math.random() * graphData.nodes.length)]

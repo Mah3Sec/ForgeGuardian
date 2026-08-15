@@ -25,8 +25,9 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	_ "github.com/mah3sec/forgeguardian/internal/build/recipes/all"
+	"github.com/mah3sec/forgeguardian/internal/agent/triage"
 	"github.com/mah3sec/forgeguardian/internal/build/recipes"
+	_ "github.com/mah3sec/forgeguardian/internal/build/recipes/all"
 	"github.com/mah3sec/forgeguardian/internal/core"
 	"github.com/mah3sec/forgeguardian/internal/intelligence"
 	"github.com/mah3sec/forgeguardian/internal/license"
@@ -35,7 +36,6 @@ import (
 	"github.com/mah3sec/forgeguardian/internal/scanner"
 	"github.com/mah3sec/forgeguardian/internal/signer"
 	"github.com/mah3sec/forgeguardian/internal/ui"
-	"github.com/mah3sec/forgeguardian/internal/agent/triage"
 )
 
 // Set via -ldflags at build time.
@@ -197,10 +197,10 @@ func preParseOutputFlags(args []string) (suppressHuman bool) {
 func runSign(args []string, log *slog.Logger) error {
 	fs := flag.NewFlagSet("sign", flag.ExitOnError)
 	recipeFlag := fs.String("recipe", "", "ecosystem recipe (npm|pypi|maven|go|...)")
-	pkgFlag    := fs.String("package", "", "package name")
-	verFlag    := fs.String("version", "", "package version")
-	rekorFlag  := fs.String("rekor-url", "", "Rekor URL (default: public sigstore.dev)")
-	outFlag    := fs.String("out", "", "output attestation JSON file (default: stdout)")
+	pkgFlag := fs.String("package", "", "package name")
+	verFlag := fs.String("version", "", "package version")
+	rekorFlag := fs.String("rekor-url", "", "Rekor URL (default: public sigstore.dev)")
+	outFlag := fs.String("out", "", "output attestation JSON file (default: stdout)")
 	timeoutFlag := fs.Duration("timeout", 5*time.Minute, "total timeout")
 	fs.Parse(args)
 
@@ -242,7 +242,7 @@ func runSign(args []string, log *slog.Logger) error {
 
 func runVerify(args []string, log *slog.Logger) error {
 	fs := flag.NewFlagSet("verify", flag.ExitOnError)
-	attFlag    := fs.String("attestation", "", "path to attestation JSON file")
+	attFlag := fs.String("attestation", "", "path to attestation JSON file")
 	sha256Flag := fs.String("sha256", "", "expected SHA256 of the artifact")
 	timeoutFlag := fs.Duration("timeout", 2*time.Minute, "total timeout")
 	fs.Parse(args)
@@ -284,35 +284,35 @@ func runVerify(args []string, log *slog.Logger) error {
 
 func runScanCmd(args []string, log *slog.Logger, p *ui.Printer) error {
 	fs := flag.NewFlagSet("scan", flag.ExitOnError)
-	recipeFlag     := fs.String("recipe", "", "ecosystem recipe")
-	pkgFlag        := fs.String("package", "", "package name")
-	verFlag        := fs.String("version", "", "package version")
-	jsonFlag       := fs.Bool("json", false, "output JSON")
-	failOnFlag     := fs.String("fail-on", "", "exit 2 if findings at this severity or above (critical|high|medium|low)")
-	timeoutFlag    := fs.Duration("timeout", 10*time.Minute, "total timeout")
-	workersFlag    := fs.Int("workers", 4, "concurrent workers for local project scan")
-	compactFlag    := fs.Bool("compact", false, "one line per finding, no descriptions")
-	summaryFlag    := fs.Bool("summary", false, "print severity table only, no per-finding details")
-	quietFlag      := fs.Bool("quiet", false, "suppress all output except exit code (for CI)")
-	severityFlag   := fs.String("severity", "", "filter: only show findings at this severity or above (critical|high|medium|low)")
-	ecosystemFlag  := fs.String("ecosystem", "", "filter: only show packages from this ecosystem (npm|pypi|go|...)")
-	onlyFixable    := fs.Bool("only-fixable", false, "only show findings that have a known fix version")
-	formatFlag     := fs.String("format", "text", "output format: text|json|sarif")
-	verboseFlag    := fs.Bool("verbose",    false, "show informational findings and expand grouped output")
-	debugFlag      := fs.Bool("debug",      false, "show engine errors and raw metadata")
-	prodOnlyFlag   := fs.Bool("prod-only",  false, "exclude dev dependencies from scan")
+	recipeFlag := fs.String("recipe", "", "ecosystem recipe")
+	pkgFlag := fs.String("package", "", "package name")
+	verFlag := fs.String("version", "", "package version")
+	jsonFlag := fs.Bool("json", false, "output JSON")
+	failOnFlag := fs.String("fail-on", "", "exit 2 if findings at this severity or above (critical|high|medium|low)")
+	timeoutFlag := fs.Duration("timeout", 10*time.Minute, "total timeout")
+	workersFlag := fs.Int("workers", 4, "concurrent workers for local project scan")
+	compactFlag := fs.Bool("compact", false, "one line per finding, no descriptions")
+	summaryFlag := fs.Bool("summary", false, "print severity table only, no per-finding details")
+	quietFlag := fs.Bool("quiet", false, "suppress all output except exit code (for CI)")
+	severityFlag := fs.String("severity", "", "filter: only show findings at this severity or above (critical|high|medium|low)")
+	ecosystemFlag := fs.String("ecosystem", "", "filter: only show packages from this ecosystem (npm|pypi|go|...)")
+	onlyFixable := fs.Bool("only-fixable", false, "only show findings that have a known fix version")
+	formatFlag := fs.String("format", "text", "output format: text|json|sarif")
+	verboseFlag := fs.Bool("verbose", false, "show informational findings and expand grouped output")
+	debugFlag := fs.Bool("debug", false, "show engine errors and raw metadata")
+	prodOnlyFlag := fs.Bool("prod-only", false, "exclude dev dependencies from scan")
 	excludeDevFlag := fs.Bool("exclude-dev", false, "alias for --prod-only")
-	ciFlag         := fs.Bool("ci",         false, "CI mode: quiet + SARIF output + fail-on=high")
-	executiveFlag  := fs.Bool("executive",  false, "executive summary: severity table only")
-	noBannerFlag   := fs.Bool("no-banner",  false, "suppress the ASCII banner")
-	noColorFlag    := fs.Bool("no-color",   false, "disable ANSI colors")
-	remoteFlag           := fs.String("remote", "", "SSH target user@host for a remote dependency scan")
-	remotePortFlag       := fs.Int("remote-port", 22, "SSH port for --remote")
-	identityFlag         := fs.String("identity", "", "SSH private key path (default: ~/.ssh/id_ed25519, ~/.ssh/id_rsa)")
-	remotePathFlag       := fs.String("remote-path", "", "remote search root for --remote (default: remote $HOME)")
+	ciFlag := fs.Bool("ci", false, "CI mode: quiet + SARIF output + fail-on=high")
+	executiveFlag := fs.Bool("executive", false, "executive summary: severity table only")
+	noBannerFlag := fs.Bool("no-banner", false, "suppress the ASCII banner")
+	noColorFlag := fs.Bool("no-color", false, "disable ANSI colors")
+	remoteFlag := fs.String("remote", "", "SSH target user@host for a remote dependency scan")
+	remotePortFlag := fs.Int("remote-port", 22, "SSH port for --remote")
+	identityFlag := fs.String("identity", "", "SSH private key path (default: ~/.ssh/id_ed25519, ~/.ssh/id_rsa)")
+	remotePathFlag := fs.String("remote-path", "", "remote search root for --remote (default: remote $HOME)")
 	acceptNewHostKeyFlag := fs.Bool("accept-new-host-key", false, "trust a host key absent from known_hosts for this connection only (never written to known_hosts)")
-	remoteMaxDepthFlag   := fs.Int("remote-max-depth", 0, "limit remote find depth for --remote (0 = unlimited)")
-	keepTempFlag         := fs.Bool("keep-temp", false, "do not delete the local temp dir after a --remote scan (debugging)")
+	remoteMaxDepthFlag := fs.Int("remote-max-depth", 0, "limit remote find depth for --remote (0 = unlimited)")
+	keepTempFlag := fs.Bool("keep-temp", false, "do not delete the local temp dir after a --remote scan (debugging)")
 	// Go's flag package stops at the first non-flag positional argument, so
 	// `scan . --format json` would leave "--format" and "json" unprocessed.
 	// Move any positional args (path or dot-notation) to the end so all flags
@@ -347,9 +347,13 @@ func runScanCmd(args []string, log *slog.Logger, p *ui.Printer) error {
 
 	// Apply composite modes before flag normalization.
 	if *ciFlag {
-		if *formatFlag == "text" { *formatFlag = "sarif" }
+		if *formatFlag == "text" {
+			*formatFlag = "sarif"
+		}
 		*quietFlag = true
-		if *failOnFlag == "" { *failOnFlag = "high" }
+		if *failOnFlag == "" {
+			*failOnFlag = "high"
+		}
 	}
 	if *executiveFlag {
 		*summaryFlag = true
@@ -485,12 +489,12 @@ func runScanCmd(args []string, log *slog.Logger, p *ui.Printer) error {
 
 func runAdvisory(args []string, log *slog.Logger) error {
 	fs := flag.NewFlagSet("advisory", flag.ExitOnError)
-	recipeFlag  := fs.String("recipe", "", "ecosystem recipe")
-	pkgFlag     := fs.String("package", "", "package name")
-	verFlag     := fs.String("version", "", "package version")
-	apiKeyFlag  := fs.String("api-key", "", "Anthropic API key (default: ANTHROPIC_API_KEY env)")
+	recipeFlag := fs.String("recipe", "", "ecosystem recipe")
+	pkgFlag := fs.String("package", "", "package name")
+	verFlag := fs.String("version", "", "package version")
+	apiKeyFlag := fs.String("api-key", "", "Anthropic API key (default: ANTHROPIC_API_KEY env)")
 	skipScanFlag := fs.Bool("skip-scan", false, "skip scan phase")
-	jsonFlag    := fs.Bool("json", false, "output JSON")
+	jsonFlag := fs.Bool("json", false, "output JSON")
 	timeoutFlag := fs.Duration("timeout", 10*time.Minute, "total timeout")
 	fs.Parse(args)
 
@@ -547,11 +551,11 @@ func runAdvisory(args []string, log *slog.Logger) error {
 
 func runSBOM(args []string, log *slog.Logger) error {
 	fs := flag.NewFlagSet("sbom", flag.ExitOnError)
-	recipeFlag  := fs.String("recipe", "", "ecosystem recipe")
-	pkgFlag     := fs.String("package", "", "package name")
-	verFlag     := fs.String("version", "", "package version")
-	formatFlag  := fs.String("format", "cyclonedx-json", "sbom format: cyclonedx-json|cyclonedx-xml|spdx-json|spdx-tv")
-	outFlag     := fs.String("out", "", "output file (default: stdout)")
+	recipeFlag := fs.String("recipe", "", "ecosystem recipe")
+	pkgFlag := fs.String("package", "", "package name")
+	verFlag := fs.String("version", "", "package version")
+	formatFlag := fs.String("format", "cyclonedx-json", "sbom format: cyclonedx-json|cyclonedx-xml|spdx-json|spdx-tv")
+	outFlag := fs.String("out", "", "output file (default: stdout)")
 	timeoutFlag := fs.Duration("timeout", 10*time.Minute, "total timeout")
 	fs.Parse(args)
 
@@ -604,10 +608,10 @@ func runSBOM(args []string, log *slog.Logger) error {
 
 func runProvenance(args []string, log *slog.Logger) error {
 	fs := flag.NewFlagSet("provenance", flag.ExitOnError)
-	recipeFlag  := fs.String("recipe", "", "ecosystem recipe")
-	pkgFlag     := fs.String("package", "", "package name")
-	verFlag     := fs.String("version", "", "package version")
-	outFlag     := fs.String("out", "", "output file (default: stdout)")
+	recipeFlag := fs.String("recipe", "", "ecosystem recipe")
+	pkgFlag := fs.String("package", "", "package name")
+	verFlag := fs.String("version", "", "package version")
+	outFlag := fs.String("out", "", "output file (default: stdout)")
 	timeoutFlag := fs.Duration("timeout", 5*time.Minute, "total timeout")
 	fs.Parse(args)
 
@@ -1359,4 +1363,3 @@ func runLocalSBOM(rootDir, format, outPath string, log *slog.Logger) error {
 		"manifests", len(manifests), "format", format)
 	return nil
 }
-

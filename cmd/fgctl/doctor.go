@@ -237,7 +237,7 @@ func checkBinary(name string) doctorCheck {
 		return doctorCheck{
 			Name:   name,
 			Status: doctorWarn,
-			Detail: fmt.Sprintf("not found in PATH — some scan engines disabled"),
+			Detail: "not found in PATH — some scan engines disabled",
 		}
 	}
 	// Try to get version

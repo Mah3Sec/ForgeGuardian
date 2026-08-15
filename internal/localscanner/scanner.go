@@ -14,7 +14,7 @@ import (
 type LocalScanResult struct {
 	Entry    ManifestEntry
 	Findings []core.Finding
-	Skipped  bool   // true when Version is empty (range-only constraint)
+	Skipped  bool // true when Version is empty (range-only constraint)
 	Err      error
 }
 

@@ -35,14 +35,14 @@ import (
 )
 
 func main() {
-	storePath  := flag.String("store", "", "path to signature store (default: ~/.forgeguardian/signatures.json)")
-	loop       := flag.Bool("loop", false, "run continuously")
-	interval   := flag.Duration("interval", 6*time.Hour, "poll interval in loop mode")
-	apiKey     := flag.String("api-key", "", "Anthropic API key (or ANTHROPIC_API_KEY env)")
+	storePath := flag.String("store", "", "path to signature store (default: ~/.forgeguardian/signatures.json)")
+	loop := flag.Bool("loop", false, "run continuously")
+	interval := flag.Duration("interval", 6*time.Hour, "poll interval in loop mode")
+	apiKey := flag.String("api-key", "", "Anthropic API key (or ANTHROPIC_API_KEY env)")
 	ecosystems := flag.String("ecosystems", "npm,pypi,go,rubygems,crates", "comma-separated ecosystems to poll")
-	maxOSSF    := flag.Int("max-ossf", 100, "max OpenSSF malicious-packages entries per ecosystem")
-	dryRun     := flag.Bool("dry-run", false, "print signatures without saving")
-	skipAI     := flag.Bool("skip-ai", false, "skip AI generation step")
+	maxOSSF := flag.Int("max-ossf", 100, "max OpenSSF malicious-packages entries per ecosystem")
+	dryRun := flag.Bool("dry-run", false, "print signatures without saving")
+	skipAI := flag.Bool("skip-ai", false, "skip AI generation step")
 	flag.Parse()
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))

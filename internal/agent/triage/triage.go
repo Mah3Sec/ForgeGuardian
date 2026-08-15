@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	model      = anthropic.ModelClaudeSonnet4_20250514
-	maxTokens  = 2048
+	model        = anthropic.ModelClaudeSonnet4_20250514
+	maxTokens    = 2048
 	systemPrompt = `You are ForgeGuardian's AI security triage engine — a senior supply chain security analyst.
 
 Your job: given a package and its scan findings, produce a structured security advisory.

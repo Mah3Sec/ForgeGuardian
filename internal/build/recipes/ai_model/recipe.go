@@ -373,17 +373,17 @@ func (r *Recipe) analyzePickleFile(ctx context.Context, modelID, revision, filen
 
 // allowedGlobals are module.class combinations considered safe in ML model pickles.
 var allowedGlobals = map[string]bool{
-	"torch.storage._load_from_bytes":               true,
-	"torch._utils._rebuild_tensor_v2":              true,
-	"torch._utils._rebuild_parameter":              true,
-	"torch._tensor._rebuild_from_type_v2":          true,
-	"collections.OrderedDict":                      true,
-	"_codecs.encode":                               true,
-	"numpy.core.multiarray.scalar":                 true,
-	"numpy.core.multiarray._reconstruct":           true,
-	"numpy.ndarray":                                true,
-	"numpy.dtype":                                  true,
-	"__builtin__.set":                              true,
+	"torch.storage._load_from_bytes":      true,
+	"torch._utils._rebuild_tensor_v2":     true,
+	"torch._utils._rebuild_parameter":     true,
+	"torch._tensor._rebuild_from_type_v2": true,
+	"collections.OrderedDict":             true,
+	"_codecs.encode":                      true,
+	"numpy.core.multiarray.scalar":        true,
+	"numpy.core.multiarray._reconstruct":  true,
+	"numpy.ndarray":                       true,
+	"numpy.dtype":                         true,
+	"__builtin__.set":                     true,
 }
 
 func scanPickleOpcodes(data []byte, filename string) []string {

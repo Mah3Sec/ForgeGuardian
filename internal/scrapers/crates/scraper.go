@@ -45,11 +45,11 @@ type cratesResponse struct {
 }
 
 type crateDoc struct {
-	Name            string `json:"name"`
-	NewestVersion   string `json:"newest_version"`
-	MaxVersion      string `json:"max_version"`
-	UpdatedAt       string `json:"updated_at"`
-	Description     string `json:"description"`
+	Name          string `json:"name"`
+	NewestVersion string `json:"newest_version"`
+	MaxVersion    string `json:"max_version"`
+	UpdatedAt     string `json:"updated_at"`
+	Description   string `json:"description"`
 }
 
 type crateVersionsResponse struct {
@@ -57,14 +57,14 @@ type crateVersionsResponse struct {
 }
 
 type crateVersion struct {
-	ID          int64  `json:"id"`
-	CrateName   string `json:"crate"`
-	Num         string `json:"num"`
-	DLPath      string `json:"dl_path"`
-	CreatedAt   string `json:"created_at"`
-	Checksum    string `json:"checksum"` // sha256 hex
-	Downloads   int64  `json:"downloads"`
-	Features    map[string][]string `json:"features"`
+	ID        int64               `json:"id"`
+	CrateName string              `json:"crate"`
+	Num       string              `json:"num"`
+	DLPath    string              `json:"dl_path"`
+	CreatedAt string              `json:"created_at"`
+	Checksum  string              `json:"checksum"` // sha256 hex
+	Downloads int64               `json:"downloads"`
+	Features  map[string][]string `json:"features"`
 }
 
 // Poll returns crate versions published since lastRun.

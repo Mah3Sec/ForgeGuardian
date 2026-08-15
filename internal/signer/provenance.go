@@ -9,18 +9,18 @@ import (
 
 // SLSA provenance predicate types per the SLSA v1.0 spec.
 const (
-	StatementTypeInToto       = "https://in-toto.io/Statement/v1"
-	PredicateTypeSLSAv1       = "https://slsa.dev/provenance/v1"
-	BuilderIDForgeGuardian    = "https://github.com/forgeguardian/forgeguardian/.github/workflows/release.yml"
-	SLSABuildTypeHermetic     = "https://forgeguardian.dev/build/hermetic/v1"
+	StatementTypeInToto    = "https://in-toto.io/Statement/v1"
+	PredicateTypeSLSAv1    = "https://slsa.dev/provenance/v1"
+	BuilderIDForgeGuardian = "https://github.com/forgeguardian/forgeguardian/.github/workflows/release.yml"
+	SLSABuildTypeHermetic  = "https://forgeguardian.dev/build/hermetic/v1"
 )
 
 // SLSAProvenance is an in-toto statement with a SLSA v1.0 provenance predicate.
 type SLSAProvenance struct {
-	Type          string         `json:"_type"`
+	Type          string          `json:"_type"`
 	Subject       []DigestSubject `json:"subject"`
-	PredicateType string         `json:"predicateType"`
-	Predicate     SLSAPredicate  `json:"predicate"`
+	PredicateType string          `json:"predicateType"`
+	Predicate     SLSAPredicate   `json:"predicate"`
 }
 
 // DigestSubject names the artifact and its digest set.
@@ -51,8 +51,8 @@ type Dependency struct {
 
 // RunDetails captures who built it and when.
 type RunDetails struct {
-	Builder   Builder   `json:"builder"`
-	Metadata  BuildMeta `json:"metadata"`
+	Builder  Builder   `json:"builder"`
+	Metadata BuildMeta `json:"metadata"`
 }
 
 // Builder identifies the build system.

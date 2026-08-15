@@ -125,15 +125,15 @@ func (s *Scanner) checkSerializationFormat(log string, pkg core.PackageVersion) 
 	for _, r := range risky {
 		if strings.Contains(format, r) {
 			return []core.Finding{{
-				ID:   "AI-MODEL-UNSAFE-FORMAT",
+				ID:       "AI-MODEL-UNSAFE-FORMAT",
 				Severity: core.SeverityHigh,
-				Type: "supply-chain",
-				Title: "Model uses unsafe serialization format",
+				Type:     "supply-chain",
+				Title:    "Model uses unsafe serialization format",
 				Description: fmt.Sprintf(
 					"%s@%s uses %q format. Prefer safetensors — it cannot execute arbitrary code during load.",
 					pkg.Name, pkg.Version, format,
 				),
-				Source: "ai_model",
+				Source:   "ai_model",
 				Metadata: map[string]any{"format": format},
 			}}
 		}
@@ -225,7 +225,7 @@ func (s *Scanner) checkExternalWeightURLs(log string, pkg core.PackageVersion) [
 			"%s@%s references external URLs to load weights at runtime: %s. This bypasses supply chain controls.",
 			pkg.Name, pkg.Version, externalURLs,
 		),
-		Source: "ai_model",
+		Source:   "ai_model",
 		Metadata: map[string]any{"urls": externalURLs},
 	}}
 }

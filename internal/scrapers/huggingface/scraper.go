@@ -19,9 +19,9 @@ import (
 )
 
 const (
-	hfAPIBase  = "https://huggingface.co/api"
-	hfBaseURL  = "https://huggingface.co"
-	userAgent  = "forgeguardian-scraper/0.1 (supply chain security; https://github.com/forgeguardian)"
+	hfAPIBase = "https://huggingface.co/api"
+	hfBaseURL = "https://huggingface.co"
+	userAgent = "forgeguardian-scraper/0.1 (supply chain security; https://github.com/forgeguardian)"
 )
 
 // Scraper polls HuggingFace for recently modified AI models.
@@ -46,23 +46,23 @@ func (s *Scraper) Name() string { return "huggingface" }
 
 // hfModel is a single model entry from the HuggingFace API.
 type hfModel struct {
-	ID             string      `json:"id"`           // "author/model-name"
-	ModelID        string      `json:"modelId"`
-	Author         string      `json:"author"`
-	LastModified   time.Time   `json:"lastModified"`
-	Tags           []string    `json:"tags"`
-	PipelineTag    string      `json:"pipeline_tag"`
-	SafeTensors    *hfSafeTensors `json:"safetensors"`
-	CardData       *hfCardData `json:"cardData"`
-	Downloads      int         `json:"downloads"`
-	Likes          int         `json:"likes"`
+	ID           string         `json:"id"` // "author/model-name"
+	ModelID      string         `json:"modelId"`
+	Author       string         `json:"author"`
+	LastModified time.Time      `json:"lastModified"`
+	Tags         []string       `json:"tags"`
+	PipelineTag  string         `json:"pipeline_tag"`
+	SafeTensors  *hfSafeTensors `json:"safetensors"`
+	CardData     *hfCardData    `json:"cardData"`
+	Downloads    int            `json:"downloads"`
+	Likes        int            `json:"likes"`
 	// Private field: whether the model is private (filtered out by default)
-	Private        bool        `json:"private"`
+	Private bool `json:"private"`
 }
 
 type hfSafeTensors struct {
-	Total      int64             `json:"total"`
-	Parameters map[string]int64  `json:"parameters"`
+	Total      int64            `json:"total"`
+	Parameters map[string]int64 `json:"parameters"`
 }
 
 type hfCardData struct {
@@ -139,7 +139,7 @@ func (s *Scraper) Poll(ctx context.Context, lastRun time.Time) ([]core.PackageVe
 		meta := map[string]any{
 			"author":              m.Author,
 			"pipeline_tag":        m.PipelineTag,
-			"tags":               m.Tags,
+			"tags":                m.Tags,
 			"downloads":           m.Downloads,
 			"likes":               m.Likes,
 			"has_safetensors":     m.SafeTensors != nil,
@@ -239,12 +239,12 @@ func isShadowModel(modelID string) bool {
 		if strings.Contains(lower, name) {
 			// Only flag if the author is not the canonical publisher
 			canonical := map[string]string{
-				"llama":             "meta-llama",
-				"mistral":           "mistralai",
-				"falcon":            "tiiuae",
-				"stable-diffusion":  "stabilityai",
-				"whisper":           "openai",
-				"clip":              "openai",
+				"llama":            "meta-llama",
+				"mistral":          "mistralai",
+				"falcon":           "tiiuae",
+				"stable-diffusion": "stabilityai",
+				"whisper":          "openai",
+				"clip":             "openai",
 			}
 			if canonAuthor, ok := canonical[name]; ok {
 				author := strings.Split(modelID, "/")[0]

@@ -86,8 +86,8 @@ func findAgentBinary() string {
 // Uses polling (fsnotify-free) with a 3s interval — avoids adding a new dep.
 func runMonitor(args []string, log *slog.Logger, p *ui.Printer) error {
 	fs := flag.NewFlagSet("monitor", flag.ExitOnError)
-	watchFlag   := fs.Bool("watch", false, "watch for manifest changes and re-scan")
-	dirFlag     := fs.String("dir", ".", "directory to monitor")
+	watchFlag := fs.Bool("watch", false, "watch for manifest changes and re-scan")
+	dirFlag := fs.String("dir", ".", "directory to monitor")
 	intervalFlag := fs.Duration("interval", 3*time.Second, "polling interval for --watch mode")
 	workersFlag := fs.Int("workers", 4, "scan workers")
 	timeoutFlag := fs.Duration("timeout", 5*time.Minute, "scan timeout per cycle")
@@ -236,8 +236,8 @@ type auditSource struct {
 
 // ecoAuditResult holds per-ecosystem scan results for deferred display.
 type ecoAuditResult struct {
-	label   string
-	scanned int
+	label       string
+	scanned     int
 	pkgFindings []struct {
 		name     string
 		version  string
@@ -257,13 +257,13 @@ func runAudit(args []string, log *slog.Logger, p *ui.Printer) error {
 	fmt.Println("  Auditing globally installed packages...")
 
 	sources := []auditSource{
-		{"npm (global)",  "npm",      auditNPMGlobals},
-		{"Python (pip)",  "pypi",     auditPipGlobals},
-		{"Cargo bins",    "crates",   auditCargoBins},
-		{"Go binaries",   "go",       auditGoBins},
-		{"Homebrew",      "brew",     auditBrewPackages},
-		{"Ruby gems",     "rubygems", auditGemPackages},
-		{"Docker images", "docker",   auditDockerImages},
+		{"npm (global)", "npm", auditNPMGlobals},
+		{"Python (pip)", "pypi", auditPipGlobals},
+		{"Cargo bins", "crates", auditCargoBins},
+		{"Go binaries", "go", auditGoBins},
+		{"Homebrew", "brew", auditBrewPackages},
+		{"Ruby gems", "rubygems", auditGemPackages},
+		{"Docker images", "docker", auditDockerImages},
 	}
 
 	ctx := context.Background()
@@ -686,19 +686,19 @@ func runDebug(args []string, log *slog.Logger, p *ui.Printer) error {
 
 	if *jsonFlag {
 		out := map[string]any{
-			"version":          version,
-			"commit":           commit,
-			"build_time":       buildTime,
-			"os":               runtime.GOOS,
-			"arch":             runtime.GOARCH,
-			"go_version":       runtime.Version(),
-			"config":           cfgInfo,
-			"signatures":       sigInfo,
-			"api_url":          apiURL,
-			"api_status":       apiStatus,
-			"tools":            tools,
+			"version":           version,
+			"commit":            commit,
+			"build_time":        buildTime,
+			"os":                runtime.GOOS,
+			"arch":              runtime.GOARCH,
+			"go_version":        runtime.Version(),
+			"config":            cfgInfo,
+			"signatures":        sigInfo,
+			"api_url":           apiURL,
+			"api_status":        apiStatus,
+			"tools":             tools,
 			"anthropic_api_key": apiKeyStatus,
-			"disk_free":        diskFree,
+			"disk_free":         diskFree,
 		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
@@ -731,10 +731,10 @@ func getDiskFreeGB() (float64, error) {
 
 // FGConfig is the ForgeGuardian user configuration stored in ~/.forgeguardian/config.yaml.
 type FGConfig struct {
-	APIUrl  string     `yaml:"api_url"`
-	Scan    ScanCfg    `yaml:"scan"`
-	Signing SignCfg    `yaml:"signing"`
-	Notify  NotifyCfg  `yaml:"notify"`
+	APIUrl  string    `yaml:"api_url"`
+	Scan    ScanCfg   `yaml:"scan"`
+	Signing SignCfg   `yaml:"signing"`
+	Notify  NotifyCfg `yaml:"notify"`
 }
 
 // NotifyCfg holds webhook delivery settings for scan alerts.
@@ -975,7 +975,7 @@ func applyPolicySet(pol *policy.Policy, kv string) error {
 // runStats prints ForgeGuardian runtime statistics from the loaded signature store.
 func runStats(args []string, log *slog.Logger, p *ui.Printer) error {
 	fs := flag.NewFlagSet("stats", flag.ExitOnError)
-	jsonFlag  := fs.Bool("json",  false, "output JSON")
+	jsonFlag := fs.Bool("json", false, "output JSON")
 	storeFlag := fs.String("store", "", "signature store path (default: ~/.forgeguardian/signatures.json)")
 	fs.Parse(args)
 

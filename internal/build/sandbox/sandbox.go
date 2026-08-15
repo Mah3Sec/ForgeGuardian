@@ -30,22 +30,22 @@ type NetworkEvent struct {
 
 // Result is the output of a sandbox.Run call.
 type Result struct {
-	Stdout           string
-	Stderr           string
-	ExitCode         int
-	NetworkEvents    []NetworkEvent
-	FilesWritten     []string
-	Duration         time.Duration
+	Stdout        string
+	Stderr        string
+	ExitCode      int
+	NetworkEvents []NetworkEvent
+	FilesWritten  []string
+	Duration      time.Duration
 }
 
 // ProcessSandbox runs commands as child processes with a minimal environment.
 // On Linux it optionally uses `unshare -n` to isolate the network namespace.
 // On macOS it audits connections via a pre/post snapshot of active sockets.
 type ProcessSandbox struct {
-	workDir   string          // ephemeral temp directory
-	env       []string        // minimal environment
-	mu        sync.Mutex
-	preConns  map[string]bool // connections before build
+	workDir  string   // ephemeral temp directory
+	env      []string // minimal environment
+	mu       sync.Mutex
+	preConns map[string]bool // connections before build
 }
 
 // New creates a new ProcessSandbox with an ephemeral working directory.

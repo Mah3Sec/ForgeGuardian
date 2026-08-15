@@ -34,9 +34,9 @@ func New(baseURL, apiKey string) *Client {
 
 // DTProject represents a Dependency-Track project.
 type DTProject struct {
-	UUID        string    `json:"uuid"`
-	Name        string    `json:"name"`
-	Version     string    `json:"version"`
+	UUID          string    `json:"uuid"`
+	Name          string    `json:"name"`
+	Version       string    `json:"version"`
 	LastBOMImport time.Time `json:"lastBomImport,omitempty"`
 }
 
@@ -61,10 +61,10 @@ type DTFinding struct {
 
 // DTComponent is a component within a DT project.
 type DTComponent struct {
-	UUID        string `json:"uuid"`
-	Name        string `json:"name"`
-	Version     string `json:"version"`
-	PackageURL  string `json:"purl,omitempty"`
+	UUID       string `json:"uuid"`
+	Name       string `json:"name"`
+	Version    string `json:"version"`
+	PackageURL string `json:"purl,omitempty"`
 }
 
 // UpsertProject creates or retrieves a DT project for the given package version.
@@ -152,18 +152,18 @@ func FindingsToCore(findings []DTFinding) []core.Finding {
 			continue
 		}
 		result = append(result, core.Finding{
-			ID:       f.Vulnerability.VulnID,
-			Severity: mapDTSeverity(f.Vulnerability.Severity),
-			Type:     "vulnerability",
-			Title:    fmt.Sprintf("%s in %s@%s", f.Vulnerability.VulnID, f.Component.Name, f.Component.Version),
+			ID:          f.Vulnerability.VulnID,
+			Severity:    mapDTSeverity(f.Vulnerability.Severity),
+			Type:        "vulnerability",
+			Title:       fmt.Sprintf("%s in %s@%s", f.Vulnerability.VulnID, f.Component.Name, f.Component.Version),
 			Description: f.Vulnerability.Description,
-			Source:   "dependency-track",
+			Source:      "dependency-track",
 			Metadata: map[string]any{
-				"component":  f.Component.Name,
-				"version":    f.Component.Version,
-				"purl":       f.Component.PackageURL,
-				"cvss_v3":    f.Vulnerability.CVSS,
-				"source":     f.Vulnerability.Source,
+				"component": f.Component.Name,
+				"version":   f.Component.Version,
+				"purl":      f.Component.PackageURL,
+				"cvss_v3":   f.Vulnerability.CVSS,
+				"source":    f.Vulnerability.Source,
 			},
 		})
 	}

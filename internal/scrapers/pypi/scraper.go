@@ -47,35 +47,26 @@ type pypiProject struct {
 }
 
 type pypiInfo struct {
-	Name        string `json:"name"`
-	Version     string `json:"version"`
-	Summary     string `json:"summary"`
-	License     string `json:"license"`
-	ProjectURL  string `json:"project_url"`
+	Name         string   `json:"name"`
+	Version      string   `json:"version"`
+	Summary      string   `json:"summary"`
+	License      string   `json:"license"`
+	ProjectURL   string   `json:"project_url"`
 	RequiresDist []string `json:"requires_dist"`
 }
 
 type pypiFile struct {
-	Filename        string   `json:"filename"`
-	URL             string   `json:"url"`
-	Digests         digests  `json:"digests"`
-	PackageType     string   `json:"packagetype"`
-	UploadTime      string   `json:"upload_time_iso_8601"`
-	RequiresPython  string   `json:"requires_python"`
+	Filename       string  `json:"filename"`
+	URL            string  `json:"url"`
+	Digests        digests `json:"digests"`
+	PackageType    string  `json:"packagetype"`
+	UploadTime     string  `json:"upload_time_iso_8601"`
+	RequiresPython string  `json:"requires_python"`
 }
 
 type digests struct {
 	MD5    string `json:"md5"`
 	SHA256 string `json:"sha256"`
-}
-
-// PyPI "recent updates" feed.
-type pypiUpdates []pypiUpdateEntry
-
-type pypiUpdateEntry struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
-	Date    string `json:"date"` // RFC3339
 }
 
 // Poll returns package versions published since lastRun.
@@ -248,11 +239,11 @@ func (s *Scraper) fetchProjectVersions(ctx context.Context, name string, since t
 			isDependencyConfusionRisk := looksInternal(name)
 
 			meta := map[string]any{
-				"filename":                   f.Filename,
-				"package_type":               f.PackageType,
-				"requires_python":            f.RequiresPython,
-				"dependency_confusion_risk":  isDependencyConfusionRisk,
-				"md5":                        f.Digests.MD5,
+				"filename":                  f.Filename,
+				"package_type":              f.PackageType,
+				"requires_python":           f.RequiresPython,
+				"dependency_confusion_risk": isDependencyConfusionRisk,
+				"md5":                       f.Digests.MD5,
 			}
 
 			results = append(results, core.PackageVersion{

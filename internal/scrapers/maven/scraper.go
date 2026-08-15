@@ -19,9 +19,9 @@ import (
 )
 
 const (
-	searchBase = "https://search.maven.org/solrsearch/select"
+	searchBase  = "https://search.maven.org/solrsearch/select"
 	centralBase = "https://repo1.maven.org/maven2"
-	userAgent  = "forgeguardian-scraper/0.1 (supply chain security)"
+	userAgent   = "forgeguardian-scraper/0.1 (supply chain security)"
 )
 
 // Scraper polls Maven Central for new artifact versions.
@@ -49,21 +49,14 @@ type mavenSearchResponse struct {
 }
 
 type mavenDoc struct {
-	ID           string `json:"id"`           // "group:artifact"
-	GroupID      string `json:"g"`
-	ArtifactID   string `json:"a"`
+	ID            string `json:"id"` // "group:artifact"
+	GroupID       string `json:"g"`
+	ArtifactID    string `json:"a"`
 	LatestVersion string `json:"latestVersion"`
-	VersionCount int    `json:"versionCount"`
-	Timestamp    int64  `json:"timestamp"` // milliseconds since epoch
+	VersionCount  int    `json:"versionCount"`
+	Timestamp     int64  `json:"timestamp"` // milliseconds since epoch
 	// For version-specific queries
-	Version      string `json:"v,omitempty"`
-}
-
-// mavenVersionsResponse is returned by the versions query.
-type mavenVersionsResponse struct {
-	Response struct {
-		Docs []mavenDoc `json:"docs"`
-	} `json:"response"`
+	Version string `json:"v,omitempty"`
 }
 
 // Poll returns Maven artifacts updated since lastRun.

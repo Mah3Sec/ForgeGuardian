@@ -33,7 +33,7 @@ func (h *Handler) TriggerRemoteScan(c *gin.Context) {
 	var req struct {
 		Target           string `json:"target"             binding:"required"` // "user@host" or "user@host:port"
 		Port             int    `json:"port"`
-		PrivateKey       string `json:"private_key"`        // PEM text pasted by the caller; never persisted
+		PrivateKey       string `json:"private_key"` // PEM text pasted by the caller; never persisted
 		RemotePath       string `json:"remote_path"`
 		AcceptNewHostKey bool   `json:"accept_new_host_key"`
 		MaxDepth         int    `json:"max_depth"`
