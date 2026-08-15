@@ -23,11 +23,10 @@ CGO_ENABLED  := 0
 
 .PHONY: all build build-fgctl build-agent build-intel clean install uninstall \
         test test-race lint fmt vet \
-        dashboard dashboard-dev \
         extension \
-        docker docker-minimal docker-dev docker-enterprise docker-down docker-logs \
-        api dev up down logs health \
-        release smoke-test \
+        docker docker-minimal docker-down docker-logs \
+        api up down logs health \
+        release \
         help
 
 # ─── Default ───────────────────────────────────────────────────────────────
@@ -104,11 +103,6 @@ test-cover:
 	$(GO) tool cover -html=coverage.out -o coverage.html
 	@echo "  [✓] Coverage report: coverage.html"
 
-## smoke-test: Run the automated smoke test suite against real packages
-smoke-test: build
-	@echo "Running smoke tests (requires internet + optional API key) ..."
-	FGCTL=./$(FGCTL) AGENT=./$(FG_AGENT) bash testenv/run-tests.sh
-
 # ─── Code Quality ──────────────────────────────────────────────────────────
 
 ## lint: Run golangci-lint
@@ -132,12 +126,6 @@ api: build-fgctl
 	@echo "  Tip: run 'make up' first to start postgres and redis"
 	PORT=8080 go run ./internal/api/
 
-## dev: Start full local dev environment (docker stack + dashboard hot reload)
-dev: build
-	$(MAKE) up
-	@echo "  Starting dashboard dev server ..."
-	cd dashboard && npm install --silent && npm run dev
-
 ## up: Start minimal docker stack (postgres + redis + API)
 up: docker-minimal
 	@echo "  Stack running. API → http://localhost:8080/healthz"
@@ -155,18 +143,6 @@ health:
 		&& echo "  [PASS] API healthy at http://localhost:8080" \
 		|| echo "  [FAIL] API not reachable — run: make up"
 
-# ─── Dashboard ─────────────────────────────────────────────────────────────
-
-## dashboard: Build the React dashboard for production
-dashboard:
-	@echo "Building dashboard ..."
-	cd dashboard && npm install --silent && npm run build
-	@echo "  [✓] Dashboard built → dashboard/dist/"
-
-## dashboard-dev: Start the dashboard dev server (hot reload)
-dashboard-dev:
-	cd dashboard && npm install --silent && npm run dev
-
 # ─── VS Code Extension ─────────────────────────────────────────────────────
 
 ## extension: Compile the VS Code extension
@@ -178,40 +154,20 @@ extension:
 
 # ─── Docker ────────────────────────────────────────────────────────────────
 
-## docker: Start the full local dev stack
+## docker: Start the full local stack (postgres + redis + API)
 docker:
 	@test -f .env || (echo "  Copy .env.example to .env and set ANTHROPIC_API_KEY" && cp .env.example .env)
 	docker compose up -d
 	@echo ""
 	@echo "  Services:"
 	@echo "    API        →  http://localhost:8080/healthz"
-	@echo "    Grafana    →  http://localhost:3002   (admin / admin)"
-	@echo "    MinIO      →  http://localhost:9001   (minioadmin / minioadmin)"
-	@echo "    Dep-Track  →  http://localhost:8081"
-	@echo "    Dashboard is not a docker service — run 'make dashboard-dev' → http://localhost:3000"
+	@echo "    Dashboard  →  http://localhost:3000"
 
 ## docker-minimal: Start minimal stack (postgres + redis + API only — fastest)
 docker-minimal:
 	@test -f .env || cp .env.example .env
 	docker compose -f docker-compose.minimal.yml up -d
 	@echo "  API  →  http://localhost:8080/healthz"
-
-## docker-dev: Start dev stack (+ MinIO + Prometheus + Grafana)
-docker-dev:
-	@test -f .env || cp .env.example .env
-	docker compose -f docker-compose.dev.yml up -d
-	@echo "  API     →  http://localhost:8080/healthz"
-	@echo "  Grafana →  http://localhost:3002   (admin / admin)"
-	@echo "  MinIO   →  http://localhost:9001   (minioadmin / minioadmin)"
-
-## docker-enterprise: Start full enterprise stack (+ Rekor + Trillian + Dep-Track + intel-agent)
-docker-enterprise:
-	@test -f .env || cp .env.example .env
-	docker compose -f docker-compose.enterprise.yml up -d
-	@echo "  API        →  http://localhost:8080/healthz"
-	@echo "  Grafana    →  http://localhost:3002"
-	@echo "  Rekor      →  http://localhost:3001"
-	@echo "  Dep-Track  →  http://localhost:8081"
 
 ## docker-down: Stop and remove all dev stack containers
 docker-down:
@@ -220,17 +176,6 @@ docker-down:
 ## docker-logs: Tail logs from all services
 docker-logs:
 	docker compose logs -f
-
-## docker-testenv: Start the vulnerable test environment
-docker-testenv:
-	docker compose -f testenv/docker-compose.testenv.yml up -d
-	@echo "  Vuln webapp  →  http://localhost:8888"
-	@echo "  Juice Shop   →  http://localhost:3333"
-	@echo "  Python API   →  http://localhost:5555"
-
-## docker-testenv-down: Stop the test environment
-docker-testenv-down:
-	docker compose -f testenv/docker-compose.testenv.yml down -v
 
 # ─── Release ───────────────────────────────────────────────────────────────
 
@@ -252,9 +197,9 @@ clean:
 	rm -f fgctl fg-agent intel-agent fgctl.exe fg-agent.exe intel-agent.exe
 	@echo "  [✓] Cleaned"
 
-## clean-all: Remove build artifacts + dashboard dist + extension out
+## clean-all: Remove build artifacts + extension out
 clean-all: clean
-	rm -rf dashboard/dist/ vscode-extension/out/
+	rm -rf vscode-extension/out/
 	@echo "  [✓] Full clean done"
 
 # ─── Help ──────────────────────────────────────────────────────────────────

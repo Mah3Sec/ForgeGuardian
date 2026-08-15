@@ -41,7 +41,7 @@ One tool. 9 ecosystems. AI triage. Community signatures. SLSA Level 3 provenance
 ## Quick Install
 
 ```bash
-# Homebrew (macOS / Linux)
+# Homebrew
 brew install mah3sec/tap/forgeguardian
 
 # Go install
@@ -69,12 +69,6 @@ fgctl patch . --dry-run                  # preview AI-proposed dependency upgrad
 ```
 
 No config file. No account. First three commands need zero API keys.
-
-**Want the web dashboard too?**
-```bash
-docker compose up -d                     # starts API + dashboard + postgres + redis
-# Open http://localhost:3000
-```
 
 **Sample output** (`fgctl scan .`):
 ```
@@ -162,17 +156,13 @@ Dashboard scan shows per-engine status: ✓ ran / ✗ skipped (with reason).
 
 ## Dashboard
 
-The web dashboard is included in the repo (`dashboard/`). One command starts everything:
-
 ```bash
-docker compose up -d           # starts postgres + redis + API + dashboard
+make up                        # start minimal stack: postgres + redis + API on :8080
+make dashboard-dev              # dashboard dev server on :3000, proxies /api/ to :8080
+open http://localhost:3000
 ```
 
-Open **http://localhost:3000** — the dashboard proxies API requests to the backend automatically. CLI and dashboard share the same API, same data. Scan from the CLI, see results in the dashboard. Trigger a scan from the dashboard, query it with `fgctl`.
-
-Live preview: [forgeguardian.mahendrapurbia.com](https://forgeguardian.mahendrapurbia.com)
-
-**28 routes. All connected to live backend when self-hosted.**
+**28 routes. All connected to live backend — no mocked pages.**
 
 | Page | What it does |
 |---|---|
@@ -252,7 +242,7 @@ fgctl intel list --type=malware_pattern
 | `mcp_injection_pattern` | Tool shadowing, data exfil via output | 2 |
 | `pickle_rule` | Unsafe AI model configs, missing model cards | 2 |
 
-Use `fgctl intel new` to create a signature with the interactive wizard.
+Full authoring guide: [SIGNATURES.md](SIGNATURES.md)
 
 ---
 
@@ -400,15 +390,22 @@ Every package gets a letter grade (A–F) from a composite score:
 
 ---
 
-## Full Platform (Self-Hosted)
+## Full Platform (Team / Enterprise)
 
 ```bash
-docker compose up -d     # postgres + redis + API + dashboard
+make up            # full dev stack
+make up-minimal    # API + DB only
+make up-enterprise # + Dependency-Track + Rekor
 ```
 
-Open http://localhost:3000 for the dashboard, http://localhost:8080/healthz for the API.
+Includes: PostgreSQL, Redis, MinIO, Rekor, Prometheus, Grafana, API, Worker, Dashboard, Intel-Agent CronJob.
 
-Everything runs locally — no cloud dependency, no telemetry, no data leaves your machine.
+**Production deployment** (AWS):
+```
+infra/terraform/environments/prod/   → EKS + RDS PostgreSQL 16 + S3
+infra/k8s/                           → Kustomize base + prod overlay
+.github/workflows/release.yml       → SLSA Level 3 goreleaser + cosign
+```
 
 ---
 
@@ -438,6 +435,8 @@ Everything runs locally — no cloud dependency, no telemetry, no data leaves yo
 └──────────────────────────────────────────────────────────────────┘
 ```
 
+Full draw.io diagram: [forgeguardian-architecture.drawio](forgeguardian-architecture.drawio)
+
 ---
 
 ## Trust & Privacy
@@ -448,6 +447,8 @@ Everything runs locally — no cloud dependency, no telemetry, no data leaves yo
 - Self-hostable and airgap-compatible
 - SLSA Level 3 provenance published for every release
 - SBOMs published for every release via Sigstore/Rekor
+
+See [PRIVACY.md](PRIVACY.md) for full data-flow breakdown per command.
 
 ---
 
@@ -462,7 +463,9 @@ fgctl intel new    # guided wizard
 For code: fork → branch → PR. All PRs run Semgrep + unit tests.
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) — development setup
+- [SIGNATURES.md](SIGNATURES.md) — signature authoring guide
 - [SECURITY.md](SECURITY.md) — vulnerability disclosure
+- [TESTING.md](TESTING.md) — verify your build actually works
 
 ---
 

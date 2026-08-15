@@ -10,18 +10,24 @@
 /CLAUDE.md
 /DESIGN.md
 /.claude/skills/
-/.env.example
 /testenv/
-/infra/
 /GUIDE.md
 /THREAT_MODEL.md
 /MODES.md
 /WORKFLOWS.md
-/TESTING.md
-/PRIVACY.md
+
+# ─── Infrastructure (keep initdb for docker-compose) ─────────────────────
+/infra/terraform/
+/infra/k8s/base/
+/infra/k8s/overlays/
+/infra/dependency-track/
+/infra/grafana/
+/infra/prometheus/
 /docker-compose.enterprise.yml
 /docker-compose.dev.yml
 /docker-compose.base.yml
+/PRIVACY.md
+/TESTING.md
 
 # ─── Compiled binaries (root level) ───────────────────────────────────────
 /fgctl
@@ -42,8 +48,9 @@ coverage.out
 # ─── Go ───────────────────────────────────────────────────────────────────
 vendor/
 
-# ─── Dashboard (moved to forgeguardian-site repo) ────────────────────────
-/dashboard/
+# ─── Dashboard build output ──────────────────────────────────────────────
+/dashboard/dist/
+/dashboard/node_modules/
 
 # ─── VS Code extension ────────────────────────────────────────────────────
 vscode-extension/out/

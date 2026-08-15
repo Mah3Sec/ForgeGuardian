@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/fatih/color"
@@ -285,12 +284,11 @@ func checkSignatures() doctorCheck {
 }
 
 func checkDiskSpace() doctorCheck {
-	var stat syscall.Statfs_t
 	dir := os.TempDir()
-	if err := syscall.Statfs(dir, &stat); err != nil {
+	freeGB, err := diskFreeGB()
+	if err != nil {
 		return doctorCheck{Name: "disk space", Status: doctorWarn, Detail: "cannot check: " + err.Error()}
 	}
-	freeGB := float64(stat.Bavail*uint64(stat.Bsize)) / (1024 * 1024 * 1024)
 	if freeGB < 0.5 {
 		return doctorCheck{
 			Name:   "disk space",

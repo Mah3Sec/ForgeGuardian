@@ -144,6 +144,7 @@ func TestSaveLoad_RoundTrip(t *testing.T) {
 
 	// Override the default path via env.
 	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
 
 	pol := &Policy{
 		Version:            1,
@@ -173,7 +174,9 @@ func TestSaveLoad_RoundTrip(t *testing.T) {
 }
 
 func TestLoad_MissingFile_ReturnsNil(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	t.Setenv("USERPROFILE", tmp)
 	pol, err := Load()
 	if err != nil {
 		t.Fatalf("Load on missing file: want nil err, got %v", err)

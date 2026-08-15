@@ -1,5 +1,10 @@
 version: "3.9"
 
+# Full platform stack — postgres + redis + API + dashboard.
+# Usage: docker compose up -d
+#        Open http://localhost:3000
+# Copy .env.example to .env before starting.
+
 networks:
   forgeguardian:
     driver: bridge
@@ -7,9 +12,6 @@ networks:
 volumes:
   postgres_data:
   redis_data:
-  minio_data:
-  grafana_data:
-  rekor_data:
 
 services:
   # ── Metadata store ──────────────────────────────────────────────────────────
@@ -48,112 +50,7 @@ services:
       timeout: 3s
       retries: 10
 
-  # ── Artifact store ──────────────────────────────────────────────────────────
-  minio:
-    image: minio/minio:latest
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
-    volumes:
-      - minio_data:/data
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    networks: [forgeguardian]
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
-  # ── Sigstore: Rekor transparency log ───────────────────────────────────────
-  rekor-server:
-    image: gcr.io/projectsigstore/rekor-server:latest
-    restart: unless-stopped
-    command:
-      - serve
-      - --rekor_server.address=0.0.0.0
-      - --rekor_server.port=3000
-      - --trillian_log_server.address=trillian-log-server
-      - --trillian_log_server.port=8091
-      - --enable_retrieve_api=true
-    ports:
-      - "3001:3000"
-    networks: [forgeguardian]
-    depends_on:
-      trillian-log-server:
-        condition: service_started
-
-  # Trillian is required by Rekor
-  trillian-log-server:
-    image: gcr.io/projectsigstore/trillian_log_server:latest
-    restart: unless-stopped
-    command:
-      - --storage_system=mysql
-      - --mysql_uri=root:password@tcp(trillian-db:3306)/trillian
-      - --rpc_endpoint=0.0.0.0:8091
-      - --http_endpoint=0.0.0.0:8090
-    networks: [forgeguardian]
-    depends_on:
-      trillian-db:
-        condition: service_healthy
-
-  trillian-db:
-    image: gcr.io/projectsigstore/trillian-db:latest
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: password
-      MYSQL_DATABASE: trillian
-    networks: [forgeguardian]
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "--password=password"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-
-  # ── SBOM-driven continuous monitoring ──────────────────────────────────────
-  dependency-track:
-    image: dependencytrack/bundled:latest
-    restart: unless-stopped
-    environment:
-      ALPINE_DATABASE_MODE: embedded
-    ports:
-      - "8081:8080"
-    networks: [forgeguardian]
-    volumes:
-      - ./infra/dependency-track:/data
-
-  # ── Observability ───────────────────────────────────────────────────────────
-  prometheus:
-    image: prom/prometheus:latest
-    restart: unless-stopped
-    command:
-      - --config.file=/etc/prometheus/prometheus.yml
-      - --storage.tsdb.path=/prometheus
-      - --web.enable-lifecycle
-    volumes:
-      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    ports:
-      - "9090:9090"
-    networks: [forgeguardian]
-
-  grafana:
-    image: grafana/grafana:latest
-    restart: unless-stopped
-    environment:
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
-      GF_USERS_ALLOW_SIGN_UP: "false"
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
-    ports:
-      - "3002:3000"
-    networks: [forgeguardian]
-    depends_on: [prometheus]
-
-  # ── ForgeGuardian services ──────────────────────────────────────────────────
+  # ── ForgeGuardian API ───────────────────────────────────────────────────────
   forgeguardian-api:
     build:
       context: .
@@ -161,9 +58,6 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://forgeguardian:${POSTGRES_PASSWORD:-devpassword}@postgres:5432/forgeguardian?sslmode=disable
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       LOG_LEVEL: info
     ports:
@@ -172,3 +66,15 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  # ── Web Dashboard ──────────────────────────────────────────────────────────
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    networks: [forgeguardian]
+    depends_on:
+      - forgeguardian-api
