@@ -107,12 +107,12 @@ brews:
       - default
     repository:
       owner: mah3sec
-      name: homebrew-forgeguardian
+      name: homebrew-tap
       branch: main
     directory: Formula
     homepage: "https://github.com/mah3sec/forgeguardian"
     description: "AI-powered supply chain security scanner for software packages"
-    license: "MIT"
+    license: "Apache-2.0"
     install: |
       bin.install "fgctl"
       bin.install "fg-agent"
@@ -139,8 +139,7 @@ release:
 
     **Homebrew:**
     ```bash
-    brew tap mah3sec/forgeguardian
-    brew install forgeguardian
+    brew install mah3sec/tap/forgeguardian
     ```
 
     **Curl installer:**
