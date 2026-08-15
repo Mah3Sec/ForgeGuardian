@@ -10,6 +10,10 @@ linters:
     - misspell
     - revive
     - gosec
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters: [gosec, errcheck]
   settings:
     gosec:
       excludes:
@@ -35,8 +39,5 @@ formatters:
     - goimports
 
 issues:
-  exclude-rules:
-    - path: _test\.go
-      linters: [gosec, errcheck]
   max-issues-per-linter: 50
   max-same-issues: 10
