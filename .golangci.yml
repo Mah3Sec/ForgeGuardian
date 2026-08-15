@@ -14,34 +14,19 @@ linters:
     - misspell
     - revive
     - gosec
-    - bodyclose
 
 linters-settings:
   gosec:
     excludes:
-      - G107  # HTTP request with variable URL (expected for registry fetches)
-      - G109  # integer overflow from Atoi to int32 (bounded by validation)
-      - G115  # integer overflow (too noisy)
-      - G204  # subprocess with variable args (expected for CLI tool)
-      - G306  # WriteFile permissions (acceptable for CLI tool)
+      - G107
+      - G109
+      - G115
+      - G204
+      - G306
   staticcheck:
     checks: ["all", "-SA1019", "-SA4010"]
   errcheck:
     check-type-assertions: false
-    exclude-functions:
-      - fmt.Sscanf
-      - fmt.Fprintf
-      - fmt.Fprintln
-      - encoding/json.Unmarshal
-      - (*encoding/json.Decoder).Decode
-      - (*encoding/json.Encoder).Encode
-      - (*flag.FlagSet).Parse
-      - (*os.File).Seek
-      - os.MkdirAll
-      - os.WriteFile
-      - io.Copy
-      - (*net/http.Server).Shutdown
-      - (*github.com/briandowns/spinner.Spinner).Color
   revive:
     rules:
       - name: exported
