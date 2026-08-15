@@ -5,6 +5,32 @@ run:
 
 linters:
   default: standard
+  enable:
+    - misspell
+    - gosec
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters: [gosec, errcheck]
+  settings:
+    errcheck:
+      exclude-functions:
+        - os.Remove
+        - (*os.File).Close
+        - (io.Closer).Close
+        - (*compress/gzip.Reader).Close
+    gosec:
+      excludes:
+        - G107
+        - G109
+        - G115
+        - G204
+        - G306
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
 
 issues:
   max-issues-per-linter: 50
