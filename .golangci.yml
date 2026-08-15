@@ -6,7 +6,6 @@ run:
 linters:
   default: standard
   enable:
-    - goimports
     - misspell
     - revive
     - gosec
@@ -14,24 +13,6 @@ linters:
     rules:
       - path: _test\.go
         linters: [gosec, errcheck]
-  settings:
-    gosec:
-      excludes:
-        - G107
-        - G109
-        - G115
-        - G204
-        - G306
-    staticcheck:
-      checks: ["all", "-SA1019", "-SA4010"]
-    errcheck:
-      check-type-assertions: false
-    revive:
-      rules:
-        - name: exported
-          severity: warning
-          disabled: true
-        - name: error-return
 
 formatters:
   enable:
