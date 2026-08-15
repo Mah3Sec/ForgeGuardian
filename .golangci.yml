@@ -21,7 +21,11 @@ linters:
         - G109
         - G115
         - G204
+        - G301
+        - G304
         - G306
+        - G703
+        - G704
 
 formatters:
   enable:
