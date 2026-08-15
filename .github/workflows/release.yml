@@ -43,6 +43,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FG_LICENSE_SECRET: ${{ secrets.FG_LICENSE_SECRET }}
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
 
   sign-images:
     name: Build & Sign Container Images
@@ -51,6 +52,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set lowercase owner
+        run: echo "OWNER_LC=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
       - uses: docker/setup-buildx-action@v3
 
@@ -74,15 +78,15 @@ jobs:
           sbom: true
           provenance: mode=max
           tags: |
-            ghcr.io/${{ github.repository_owner }}/forgeguardian-api:${{ github.ref_name }}
-            ghcr.io/${{ github.repository_owner }}/forgeguardian-api:latest
+            ghcr.io/${{ env.OWNER_LC }}/forgeguardian-api:${{ github.ref_name }}
+            ghcr.io/${{ env.OWNER_LC }}/forgeguardian-api:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Sign API image (keyless)
         run: |
           cosign sign --yes \
-            "ghcr.io/${{ github.repository_owner }}/forgeguardian-api@${{ steps.push-api.outputs.digest }}"
+            "ghcr.io/${{ env.OWNER_LC }}/forgeguardian-api@${{ steps.push-api.outputs.digest }}"
 
       - name: Release summary
         run: |
@@ -93,7 +97,7 @@ jobs:
             echo "- [Download](https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }})"
             echo ""
             echo "### Container Images"
-            echo "- API:    \`ghcr.io/${{ github.repository_owner }}/forgeguardian-api:${{ github.ref_name }}\`"
+            echo "- API:    \`ghcr.io/${{ env.OWNER_LC }}/forgeguardian-api:${{ github.ref_name }}\`"
             echo ""
             echo "### Install"
             echo '```bash'

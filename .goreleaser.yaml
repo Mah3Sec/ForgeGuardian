@@ -102,13 +102,13 @@ changelog:
 
 brews:
   - name: forgeguardian
-    skip_upload: true
     ids:
       - default
     repository:
       owner: mah3sec
       name: homebrew-tap
       branch: main
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     directory: Formula
     homepage: "https://github.com/mah3sec/forgeguardian"
     description: "AI-powered supply chain security scanner for software packages"
