@@ -12,8 +12,16 @@
 /.claude/skills/
 /.env.example
 /testenv/
-/infra/terraform/
-/infra/k8s/base/secrets-template.yaml
+/infra/
+/GUIDE.md
+/THREAT_MODEL.md
+/MODES.md
+/WORKFLOWS.md
+/TESTING.md
+/PRIVACY.md
+/docker-compose.enterprise.yml
+/docker-compose.dev.yml
+/docker-compose.base.yml
 
 # ─── Compiled binaries (root level) ───────────────────────────────────────
 /fgctl
