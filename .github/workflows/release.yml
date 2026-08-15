@@ -42,11 +42,6 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Real license-signing secret, set in repo Settings > Secrets and
-          # variables > Actions. Never committed. The step above already
-          # hard-fails the release if it's unset — see internal/license/license.go
-          # for why the public dev-build default must never ship in a real
-          # release binary (it's readable in the open-source repo itself).
           FG_LICENSE_SECRET: ${{ secrets.FG_LICENSE_SECRET }}
 
   sign-images:
@@ -73,7 +68,8 @@ jobs:
         id: push-api
         uses: docker/build-push-action@v6
         with:
-          context: ./internal/api
+          context: .
+          file: ./internal/api/Dockerfile
           push: true
           sbom: true
           provenance: mode=max
