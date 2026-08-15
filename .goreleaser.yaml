@@ -85,7 +85,6 @@ archives:
     files:
       - README.md
       - LICENSE
-      - GUIDE.md
 
 checksum:
   name_template: "checksums.txt"
@@ -101,7 +100,7 @@ changelog:
       - Merge pull request
       - Merge branch
 
-brews:
+homebrew:
   - name: forgeguardian
     ids:
       - default
