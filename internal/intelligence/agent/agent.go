@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	model     = anthropic.ModelClaudeSonnet4_20250514
+	model     anthropic.Model = "claude-sonnet-4-20250514"
 	maxTokens = 4096
 	maxIter   = 20
 )
@@ -310,8 +310,8 @@ func BuildThreatContext(osvFindings []intelligence.DetectionSignature, ossffFind
 	if len(osvFindings) > 0 {
 		sb.WriteString("### OSV Vulnerability Feed\n")
 		for _, f := range osvFindings {
-			sb.WriteString(fmt.Sprintf("- Package: %s/%s | CVE: %s | Severity: %s | %s\n",
-				f.Ecosystem, f.Package, f.CVE, f.Severity, f.Title))
+			fmt.Fprintf(&sb, "- Package: %s/%s | CVE: %s | Severity: %s | %s\n",
+				f.Ecosystem, f.Package, f.CVE, f.Severity, f.Title)
 		}
 		sb.WriteString("\n")
 	}
@@ -319,10 +319,10 @@ func BuildThreatContext(osvFindings []intelligence.DetectionSignature, ossffFind
 	if len(ossffFindings) > 0 {
 		sb.WriteString("### OpenSSF Malicious Packages Feed\n")
 		for _, f := range ossffFindings {
-			sb.WriteString(fmt.Sprintf("- Package: %s/%s | Source: %s | %s\n",
-				f.Ecosystem, f.Package, f.Source, f.Title))
+			fmt.Fprintf(&sb, "- Package: %s/%s | Source: %s | %s\n",
+				f.Ecosystem, f.Package, f.Source, f.Title)
 			if f.Description != "" {
-				sb.WriteString(fmt.Sprintf("  Details: %s\n", truncate(f.Description, 200)))
+				fmt.Fprintf(&sb, "  Details: %s\n", truncate(f.Description, 200))
 			}
 		}
 		sb.WriteString("\n")

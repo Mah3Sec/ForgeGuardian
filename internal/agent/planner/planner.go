@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	model     = anthropic.ModelClaudeSonnet4_20250514
+	model     anthropic.Model = "claude-sonnet-4-20250514"
 	maxTokens = 4096
 	maxIter   = 10 // safety limit on tool-use iterations
 )

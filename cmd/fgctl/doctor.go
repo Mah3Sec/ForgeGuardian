@@ -115,9 +115,10 @@ func runDoctor(args []string, log *slog.Logger) error {
 					// actually incremented — decrementing `failures` for a
 					// check that was only ever a WARN drove the total
 					// negative (a real bug this comment replaces).
-					if c.Status == doctorFail {
+					switch c.Status {
+					case doctorFail:
 						failures--
-					} else if c.Status == doctorWarn {
+					case doctorWarn:
 						warnings--
 					}
 				}

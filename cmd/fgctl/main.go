@@ -724,7 +724,7 @@ func runUpdate(args []string, log *slog.Logger) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return fmt.Errorf("download failed: HTTP 404 — %s doesn't have a signatures.json release yet (or the repo isn't public). Not a network problem on your end.", communityRepoURL)
+		return fmt.Errorf("download failed: HTTP 404 — %s doesn't have a signatures.json release yet (or the repo isn't public)", communityRepoURL)
 	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("download failed: HTTP %d fetching %s", resp.StatusCode, signaturesReleaseURL)
@@ -1061,27 +1061,6 @@ func printLocalScanResult(result *localscanner.ProjectScanResult, opts localScan
 	p.PrintMissingToolsWarning(result.MissingTools)
 
 	// Group results by manifest file.
-	type group struct {
-		manifest localscanner.ManifestFile
-		results  []localscanner.LocalScanResult
-	}
-	groups := map[string]*group{}
-	order := []string{}
-	for _, mf := range result.Manifests {
-		if _, ok := groups[mf.Path]; !ok {
-			groups[mf.Path] = &group{manifest: mf}
-			order = append(order, mf.Path)
-		}
-	}
-	for _, r := range filteredResults {
-		key := r.Entry.FilePath
-		if _, ok := groups[key]; !ok {
-			groups[key] = &group{manifest: localscanner.ManifestFile{Path: key, Ecosystem: r.Entry.Ecosystem}}
-			order = append(order, key)
-		}
-		groups[key].results = append(groups[key].results, r)
-	}
-
 	if opts.compact {
 		p.PrintCompactGrouped(filteredResults)
 		fmt.Fprintln(os.Stdout)
