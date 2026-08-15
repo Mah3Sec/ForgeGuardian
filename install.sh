@@ -140,7 +140,7 @@ install_from_github() {
 
   # checksum verification (best-effort — skip if file absent)
   curl -sSfL $CURL_OPTS \
-    "${base_url}/forgeguardian_${version_bare}_checksums.txt" \
+    "${base_url}/checksums.txt" \
     -o "${tmpdir}/checksums.txt" 2>/dev/null || true
 
   if [ -f "${tmpdir}/checksums.txt" ]; then

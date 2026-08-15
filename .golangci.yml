@@ -5,19 +5,6 @@ run:
 
 linters:
   default: standard
-  enable:
-    - misspell
-    - revive
-    - gosec
-  exclusions:
-    rules:
-      - path: _test\.go
-        linters: [gosec, errcheck]
-
-formatters:
-  enable:
-    - gofmt
-    - goimports
 
 issues:
   max-issues-per-linter: 50
