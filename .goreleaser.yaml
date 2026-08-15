@@ -100,7 +100,7 @@ changelog:
       - Merge pull request
       - Merge branch
 
-homebrew:
+brews:
   - name: forgeguardian
     ids:
       - default
