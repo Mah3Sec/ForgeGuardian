@@ -56,7 +56,6 @@ For teams, ForgeGuardian includes a web dashboard (28 pages), a REST API (42 end
 - 8 concurrent scan engines, 24 community detection signatures
 - 9 ecosystem support (including emerging AI/ML supply chain: HuggingFace, MCP)
 - Full dashboard with 28 functional pages
-- VS Code extension with inline diagnostics
 - CI/CD integration (GitHub Actions, GitLab CI)
 - SLSA Level 3 provenance and Sigstore signing
 

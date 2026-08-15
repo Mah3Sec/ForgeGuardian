@@ -102,18 +102,15 @@ ForgeGuardian is **open-core** — the engine, CLI, scanner, and community tools
 | `fgctl intel new/validate/test/update` | ✅ | ✅ |
 | Policy-as-code enforcement | ✅ | ✅ |
 | Self-hostable + airgap-compatible | ✅ | ✅ |
-| VS Code inline diagnostics + hover cards | ✅ | ✅ |
 | Basic dashboard | ✅ | ✅ |
 | Dashboard: allowlist, advisory, monitor, alerts, agents (patch feed), projects, webhooks | ✅ | ✅ |
 | `fgctl advisory` / `fgctl patch` / `fgctl monitor` — AI features via CLI | 🔒 needs `FG_LICENSE_KEY` | ✅ |
 | The same 3 features via the dashboard/API (needs `ANTHROPIC_API_KEY` only) | ✅ | ✅ |
-| VS Code: inline diagnostics, hover cards, code lens, 2 sidebar trees, auto-scan on save | ✅ | ✅ |
-| VS Code: AI Advisory command | 🔒 needs `FG_LICENSE_KEY` | ✅ |
 | Team management + RBAC | — | ✅ |
 | SLA + priority support | — | ✅ |
 | Cloud-hosted option | — | ✅ |
 
-> **Why open-core?** The engine stays free, community signatures stay community-owned, revenue from Pro funds continued development. You'll never lose access to what you have today. Pro doesn't exist yet as a shipped product with actual billing — the CLI/extension check for `FG_LICENSE_KEY` today, but the dashboard and API don't enforce this at all, so the split above is aspirational, not yet consistently enforced.
+> **Why open-core?** The engine stays free, community signatures stay community-owned, revenue from Pro funds continued development. You'll never lose access to what you have today. Pro doesn't exist yet as a shipped product with actual billing — the CLI checks for `FG_LICENSE_KEY` today, but the dashboard and API don't enforce this at all, so the split above is aspirational, not yet consistently enforced.
 
 Interested in Pro? Watch this repo — a signup link goes here once it ships.
 
@@ -203,18 +200,6 @@ Live preview: [forgeguardian.mahendrapurbia.com](https://forgeguardian.mahendrap
 | AI Security | AI supply chain threat explainer |
 | Docs / API Docs | In-app documentation + API reference |
 | Settings | Config management |
-
----
-
-## VS Code Extension
-
-Built and included in `vscode-extension/`. Install from VS Code marketplace.
-
-- Inline red/yellow squiggles on vulnerable dependency lines
-- Hover cards with CVE details and fix hints
-- Code lens "Scan this file" button on manifest files
-- Sidebar: scan results tree + intelligence signatures
-- Auto-scan on manifest save
 
 ---
 
@@ -416,7 +401,7 @@ Everything runs locally — no cloud dependency, no telemetry, no data leaves yo
 
 ```
 ┌─── CLIENTS ──────────────────────────────────────────────────────┐
-│  fgctl CLI  •  VS Code Extension  •  Browser  •  GitHub Actions  │
+│  fgctl CLI  •  Dashboard  •  Browser  •  GitHub Actions  │
 └──────────────────────────┬───────────────────────────────────────┘
                            │ HTTPS
 ┌─── AWS VPC ──────────────▼───────────────────────────────────────┐

@@ -52,12 +52,6 @@ vendor/
 /dashboard/dist/
 /dashboard/node_modules/
 
-# ─── VS Code extension ────────────────────────────────────────────────────
-vscode-extension/out/
-vscode-extension/node_modules/
-vscode-extension/*.vsix
-vscode-extension/*.tsbuildinfo
-
 # ─── Docker / local service data ──────────────────────────────────────────
 infra/dependency-track/
 postgres-data/

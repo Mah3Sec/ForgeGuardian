@@ -3,7 +3,6 @@
 bin/
 dist/
 dashboard/
-vscode-extension/
 *.exe
 *.test
 coverage.out

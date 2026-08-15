@@ -143,15 +143,6 @@ health:
 		&& echo "  [PASS] API healthy at http://localhost:8080" \
 		|| echo "  [FAIL] API not reachable — run: make up"
 
-# ─── VS Code Extension ─────────────────────────────────────────────────────
-
-## extension: Compile the VS Code extension
-extension:
-	@echo "Compiling VS Code extension ..."
-	cd vscode-extension && npm install --silent && npm run compile 2>/dev/null || \
-		npx tsc --outDir out src/*.ts 2>/dev/null || true
-	@echo "  [✓] Extension compiled → vscode-extension/out/"
-
 # ─── Docker ────────────────────────────────────────────────────────────────
 
 ## docker: Start the full local stack (postgres + redis + API)
@@ -196,11 +187,6 @@ clean:
 	rm -rf $(BINARY_DIR) dist/ coverage.out coverage.html
 	rm -f fgctl fg-agent intel-agent fgctl.exe fg-agent.exe intel-agent.exe
 	@echo "  [✓] Cleaned"
-
-## clean-all: Remove build artifacts + extension out
-clean-all: clean
-	rm -rf vscode-extension/out/
-	@echo "  [✓] Full clean done"
 
 # ─── Help ──────────────────────────────────────────────────────────────────
 

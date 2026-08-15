@@ -24,12 +24,11 @@
 15. [Debug Command](#15-debug-command)
 16. [Config Command](#16-config-command)
 17. [Web Dashboard](#17-web-dashboard)
-18. [VS Code Extension](#18-vs-code-extension)
-19. [Docker Profiles](#19-docker-profiles)
-20. [Test Environments](#20-test-environments)
-21. [Vulnerable Packages for Testing](#21-vulnerable-packages-for-testing)
-22. [Full Walkthrough Examples](#22-full-walkthrough-examples)
-23. [Troubleshooting](#23-troubleshooting)
+18. [Docker Profiles](#18-docker-profiles)
+19. [Test Environments](#19-test-environments)
+20. [Vulnerable Packages for Testing](#20-vulnerable-packages-for-testing)
+21. [Full Walkthrough Examples](#21-full-walkthrough-examples)
+22. [Troubleshooting](#22-troubleshooting)
 24. [Policy-as-Code](#24-policy-as-code)
 25. [Risk Score](#25-risk-score)
 26. [Webhook Notifications](#26-webhook-notifications)
@@ -934,62 +933,7 @@ All API calls in the dashboard have a 30-second AbortController timeout. Hung re
 
 ---
 
-## 18. VS Code Extension
-
-### Install
-
-Install from the VS Code marketplace (search "ForgeGuardian") or build from source:
-
-```bash
-cd vscode-extension
-npm install
-npm run compile
-# Load via "Install VSIX" in VS Code
-```
-
-### Features
-
-**Inline diagnostics** — red/yellow squiggles on vulnerable packages in:
-- `package.json` (npm)
-- `requirements.txt` (pypi)
-- `go.mod` (go)
-
-**Hover cards** — hover over any package line to see:
-- Top 3 findings by severity
-- CVE IDs and source scanner
-- Link to open the AI advisory
-
-**CodeLens** — per-dependency scan status shown above each line:
-- `🛡 ForgeGuardian: Click to scan` (unseen)
-- `✓ No findings` (clean)
-- `⚠ 2 findings (1 HIGH)` (issues found)
-
-**Auto-scan on save** — enable in settings:
-```json
-{ "forgeguardian.autoScanOnSave": true }
-```
-
-**Commands (Ctrl+Shift+P):**
-- `ForgeGuardian: Scan Current File`
-- `ForgeGuardian: Scan Package`
-- `ForgeGuardian: Generate AI Advisory`
-- `ForgeGuardian: Generate SBOM`
-- `ForgeGuardian: Verify Attestation`
-- `ForgeGuardian: Open Dashboard`
-- `ForgeGuardian: Refresh Intelligence Signatures`
-
-### Settings
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `forgeguardian.apiUrl` | `http://localhost:8080` | ForgeGuardian API server URL |
-| `forgeguardian.autoScanOnSave` | `false` | Scan manifest files on save |
-| `forgeguardian.failOnSeverity` | `high` | Minimum severity for error diagnostics |
-| `forgeguardian.anthropicApiKey` | `""` | Anthropic API key (or use `ANTHROPIC_API_KEY` env var) |
-
----
-
-## 19. Docker Profiles
+## 18. Docker Profiles
 
 ### Minimal
 
@@ -1029,7 +973,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 ---
 
-## 20. Test Environments
+## 19. Test Environments
 
 ### Local machine (scan only — safe)
 
@@ -1077,7 +1021,7 @@ fg-agent --recipe=npm --package=lodash --version=4.17.20 \
 
 ---
 
-## 21. Vulnerable Packages for Testing
+## 20. Vulnerable Packages for Testing
 
 > Run in a sandbox/VM. Do not install or execute these in production.
 
@@ -1146,7 +1090,7 @@ fgctl audit system
 
 ---
 
-## 22. Full Walkthrough Examples
+## 21. Full Walkthrough Examples
 
 ### Scan → SBOM → Sign → Verify (no API key)
 
@@ -1221,7 +1165,7 @@ fgctl debug --json > fg-debug.json
 
 ---
 
-## 23. Troubleshooting
+## 22. Troubleshooting
 
 | Problem | Cause | Fix |
 |---------|-------|-----|
@@ -1237,8 +1181,6 @@ fgctl debug --json > fg-debug.json
 | `fgctl: command not found` | Not in PATH | `export PATH=$PATH:$(go env GOPATH)/bin` |
 | Semgrep takes too long | Large package | `--timeout=20m` |
 | `conflicting replacements` in go build | `go.work` edited incorrectly | `git checkout go.work` |
-| VSCode diagnostics not appearing | API not running | Start `docker-compose.minimal.yml`, check `forgeguardian.apiUrl` |
-| VSCode hover not working | `autoScanOnSave` disabled, no scan run | Run `ForgeGuardian: Scan Current File` command |
 | `fgctl debug` shows config: not found | Config not initialised | `fgctl config init` |
 | `fgctl monitor` exits immediately | Missing `--watch` flag | `fgctl monitor --watch .` |
 

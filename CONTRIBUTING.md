@@ -140,16 +140,6 @@ npm run build    # production build
 
 All new UI components go in `src/components/ui/` (shadcn/ui style — use the existing `cn()` helper from `utils.ts`). New pages go in `src/pages/` and need routes in `App.tsx` and nav entries in `Sidebar.tsx`.
 
-### VS Code extension
-
-```bash
-cd vscode-extension
-npm install
-npm run compile     # TypeScript compile check
-```
-
-Manifest parsers for inline diagnostics are in `src/diagnostics.ts`. Add new manifest file support by extending `parsePackagesFromDocument()` and the `MANIFEST_FILES` set.
-
 ---
 
 ## Pull Request checklist
@@ -159,7 +149,6 @@ Manifest parsers for inline diagnostics are in `src/diagnostics.ts`. Add new man
 - [ ] `fgctl doctor` shows no new FAILs from my change
 - [ ] `fgctl debug` shows expected output for any new command
 - [ ] For dashboard changes: `tsc --noEmit` passes in `dashboard/` and `npm run build` succeeds
-- [ ] For extension changes: `npm run compile` passes in `vscode-extension/`
 - [ ] Tests added for new logic in `internal/`
 - [ ] No secrets committed (`.env` files, API keys)
 - [ ] New scan flags added to both `cmd/fgctl/main.go` (flag definition) and the scan filter struct; also update `localScanOpts` struct, `filterResults()`, `runLocalScan()`, and the `printUsage()` help text

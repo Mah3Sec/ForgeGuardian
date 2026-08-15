@@ -125,15 +125,6 @@ $ fgctl patch . --project-dir=.
 fgctl scan . --only-fixable --compact
 ```
 
-### VS Code Extension — Auto-Scan on Save
-
-Install the ForgeGuardian VS Code extension. It automatically scans when you save a manifest file (`package.json`, `requirements.txt`, etc.) and displays findings as inline diagnostics:
-
-- Yellow underline = HIGH severity dependency
-- Red underline = CRITICAL severity dependency
-- Hover card shows CVE ID, description, and fix version
-- Code lens link opens an advisory in the terminal panel
-
 ### Pre-Commit Hook
 
 Add this to `.git/hooks/pre-commit` to block commits with critical findings:

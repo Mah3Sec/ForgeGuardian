@@ -26,12 +26,11 @@
 6. [Database Schema](#6-database-schema)
 7. [How AI Components Work](#7-how-ai-components-work)
 8. [Dashboard Architecture](#8-dashboard-architecture)
-9. [VS Code Extension Architecture](#9-vs-code-extension-architecture)
-10. [Docker Compose Profiles](#10-docker-compose-profiles)
-11. [Release Engineering](#11-release-engineering)
-12. [How to Integrate into CI/CD](#12-how-to-integrate-into-cicd)
-13. [Core Types Reference](#13-core-types-reference)
-14. [Community Signatures](#14-community-signatures)
+9. [Docker Compose Profiles](#9-docker-compose-profiles)
+10. [Release Engineering](#10-release-engineering)
+11. [How to Integrate into CI/CD](#11-how-to-integrate-into-cicd)
+12. [Core Types Reference](#12-core-types-reference)
+13. [Community Signatures](#13-community-signatures)
 
 ---
 
@@ -249,7 +248,7 @@ type ManifestEntry struct {
     Name      string
     Version   string   // normalizeVersion() output; "" if range-only
     FilePath  string
-    Line      int      // 0-indexed line number — used by VSCode diagnostics
+    Line      int      // 0-indexed line number
     Raw       string   // original raw version string e.g. "^4.17.21"
 }
 
@@ -1068,39 +1067,7 @@ calling out for how they're actually built:
 
 ---
 
-## 9. VS Code Extension Architecture
-
-**Location:** `vscode-extension/src/`
-
-| File | Purpose |
-|------|---------|
-| `extension.ts` | Activation, registers all providers and commands |
-| `diagnostics.ts` | Manifest parser, `scanDocumentForDiagnostics`, 500ms debounce, 5-min result cache |
-| `hoverProvider.ts` | `PackageHoverProvider` — hover card with top-3 findings, 5-min TTL cache |
-| `codeLensProvider.ts` | `PackageCodeLensProvider` — per-dependency scan status above each line |
-| `api.ts` | HTTP client using Node.js `http`/`https` (no fetch — extension host) |
-| `scanResultsProvider.ts` | Tree view: scan results sidebar panel |
-| `signaturesProvider.ts` | Tree view: intelligence signatures sidebar panel |
-
-### Manifest files scanned inline
-
-`package.json` (npm), `requirements.txt` (pypi), `go.mod` (go)
-
-### autoScanOnSave
-
-When `forgeguardian.autoScanOnSave: true`, saving any manifest file triggers `scanDocumentForDiagnostics` with a 500ms debounce.
-
-### Diagnostic severity mapping
-
-| ForgeGuardian | VS Code |
-|---------------|---------|
-| CRITICAL, HIGH | `DiagnosticSeverity.Error` |
-| MEDIUM | `DiagnosticSeverity.Warning` |
-| LOW | `DiagnosticSeverity.Information` |
-
----
-
-## 10. Docker Compose Profiles
+## 9. Docker Compose Profiles
 
 ### Minimal (`docker-compose.minimal.yml`)
 
@@ -1135,7 +1102,7 @@ All compose files extend `docker-compose.base.yml` which defines shared networks
 
 ---
 
-## 11. Release Engineering
+## 10. Release Engineering
 
 ### GoReleaser
 
@@ -1195,7 +1162,7 @@ FORGEGUARDIAN_LOCAL_BUNDLE=/opt/bundles/forgeguardian-bundle.tar.gz bash install
 
 ---
 
-## 12. How to Integrate into CI/CD
+## 11. How to Integrate into CI/CD
 
 ### GitHub Actions — scan project on PR
 
@@ -1256,7 +1223,7 @@ fi
 
 ---
 
-## 13. Core Types Reference
+## 12. Core Types Reference
 
 ```go
 // Shared across all modules (internal/core/)
@@ -1308,7 +1275,7 @@ const (
 
 ---
 
-## 14. Community Signatures
+## 13. Community Signatures
 
 Community signatures work as detection signatures for supply chain threats. Every `fgctl update` merges the latest community signatures into your local store.
 
