@@ -6,8 +6,14 @@
 *.p12
 *.pfx
 
-# ─── Internal project notes (not for public repo) ─────────────────────────
+# ─── Internal / private (not for public repo) ────────────────────────────
 /CLAUDE.md
+/DESIGN.md
+/.claude/skills/
+/.env.example
+/testenv/
+/infra/terraform/
+/infra/k8s/base/secrets-template.yaml
 
 # ─── Compiled binaries (root level) ───────────────────────────────────────
 /fgctl
