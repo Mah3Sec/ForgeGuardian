@@ -1,3 +1,10 @@
+<p align="center">
+  <img
+    src="assets/forgeguardian-banner.png"
+    alt="ForgeGuardian - AI-Native Software Supply Chain Security Platform"
+    width="100%"
+  />
+</p>
 ```
    ███████╗ ██████╗  ██████╗  ██████╗ ███████╗
    ██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝
