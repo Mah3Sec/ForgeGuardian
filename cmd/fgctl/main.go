@@ -57,9 +57,12 @@ func main() {
 	args := os.Args[2:]
 
 	// Pre-parse to detect machine-output modes before flag.Parse runs in subcommands.
-	suppressHuman := preParseOutputFlags(os.Args)
+	suppressHuman, noBanner := preParseOutputFlags(os.Args)
 	noColor := os.Getenv("NO_COLOR") != "" || os.Getenv("TERM") == "dumb"
 	p := ui.New(noColor, suppressHuman, version)
+	if noBanner {
+		p.NoBanner = true
+	}
 
 	// Load signature count for banner display (best-effort, silent on error).
 	if !suppressHuman {
@@ -153,7 +156,7 @@ func main() {
 // preParseOutputFlags scans os.Args before flag.Parse to determine whether
 // the current invocation will produce machine-readable output, so the Printer
 // and banner are configured correctly before any subcommand runs.
-func preParseOutputFlags(args []string) (suppressHuman bool) {
+func preParseOutputFlags(args []string) (suppressHuman, noBanner bool) {
 	// sbom always writes structured data to stdout (unless --out redirects it).
 	// Suppress the banner unless the user explicitly redirected output to a file.
 	cmd := ""
@@ -178,8 +181,10 @@ func preParseOutputFlags(args []string) (suppressHuman bool) {
 		case "--json", "-json",
 			"--format=json", "--format=sarif",
 			"--format=cyclonedx-json", "--format=spdx-json",
-			"--quiet", "-quiet", "--ci", "--no-banner":
+			"--quiet", "-quiet", "--ci":
 			suppressHuman = true
+		case "--no-banner":
+			noBanner = true
 		case "--format":
 			if i+1 < len(args) {
 				switch args[i+1] {
