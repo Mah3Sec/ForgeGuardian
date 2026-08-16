@@ -459,6 +459,18 @@ func runScanCmd(args []string, log *slog.Logger, p *ui.Printer) error {
 		}
 		findings = append(findings, f)
 	}
+	// Apply severity filter for registry scans (same as local scans).
+	if *severityFlag != "" {
+		threshold := core.Severity(strings.ToUpper(*severityFlag))
+		var filtered []core.Finding
+		for _, f := range findings {
+			if severityAtLeast(f.Severity, threshold) {
+				filtered = append(filtered, f)
+			}
+		}
+		findings = filtered
+	}
+
 	summary := scanner.Summarize(findings)
 	p.PrintMissingToolsWarning(missingTools)
 
