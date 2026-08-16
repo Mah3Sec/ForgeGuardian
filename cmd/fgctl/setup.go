@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"crypto/rand"
 	"encoding/hex"
+	"flag"
 	"fmt"
 	"log/slog"
 	"os"
@@ -13,51 +14,89 @@ import (
 	"golang.org/x/term"
 )
 
-func runSetup(args []string, log *slog.Logger) error {
+func runSetup(args []string, _ *slog.Logger) error {
+	fs := flag.NewFlagSet("setup", flag.ExitOnError)
+	emailFlag := fs.String("email", "", "admin email address")
+	passwordFlag := fs.String("password", "", "admin password (min 8 chars)")
+	secretFlag := fs.String("secret", "", "session secret (auto-generated if omitted)")
+	apiKeyFlag := fs.String("anthropic-key", "", "Anthropic API key (optional, for AI features)")
+	outFlag := fs.String("out", ".env", "output file path")
+	fs.Parse(args)
+
+	email := *emailFlag
+	password := *passwordFlag
+	secret := *secretFlag
+	anthropicKey := *apiKeyFlag
+	envPath := *outFlag
+
+	if email != "" && password != "" {
+		return writeEnvFile(email, password, secret, anthropicKey, envPath)
+	}
+
 	fmt.Println()
 	fmt.Println("┌──────────────────────────────────────────────────────┐")
 	fmt.Println("│  ForgeGuardian Setup                                 │")
 	fmt.Println("│                                                      │")
 	fmt.Println("│  Configure dashboard credentials and API settings.   │")
 	fmt.Println("│  Writes to .env in the current directory.            │")
+	fmt.Println("│                                                      │")
+	fmt.Println("│  Non-interactive:                                    │")
+	fmt.Println("│    fgctl setup --email=you@x.com --password=secret   │")
 	fmt.Println("└──────────────────────────────────────────────────────┘")
 	fmt.Println()
 
 	reader := bufio.NewReader(os.Stdin)
 
-	email := setupPrompt(reader, "Admin email", os.Getenv("FG_ADMIN_EMAIL"))
 	if email == "" {
-		return fmt.Errorf("email is required")
+		email = setupPrompt(reader, "Admin email", os.Getenv("FG_ADMIN_EMAIL"))
+	}
+	if email == "" {
+		return fmt.Errorf("email is required — or use: fgctl setup --email=you@example.com --password=secret")
 	}
 
-	fmt.Print("  Admin password: ")
-	passBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
-	fmt.Println()
-	if err != nil {
-		return fmt.Errorf("could not read password: %w", err)
-	}
-	password := strings.TrimSpace(string(passBytes))
 	if password == "" {
-		return fmt.Errorf("password is required")
+		password = readPassword()
+	}
+	if password == "" {
+		return fmt.Errorf("password is required — or use: fgctl setup --email=you@example.com --password=secret")
 	}
 	if len(password) < 8 {
 		return fmt.Errorf("password must be at least 8 characters")
 	}
 
-	secret := os.Getenv("FG_SESSION_SECRET")
+	if anthropicKey == "" {
+		anthropicKey = setupPrompt(reader, "Anthropic API key (for AI features, optional)", os.Getenv("ANTHROPIC_API_KEY"))
+	}
+
+	return writeEnvFile(email, password, secret, anthropicKey, envPath)
+}
+
+func readPassword() string {
+	fmt.Print("  Admin password: ")
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		passBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
+		fmt.Println()
+		if err == nil {
+			return strings.TrimSpace(string(passBytes))
+		}
+	}
+	fmt.Println()
+	fmt.Print("  Admin password (visible): ")
+	reader := bufio.NewReader(os.Stdin)
+	line, _ := reader.ReadString('\n')
+	return strings.TrimSpace(line)
+}
+
+func writeEnvFile(email, password, secret, anthropicKey, envPath string) error {
+	if secret == "" {
+		secret = os.Getenv("FG_SESSION_SECRET")
+	}
 	if secret == "" {
 		b := make([]byte, 32)
 		if _, err := rand.Read(b); err != nil {
 			return fmt.Errorf("generate session secret: %w", err)
 		}
 		secret = hex.EncodeToString(b)
-	}
-
-	anthropicKey := setupPrompt(reader, "Anthropic API key (for AI features, optional)", os.Getenv("ANTHROPIC_API_KEY"))
-
-	envPath := ".env"
-	if len(args) > 0 && args[0] != "" {
-		envPath = args[0]
 	}
 
 	existing := make(map[string]string)
@@ -79,14 +118,8 @@ func runSetup(args []string, log *slog.Logger) error {
 	if anthropicKey != "" {
 		existing["ANTHROPIC_API_KEY"] = anthropicKey
 	}
-
-	defaults := map[string]string{
-		"POSTGRES_PASSWORD": "devpassword",
-	}
-	for k, v := range defaults {
-		if _, ok := existing[k]; !ok {
-			existing[k] = v
-		}
+	if _, ok := existing["POSTGRES_PASSWORD"]; !ok {
+		existing["POSTGRES_PASSWORD"] = "devpassword"
 	}
 
 	var out strings.Builder
@@ -123,19 +156,14 @@ func runSetup(args []string, log *slog.Logger) error {
 	}
 
 	fmt.Println()
-	fmt.Println("  ✓  Configuration saved to", absPath)
+	fmt.Printf("  ✓  Configuration saved to %s\n", absPath)
 	fmt.Println()
 	fmt.Println("  Next steps:")
 	fmt.Println("    docker compose up -d          # start full stack")
 	fmt.Println("    open http://localhost:3000     # open dashboard")
 	fmt.Println()
 	fmt.Println("  Or run the API directly:")
-	fmt.Println("    source .env && go run ./internal/api/        # Linux/macOS")
-	fmt.Println("    Get-Content .env | ForEach-Object {          # PowerShell")
-	fmt.Println("      if ($_ -match '^([^#][^=]+)=(.*)$') {")
-	fmt.Println("        [Environment]::SetEnvironmentVariable($matches[1], $matches[2])")
-	fmt.Println("      }")
-	fmt.Println("    }; go run ./internal/api/")
+	fmt.Println("    source .env && go run ./internal/api/")
 	fmt.Println()
 
 	return nil

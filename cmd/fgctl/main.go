@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -38,12 +39,45 @@ import (
 	"github.com/mah3sec/forgeguardian/internal/ui"
 )
 
-// Set via -ldflags at build time.
+// Set via -ldflags at build time; fall back to Go module info for `go install`.
 var (
-	version   = "dev"
-	commit    = "none"
-	buildTime = "unknown"
+	version   = ""
+	commit    = ""
+	buildTime = ""
 )
+
+func init() {
+	if version != "" {
+		return
+	}
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		version, commit, buildTime = "dev", "none", "unknown"
+		return
+	}
+	version = info.Main.Version
+	if version == "" || version == "(devel)" {
+		version = "dev"
+	}
+	for _, s := range info.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			if len(s.Value) > 7 {
+				commit = s.Value[:7]
+			} else {
+				commit = s.Value
+			}
+		case "vcs.time":
+			buildTime = s.Value
+		}
+	}
+	if commit == "" {
+		commit = "none"
+	}
+	if buildTime == "" {
+		buildTime = "unknown"
+	}
+}
 
 func main() {
 	if len(os.Args) < 2 {
