@@ -22,6 +22,11 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     clearTimeout(timeoutId)
     if (!res.ok) {
       const body = await res.text()
+      if (!body.trim() || body.includes('<!DOCTYPE') || body.includes('<html')) {
+        throw new Error(
+          `API server not reachable (HTTP ${res.status}). Start it with: make api`
+        )
+      }
       throw new Error(`API ${res.status}: ${body}`)
     }
     // Validate Content-Type before attempting JSON parse.
@@ -42,6 +47,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     clearTimeout(timeoutId)
     if (err instanceof Error && err.name === 'AbortError') {
       throw new Error('API request timed out after 30s', { cause: err })
+    }
+    if (err instanceof TypeError && (err.message.includes('fetch') || err.message.includes('network'))) {
+      throw new Error('Cannot connect to ForgeGuardian API. Start it with: make api')
     }
     throw err
   }
