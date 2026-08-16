@@ -20,7 +20,7 @@ We pledge to make participation in this community a harassment-free experience f
 
 ## Enforcement
 
-Report violations to: security@forgeguardian.dev
+Report violations to: mahendrapurbia19@gmail.com
 
 Maintainers will investigate and respond within 72 hours.
 
