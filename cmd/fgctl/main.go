@@ -63,7 +63,15 @@ func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel}))
 
 	cmd := os.Args[1]
-	args := os.Args[2:]
+	rawArgs := os.Args[2:]
+
+	globalFlags := map[string]bool{"--no-banner": true, "--no-color": true, "-no-banner": true, "-no-color": true}
+	args := make([]string, 0, len(rawArgs))
+	for _, a := range rawArgs {
+		if !globalFlags[a] {
+			args = append(args, a)
+		}
+	}
 
 	// Pre-parse to detect machine-output modes before flag.Parse runs in subcommands.
 	suppressHuman, noBanner := preParseOutputFlags(os.Args)
