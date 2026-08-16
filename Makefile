@@ -118,10 +118,10 @@ vet:
 
 # ─── Developer Workflow ────────────────────────────────────────────────────
 
-## api: Build and run the ForgeGuardian API server locally (requires postgres+redis)
+## api: Build and run the ForgeGuardian API server locally (DB optional — degrades gracefully)
 api: build-fgctl
 	@echo "  Starting API server on :8080 ..."
-	@echo "  Tip: run 'make up' first to start postgres and redis"
+	@echo "  Tip: run 'fgctl setup' to configure credentials, 'make up' for postgres+redis"
 	PORT=8080 go run ./internal/api/
 
 ## up: Start minimal docker stack (postgres + redis + API)
@@ -143,9 +143,9 @@ health:
 
 # ─── Docker ────────────────────────────────────────────────────────────────
 
-## docker: Start the full local stack (postgres + redis + API)
+## docker: Start the full local stack (postgres + redis + API + dashboard)
 docker:
-	@test -f .env || (echo "  Copy .env.example to .env and set ANTHROPIC_API_KEY" && cp .env.example .env)
+	@test -f .env || (echo "  Run 'fgctl setup' or copy .env.example to .env" && cp .env.example .env)
 	docker compose up -d
 	@echo ""
 	@echo "  Services:"
