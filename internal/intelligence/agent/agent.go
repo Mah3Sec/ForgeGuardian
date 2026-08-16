@@ -14,8 +14,9 @@ import (
 	"github.com/mah3sec/forgeguardian/internal/intelligence"
 )
 
+const model anthropic.Model = "claude-sonnet-4-20250514"
+
 const (
-	model     anthropic.Model = "claude-sonnet-4-20250514"
 	maxTokens = 4096
 	maxIter   = 20
 )

@@ -14,10 +14,11 @@ import (
 	"github.com/mah3sec/forgeguardian/internal/core"
 )
 
+const model anthropic.Model = "claude-sonnet-4-20250514"
+
 const (
-	model     anthropic.Model = "claude-sonnet-4-20250514"
 	maxTokens = 4096
-	maxIter   = 10 // safety limit on tool-use iterations
+	maxIter   = 10
 )
 
 // PatchPlan describes the actions the planner decided to take.

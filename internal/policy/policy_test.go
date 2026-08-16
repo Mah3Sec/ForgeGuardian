@@ -122,13 +122,13 @@ func TestShouldFail_HighThreshold_WithMedium(t *testing.T) {
 // ── severityOrd ───────────────────────────────────────────────────────────────
 
 func TestSeverityOrd_Order(t *testing.T) {
-	if !(severityOrd(core.SeverityCritical) > severityOrd(core.SeverityHigh)) {
+	if severityOrd(core.SeverityCritical) <= severityOrd(core.SeverityHigh) {
 		t.Error("critical must rank higher than high")
 	}
-	if !(severityOrd(core.SeverityHigh) > severityOrd(core.SeverityMedium)) {
+	if severityOrd(core.SeverityHigh) <= severityOrd(core.SeverityMedium) {
 		t.Error("high must rank higher than medium")
 	}
-	if !(severityOrd(core.SeverityMedium) > severityOrd(core.SeverityLow)) {
+	if severityOrd(core.SeverityMedium) <= severityOrd(core.SeverityLow) {
 		t.Error("medium must rank higher than low")
 	}
 	if severityOrd("unknown") != 0 {

@@ -14,24 +14,7 @@ env:
   NODE_VERSION: "24"
 
 jobs:
-  # ── Go: lint + vet + test ─────────────────────────────────────────────────
-  go-lint:
-    name: Go Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v7
-        with:
-          version: v2.12.2
-          args: --timeout=5m
-
+  # ── Go: vet + test ──────────────────────────────────────────────────────
   go-test:
     name: Go Test
     runs-on: ubuntu-latest

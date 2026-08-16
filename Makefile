@@ -23,7 +23,6 @@ CGO_ENABLED  := 0
 
 .PHONY: all build build-fgctl build-agent build-intel clean install uninstall \
         test test-race lint fmt vet \
-        extension \
         docker docker-minimal docker-down docker-logs \
         api up down logs health \
         release \

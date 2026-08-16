@@ -15,8 +15,9 @@ import (
 	"github.com/mah3sec/forgeguardian/internal/core"
 )
 
+const model anthropic.Model = "claude-sonnet-4-20250514"
+
 const (
-	model        anthropic.Model = "claude-sonnet-4-20250514"
 	maxTokens    = 2048
 	systemPrompt = `You are ForgeGuardian's AI security triage engine — a senior supply chain security analyst.
 

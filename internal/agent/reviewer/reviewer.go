@@ -15,10 +15,9 @@ import (
 	"github.com/mah3sec/forgeguardian/internal/core"
 )
 
-const (
-	model     anthropic.Model = "claude-sonnet-4-20250514"
-	maxTokens = 1024
-)
+const model anthropic.Model = "claude-sonnet-4-20250514"
+
+const maxTokens = 1024
 
 // Review is the output of a patch review.
 type Review struct {
