@@ -379,7 +379,7 @@ The ForgeGuardian Risk Score aggregates all findings into a single letter grade:
 
 **Step 5 — Review historical scan trends**
 
-Open the dashboard at `http://localhost:5173`. The Dashboard page shows a 30-day timeline chart of findings by severity, a risk score trend, and a breakdown by ecosystem.
+Open the dashboard at `http://localhost:3000`. The Dashboard page shows a 30-day timeline chart of findings by severity, a risk score trend, and a breakdown by ecosystem.
 
 ---
 
@@ -456,7 +456,7 @@ Action: Remove this package immediately
 
 **Step 3 — Investigate via the MonitorPage**
 
-Open `http://localhost:5173/monitor`. The MonitorPage polls the API every 10 seconds and shows:
+Open `http://localhost:3000/monitor`. The MonitorPage polls the API every 10 seconds and shows:
 - Live finding count with severity breakdown
 - Recent scan timeline
 - Per-manifest finding diffs

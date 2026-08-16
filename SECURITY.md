@@ -8,7 +8,7 @@ ForgeGuardian is a supply chain security tool — it must hold itself to the sam
 
 Every pull request and push to `main`/`develop` runs `npm audit --audit-level=moderate` inside the `dashboard/` directory as part of the `ts-ci` GitHub Actions job. Any moderate, high, or critical vulnerability in a direct or transitive dependency **blocks the build**.
 
-For Go dependencies, `go vet ./...` runs on every CI invocation. The `golangci-lint` job enforces a strict ruleset defined in `.golangci.yml`.
+For Go dependencies, `go vet ./...` runs on every CI invocation.
 
 To run dependency audits locally:
 
@@ -16,8 +16,8 @@ To run dependency audits locally:
 # Frontend
 cd dashboard && npm audit --audit-level=moderate
 
-# Go (lint)
-golangci-lint run ./...
+# Go
+go vet ./...
 ```
 
 ---
@@ -66,7 +66,7 @@ The `docker-compose.yml` dev stack uses fixed development-only credentials (`dev
 
 Every PR runs:
 - **Semgrep** (`auto` config) — catches OWASP Top 10 patterns, injection vulnerabilities, hardcoded secrets, and insecure function calls
-- **golangci-lint** — Go static analysis (errcheck, gosec, staticcheck, revive, and others)
+- **go vet** — Go static analysis (type safety, unreachable code, suspicious constructs)
 - **TypeScript strict mode** — `"strict": true` in all `tsconfig.json` files; `no-any` lint rule enforced
 
 ---

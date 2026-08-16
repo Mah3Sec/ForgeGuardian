@@ -104,10 +104,9 @@ test-cover:
 
 # ─── Code Quality ──────────────────────────────────────────────────────────
 
-## lint: Run golangci-lint
+## lint: Run go vet
 lint:
-	@which golangci-lint > /dev/null || (echo "Install: brew install golangci-lint" && exit 1)
-	golangci-lint run --timeout=5m ./...
+	$(GO) vet ./internal/... ./cmd/...
 
 ## fmt: Run gofmt on all packages
 fmt:

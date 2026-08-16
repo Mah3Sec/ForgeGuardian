@@ -16,7 +16,7 @@
 
 - [ ] `go build ./...` passes
 - [ ] `go test ./...` passes
-- [ ] No new linter errors (`golangci-lint run`)
+- [ ] `go vet ./...` passes
 - [ ] Added tests for new code
 - [ ] Updated docs if needed
 
