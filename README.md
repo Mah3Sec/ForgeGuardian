@@ -72,6 +72,7 @@ No config file. No account. First three commands need zero API keys.
 
 **Want the web dashboard too?**
 ```bash
+fgctl setup                              # configure admin credentials (writes .env)
 docker compose up -d                     # starts API + dashboard + postgres + redis
 # Open http://localhost:3000
 ```
@@ -159,13 +160,29 @@ Dashboard scan shows per-engine status: ✓ ran / ✗ skipped (with reason).
 
 ## Dashboard
 
-The web dashboard is included in the repo (`dashboard/`). One command starts everything:
+The web dashboard is included in the repo (`dashboard/`). Two steps to get started:
 
 ```bash
+# 1. Configure credentials (interactive — writes .env)
+fgctl setup
+
+# 2. Start everything
 docker compose up -d           # starts postgres + redis + API + dashboard
 ```
 
-Open **http://localhost:3000** — the dashboard proxies API requests to the backend automatically. CLI and dashboard share the same API, same data. Scan from the CLI, see results in the dashboard. Trigger a scan from the dashboard, query it with `fgctl`.
+Open **http://localhost:3000** and sign in with the email/password you set during setup.
+
+**Manual setup** (if you prefer not to use `fgctl setup`):
+```bash
+cp .env.example .env
+# Edit .env — set FG_ADMIN_EMAIL, FG_ADMIN_PASSWORD, FG_SESSION_SECRET
+# Generate a session secret: openssl rand -hex 32
+docker compose up -d
+```
+
+> Without `FG_ADMIN_EMAIL` / `FG_ADMIN_PASSWORD`, the dashboard runs in open-access dev mode (no login screen).
+
+CLI and dashboard share the same API, same data. Scan from the CLI, see results in the dashboard. Trigger a scan from the dashboard, query it with `fgctl`.
 
 Live preview: [forgeguardian.mahendrapurbia.com](https://forgeguardian.mahendrapurbia.com)
 

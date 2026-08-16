@@ -148,6 +148,8 @@ func main() {
 		err = runSig(args, logger)
 	case "policy":
 		err = runPolicy(args, logger, p)
+	case "setup":
+		err = runSetup(args, logger)
 	case "doctor":
 		err = runDoctor(args, logger)
 	case "stats":
@@ -1275,6 +1277,7 @@ REMEDIATION & MONITORING
   monitor     Watch manifest files for new vulnerabilities
 
 PLATFORM MANAGEMENT
+  setup       Interactive setup — configure dashboard credentials + .env
   policy      Manage security policy  (~/.forgeguardian/policy.yaml)
   config      Manage platform configuration  (~/.forgeguardian/config.yaml)
   update      Fetch latest community detection signatures
@@ -1320,6 +1323,7 @@ Remote scan flags  (scan --remote user@host):
   --keep-temp                           keep the local temp dir the pulled manifests were scanned in
 
 Examples:
+  fgctl setup                                           # configure credentials + .env
   fgctl doctor --fix                                    # validate + auto-repair
   fgctl scan .                                          # scan current project
   fgctl scan npm/lodash@4.17.20                         # scan specific package

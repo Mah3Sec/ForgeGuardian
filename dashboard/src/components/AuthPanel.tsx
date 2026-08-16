@@ -104,9 +104,18 @@ export function AuthPanel({ onLoggedIn }: AuthPanelProps) {
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-[0.7rem] text-text-muted">
-            Your workspace is protected with encrypted authentication.
-          </p>
+          <div className="mt-6 rounded-md border border-border-color bg-surface-hover px-3 py-2.5">
+            <p className="text-[0.7rem] font-mono text-text-secondary">
+              First time? Set credentials with:
+            </p>
+            <pre className="mt-1 select-all text-[0.65rem] text-text-muted leading-relaxed">
+{`fgctl setup        # interactive
+# or set env vars:
+FG_ADMIN_EMAIL=you@example.com
+FG_ADMIN_PASSWORD=your-password
+FG_SESSION_SECRET=$(openssl rand -hex 32)`}
+            </pre>
+          </div>
         </div>
       </div>
     </div>

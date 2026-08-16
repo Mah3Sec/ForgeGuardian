@@ -58,7 +58,12 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://forgeguardian:${POSTGRES_PASSWORD:-devpassword}@postgres:5432/forgeguardian?sslmode=disable
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      FG_ADMIN_EMAIL: ${FG_ADMIN_EMAIL:-}
+      FG_ADMIN_PASSWORD: ${FG_ADMIN_PASSWORD:-}
+      FG_SESSION_SECRET: ${FG_SESSION_SECRET:-}
+      FG_DASHBOARD_ORIGIN: http://localhost:3000
+      FG_COOKIE_SECURE: "false"
       LOG_LEVEL: info
     ports:
       - "8080:8080"
