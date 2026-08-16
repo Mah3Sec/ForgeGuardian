@@ -648,9 +648,11 @@ func runDebug(args []string, log *slog.Logger, p *ui.Printer) error {
 	sigInfo := "not found — run: fgctl update"
 	if info, err := os.Stat(sigPath); err == nil {
 		data, _ := os.ReadFile(sigPath)
-		var sigs []any
-		json.Unmarshal(data, &sigs)
-		sigInfo = fmt.Sprintf("%d sigs, modified %s", len(sigs), info.ModTime().Format("2006-01-02"))
+		var store struct {
+			Signatures []any `json:"signatures"`
+		}
+		json.Unmarshal(data, &store)
+		sigInfo = fmt.Sprintf("%d sigs, modified %s", len(store.Signatures), info.ModTime().Format("2006-01-02"))
 	}
 
 	// Config info.
@@ -938,8 +940,66 @@ func runPolicy(args []string, log *slog.Logger, p *ui.Printer) error {
 		p.Success("Policy valid — %d deny rules, fail_on=%q", len(pol.DenyPackages), pol.FailOn)
 		return nil
 
+	case "deny":
+		if len(args) < 2 {
+			return fmt.Errorf("usage: fgctl policy deny <package-name>")
+		}
+		pol, err := policy.Load()
+		if err != nil {
+			return err
+		}
+		if pol == nil {
+			pol = policy.DefaultPolicy()
+		}
+		pkg := args[1]
+		for _, existing := range pol.DenyPackages {
+			if existing == pkg {
+				p.Warn("Package %q is already in the deny list", pkg)
+				return nil
+			}
+		}
+		pol.DenyPackages = append(pol.DenyPackages, pkg)
+		if err := policy.Save(pol); err != nil {
+			return fmt.Errorf("policy deny: %w", err)
+		}
+		p.Success("Added %q to deny list (%d total)", pkg, len(pol.DenyPackages))
+		return nil
+
+	case "allow":
+		if len(args) < 2 {
+			return fmt.Errorf("usage: fgctl policy allow <package-name>  (removes from deny list)")
+		}
+		pol, err := policy.Load()
+		if err != nil {
+			return err
+		}
+		if pol == nil {
+			p.Warn("No policy file found — run 'fgctl policy init' to create one")
+			return nil
+		}
+		pkg := args[1]
+		var kept []string
+		found := false
+		for _, existing := range pol.DenyPackages {
+			if existing == pkg {
+				found = true
+				continue
+			}
+			kept = append(kept, existing)
+		}
+		if !found {
+			p.Warn("Package %q is not in the deny list", pkg)
+			return nil
+		}
+		pol.DenyPackages = kept
+		if err := policy.Save(pol); err != nil {
+			return fmt.Errorf("policy allow: %w", err)
+		}
+		p.Success("Removed %q from deny list (%d remaining)", pkg, len(pol.DenyPackages))
+		return nil
+
 	default:
-		return fmt.Errorf("unknown policy subcommand %q — use: show | init | set | validate", sub)
+		return fmt.Errorf("unknown policy subcommand %q — use: show | init | set | deny | allow | validate", sub)
 	}
 }
 

@@ -304,7 +304,28 @@ func runIntelTest(args []string) error {
 	ecosystemFlag := fs.String("ecosystem", "", "ecosystem to test against (npm, pypi, go, ...)")
 	packageFlag := fs.String("package", "", "package name")
 	versionFlag := fs.String("version", "", "package version")
-	fs.Parse(args)
+	// Reorder args so positional arguments (file path) come after flags,
+	// since Go's flag package stops at the first non-flag argument.
+	var flagArgs, posArgs []string
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if strings.HasPrefix(a, "-") {
+			flagArgs = append(flagArgs, a)
+			if !strings.Contains(a, "=") {
+				name := strings.TrimLeft(a, "-")
+				knownValueFlags := map[string]bool{
+					"ecosystem": true, "package": true, "version": true,
+				}
+				if knownValueFlags[name] && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+					i++
+					flagArgs = append(flagArgs, args[i])
+				}
+			}
+		} else {
+			posArgs = append(posArgs, a)
+		}
+	}
+	fs.Parse(append(flagArgs, posArgs...))
 
 	remaining := fs.Args()
 	if len(remaining) == 0 {

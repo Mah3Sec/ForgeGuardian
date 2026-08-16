@@ -51,7 +51,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	logLevel := slog.LevelWarn
+	if len(os.Args) > 1 {
+		for _, a := range os.Args[1:] {
+			if a == "--debug" || a == "-debug" {
+				logLevel = slog.LevelInfo
+				break
+			}
+		}
+	}
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel}))
 
 	cmd := os.Args[1]
 	args := os.Args[2:]
@@ -574,9 +583,29 @@ func runSBOM(args []string, log *slog.Logger) error {
 	formatFlag := fs.String("format", "cyclonedx-json", "sbom format: cyclonedx-json|cyclonedx-xml|spdx-json|spdx-tv")
 	outFlag := fs.String("out", "", "output file (default: stdout)")
 	timeoutFlag := fs.Duration("timeout", 10*time.Minute, "total timeout")
-	fs.Parse(args)
 
-	// Support: fgctl sbom .  (local project)  and  fgctl sbom npm/lodash@4.17.20
+	var flagArgs, posArgs []string
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if strings.HasPrefix(a, "-") {
+			flagArgs = append(flagArgs, a)
+			if !strings.Contains(a, "=") {
+				name := strings.TrimLeft(a, "-")
+				knownValueFlags := map[string]bool{
+					"recipe": true, "package": true, "version": true,
+					"format": true, "out": true, "timeout": true,
+				}
+				if knownValueFlags[name] && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+					i++
+					flagArgs = append(flagArgs, args[i])
+				}
+			}
+		} else {
+			posArgs = append(posArgs, a)
+		}
+	}
+	fs.Parse(append(flagArgs, posArgs...))
+
 	remaining := fs.Args()
 	if len(remaining) > 0 && isLocalPath(remaining[0]) {
 		return runLocalSBOM(remaining[0], *formatFlag, *outFlag, log)
