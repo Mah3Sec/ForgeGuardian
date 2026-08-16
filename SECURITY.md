@@ -85,7 +85,7 @@ Every PR runs:
 If you discover a security vulnerability in ForgeGuardian:
 
 1. **Do not open a public GitHub issue.**
-2. Email the maintainers directly (see `package.json` or GitHub repository contacts).
+2. Email **mahendrapurbia19@gmail.com** or use [GitHub Security Advisories](https://github.com/mah3sec/forgeguardian/security/advisories/new).
 3. Include: CVE ID if known, affected version, reproduction steps, and impact assessment.
 
 We aim to acknowledge reports within 48 hours and release a patch within 14 days for confirmed critical issues.
