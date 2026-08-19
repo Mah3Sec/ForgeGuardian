@@ -176,7 +176,7 @@ This ensures that **no human-readable output leaks into machine-readable stdout 
 ```
 fgctl doctor — ForgeGuardian dev
 ──────────────────────────────────────────────────
-[PASS] Go runtime            go1.25.0
+[PASS] Go runtime            go1.23.0
 [WARN] grype                 not found in PATH — some scan engines disabled
 [PASS] semgrep               found at /usr/local/bin/semgrep  (1.161.0)
 [PASS] trivy                 found at /usr/local/bin/trivy  (Version: 0.73.0)

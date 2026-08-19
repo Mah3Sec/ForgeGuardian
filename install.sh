@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ForgeGuardian installer
-# Usage: curl -sSfL https://raw.githubusercontent.com/mah3sec/forgeguardian/main/install.sh | bash
+# Usage: curl -sSfL https://raw.githubusercontent.com/Mah3Sec/ForgeGuardian/main/install.sh | bash
 #
 # Environment variables:
 #   FORGEGUARDIAN_VERSION       — version to install (default: latest)
@@ -19,7 +19,7 @@ error() { echo -e "${RED}✗${NC}  $*" >&2; }
 die() {
   error "$1"
   echo    "  → Try: FORGEGUARDIAN_INSTALL_MODE=local bash install.sh"
-  echo    "  → Or:  go install github.com/mah3sec/forgeguardian/cmd/fgctl@latest"
+  echo    "  → Or:  go install github.com/${GO_MODULE}/cmd/fgctl@latest"
   exit 1
 }
 
@@ -29,7 +29,8 @@ LOCAL_BUNDLE="${FORGEGUARDIAN_LOCAL_BUNDLE:-}"
 VERSION="${FORGEGUARDIAN_VERSION:-latest}"
 INSTALL_DIR="${INSTALL_DIR:-${HOME}/.local/bin}"
 BINARIES="${BINARIES:-fgctl fg-agent intel-agent}"
-REPO="mah3sec/forgeguardian"
+REPO="Mah3Sec/ForgeGuardian"
+GO_MODULE="mah3sec/forgeguardian"
 CURL_OPTS="--retry 3 --retry-delay 2 --max-time 60 --connect-timeout 10"
 
 # ─── platform detection ───────────────────────────────────────────────────────
@@ -207,7 +208,7 @@ install_from_source() {
   local checkout_root=""
   local dir="$PWD"
   while [ "$dir" != "/" ]; do
-    if [ -f "${dir}/go.mod" ] && grep -q "^module github.com/${REPO}$" "${dir}/go.mod" 2>/dev/null; then
+    if [ -f "${dir}/go.mod" ] && grep -qi "^module github.com/${GO_MODULE}$" "${dir}/go.mod" 2>/dev/null; then
       checkout_root="$dir"
       break
     fi
@@ -225,7 +226,7 @@ install_from_source() {
   fi
 
   info "No local checkout found — fetching from the published module (Go ${go_version})..."
-  local install_pkg="github.com/${REPO}/cmd/fgctl"
+  local install_pkg="github.com/${GO_MODULE}/cmd/fgctl"
   local target_version="${VERSION}"
   [ "$target_version" = "latest" ] && target_version="latest"
 

@@ -228,7 +228,7 @@ func ensureForgeDir() string {
 }
 
 func checkGoVersion() doctorCheck {
-	v := runtime.Version() // e.g. "go1.25.0"
+	v := runtime.Version()
 	return doctorCheck{Name: "Go runtime", Status: doctorPass, Detail: v}
 }
 

@@ -132,19 +132,14 @@ release:
 
     ### Install
 
-    **One command (requires Go):**
+    **One-line install (no Go required):**
+    ```bash
+    curl -sSfL https://raw.githubusercontent.com/Mah3Sec/ForgeGuardian/main/install.sh | bash
+    ```
+
+    **Go install (requires Go 1.23+):**
     ```bash
     go install github.com/mah3sec/forgeguardian/cmd/fgctl@{{.Tag}}
-    ```
-
-    **Homebrew:**
-    ```bash
-    brew install mah3sec/tap/forgeguardian
-    ```
-
-    **Curl installer:**
-    ```bash
-    curl -sSfL https://raw.githubusercontent.com/mah3sec/forgeguardian/main/install.sh | bash
     ```
 
     Or download a prebuilt binary below.
