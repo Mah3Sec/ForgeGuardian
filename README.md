@@ -14,11 +14,11 @@
 
 > Community-driven detection. AI-native triage. Full 8-engine scanning. Works offline.
 
+![Docker](https://img.shields.io/badge/Docker-One%20Command%20Install-2496ED?style=flat-square&logo=docker)
 ![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?style=flat-square&logo=go)
 ![License](https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square)
-![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20WSL-blue?style=flat-square)
+![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-blue?style=flat-square)
 ![Signatures](https://img.shields.io/badge/Community%20Signatures-24-orange?style=flat-square)
-![Tests](https://img.shields.io/badge/Tests-72%20passing-brightgreen?style=flat-square)
 
 **Not a developer?** → [Executive Summary](EXECUTIVE_SUMMARY.md) — what this does and why it matters, no CLI or code.
 
@@ -38,49 +38,72 @@ One tool. 9 ecosystems. AI triage. Community signatures. SLSA Level 3 provenance
 
 ---
 
-## Quick Install
+## Get Started
 
-**Full platform (API + Dashboard) — one command:**
+Pick one:
+
+### Option A — Full Platform (API + Web Dashboard)
+
+Requires: [Docker](https://docs.docker.com/get-docker/)
+
 ```bash
 docker run -d --name forgeguardian -p 3000:3000 ghcr.io/mah3sec/forgeguardian
 ```
-Open **http://localhost:3000** — login with `admin@forgeguardian.local` / `changeme123`.
 
-**CLI only:**
+Open **http://localhost:3000** and log in:
+
+| | |
+|---|---|
+| **Email** | `admin@forgeguardian.local` |
+| **Password** | `changeme123` |
+
+That's it. Scan packages, view results, generate SBOMs, browse alerts — all from the browser.
+
+To set your own credentials:
 ```bash
-# One-line install (Linux / macOS / WSL) — no Go required
-curl -sSfL https://raw.githubusercontent.com/Mah3Sec/ForgeGuardian/main/install.sh | bash
+docker run -d --name forgeguardian -p 3000:3000 \
+  -e FG_ADMIN_EMAIL=you@example.com \
+  -e FG_ADMIN_PASSWORD=YourSecurePass \
+  ghcr.io/mah3sec/forgeguardian
+```
 
+### Option B — CLI Only
+
+No Docker needed. One command installs `fgctl` to `~/.local/bin`:
+
+```bash
+curl -sSfL https://raw.githubusercontent.com/Mah3Sec/ForgeGuardian/main/install.sh | bash
+```
+
+Then scan:
+```bash
+fgctl scan .                             # scan your current project
+fgctl scan npm/lodash@4.17.20            # scan a specific package
+fgctl advisory npm/lodash@4.17.20        # AI security advisory (needs ANTHROPIC_API_KEY)
+```
+
+No config file. No account. No API keys for scanning.
+
+<details>
+<summary>Other install methods</summary>
+
+```bash
 # Go install (requires Go 1.23+)
 go install github.com/mah3sec/forgeguardian/cmd/fgctl@latest
+
+# Build from source
+git clone https://github.com/Mah3Sec/ForgeGuardian.git
+cd ForgeGuardian && make build
 ```
 
-> **Windows?** Download the `.zip` from [Releases](https://github.com/Mah3Sec/ForgeGuardian/releases), extract, and add to PATH.
+**Windows:** Download the `.zip` from [Releases](https://github.com/Mah3Sec/ForgeGuardian/releases), extract, and add to PATH.
+</details>
 
----
+### Sample Output
 
-## 60-Second Quickstart
-
-```bash
-fgctl doctor --fix                       # validate + auto-repair environment
-fgctl intel update                       # pull community detection signatures
-fgctl scan .                             # scan every manifest in current project
-fgctl scan npm/lodash@4.17.20            # scan a specific registry package
-fgctl advisory npm/lodash@4.17.20        # AI-powered security advisory (needs ANTHROPIC_API_KEY)
-fgctl patch . --dry-run                  # preview AI-proposed dependency upgrades
 ```
+$ fgctl scan .
 
-No config file. No account. First three commands need zero API keys.
-
-**Want the web dashboard too?**
-```bash
-fgctl setup                              # configure admin credentials (writes .env)
-docker compose up -d                     # starts API + dashboard + postgres + redis
-# Open http://localhost:3000
-```
-
-**Sample output** (`fgctl scan .`):
-```
 axios@1.3.4  [grade F · 19 findings]
 ├─ CRITICAL  CVE-2023-45857  Header Injection   → fix: >= 1.12.0
 ├─ HIGH      CVE-2022-1214   SSRF               → fix: >= 1.7.4
@@ -162,31 +185,32 @@ Dashboard scan shows per-engine status: ✓ ran / ✗ skipped (with reason).
 
 ## Dashboard
 
-The web dashboard is included in the repo (`dashboard/`). Two steps to get started:
+Already running if you used **Option A** above. If not:
 
 ```bash
-# 1. Configure credentials (interactive — writes .env)
-fgctl setup
+docker run -d --name forgeguardian -p 3000:3000 ghcr.io/mah3sec/forgeguardian
+```
 
-# 2. Start everything
+Open **http://localhost:3000**. CLI and dashboard share the same API — scan from the CLI, see results in the dashboard, and vice versa.
+
+Live preview: [forgeguardian.mahendrapurbia.com](https://forgeguardian.mahendrapurbia.com)
+
+<details>
+<summary>Advanced: multi-container setup with Postgres persistence</summary>
+
+For production use with database persistence:
+```bash
+fgctl setup                    # interactive — writes .env with your credentials
 docker compose up -d           # starts postgres + redis + API + dashboard
 ```
 
-Open **http://localhost:3000** and sign in with the email/password you set during setup.
-
-**Manual setup** (if you prefer not to use `fgctl setup`):
+Or manually:
 ```bash
 cp .env.example .env
 # Edit .env — set FG_ADMIN_EMAIL, FG_ADMIN_PASSWORD, FG_SESSION_SECRET
-# Generate a session secret: openssl rand -hex 32
 docker compose up -d
 ```
-
-> Without `FG_ADMIN_EMAIL` / `FG_ADMIN_PASSWORD`, the dashboard runs in open-access dev mode (no login screen).
-
-CLI and dashboard share the same API, same data. Scan from the CLI, see results in the dashboard. Trigger a scan from the dashboard, query it with `fgctl`.
-
-Live preview: [forgeguardian.mahendrapurbia.com](https://forgeguardian.mahendrapurbia.com)
+</details>
 
 **28 routes. All connected to live backend when self-hosted.**
 
@@ -406,13 +430,14 @@ Every package gets a letter grade (A–F) from a composite score:
 
 ---
 
-## Full Platform (Self-Hosted)
+## Self-Hosted Deployment
 
 ```bash
-docker compose up -d     # postgres + redis + API + dashboard
+docker run -d --name forgeguardian -p 3000:3000 \
+  -e FG_ADMIN_EMAIL=you@example.com \
+  -e FG_ADMIN_PASSWORD=YourSecurePass \
+  ghcr.io/mah3sec/forgeguardian
 ```
-
-Open http://localhost:3000 for the dashboard, http://localhost:8080/healthz for the API.
 
 Everything runs locally — no cloud dependency, no telemetry, no data leaves your machine.
 
