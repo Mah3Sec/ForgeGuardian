@@ -68,7 +68,24 @@ jobs:
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
 
-      - name: Build and push API image
+      - name: Build and push all-in-one image
+        id: push-aio
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          sbom: true
+          provenance: mode=max
+          build-args: |
+            VERSION=${{ github.ref_name }}
+          tags: |
+            ghcr.io/${{ env.OWNER_LC }}/forgeguardian:${{ github.ref_name }}
+            ghcr.io/${{ env.OWNER_LC }}/forgeguardian:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push API-only image
         id: push-api
         uses: docker/build-push-action@v6
         with:
@@ -83,8 +100,10 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Sign API image (keyless)
+      - name: Sign images (keyless)
         run: |
+          cosign sign --yes \
+            "ghcr.io/${{ env.OWNER_LC }}/forgeguardian@${{ steps.push-aio.outputs.digest }}"
           cosign sign --yes \
             "ghcr.io/${{ env.OWNER_LC }}/forgeguardian-api@${{ steps.push-api.outputs.digest }}"
 
@@ -93,13 +112,19 @@ jobs:
           {
             echo "## ForgeGuardian ${{ github.ref_name }} Released"
             echo ""
+            echo "### Quick Start"
+            echo '```bash'
+            echo "docker run -d --name forgeguardian -p 3000:3000 ghcr.io/${{ env.OWNER_LC }}/forgeguardian"
+            echo '```'
+            echo ""
             echo "### Binaries"
             echo "- [Download](https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }})"
             echo ""
             echo "### Container Images"
-            echo "- API:    \`ghcr.io/${{ env.OWNER_LC }}/forgeguardian-api:${{ github.ref_name }}\`"
+            echo "- All-in-one: \`ghcr.io/${{ env.OWNER_LC }}/forgeguardian:${{ github.ref_name }}\`"
+            echo "- API only:   \`ghcr.io/${{ env.OWNER_LC }}/forgeguardian-api:${{ github.ref_name }}\`"
             echo ""
-            echo "### Install"
+            echo "### CLI Install"
             echo '```bash'
             echo "curl -sSfL https://raw.githubusercontent.com/${{ github.repository }}/main/install.sh | bash"
             echo '```'

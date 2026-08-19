@@ -20,6 +20,7 @@ type Config struct {
 	SessionSecret   string // FG_SESSION_SECRET — HMAC signing secret for dashboard session JWTs
 	CookieSecure    bool   // FG_COOKIE_SECURE — whether the session cookie requires HTTPS
 	DashboardOrigin string // FG_DASHBOARD_ORIGIN — CORS origin allowed to send credentialed requests
+	DashboardDir    string // DASHBOARD_DIR — path to pre-built dashboard files (enables embedded SPA serving)
 }
 
 func loadConfig() *Config {
@@ -40,6 +41,7 @@ func loadConfig() *Config {
 		SessionSecret:   os.Getenv("FG_SESSION_SECRET"),
 		CookieSecure:    getEnv("FG_COOKIE_SECURE", "true") == "true",
 		DashboardOrigin: getEnv("FG_DASHBOARD_ORIGIN", "http://localhost:3000"),
+		DashboardDir:    os.Getenv("DASHBOARD_DIR"),
 	}
 }
 

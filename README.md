@@ -40,16 +40,19 @@ One tool. 9 ecosystems. AI triage. Community signatures. SLSA Level 3 provenance
 
 ## Quick Install
 
+**Full platform (API + Dashboard) — one command:**
+```bash
+docker run -d --name forgeguardian -p 3000:3000 ghcr.io/mah3sec/forgeguardian
+```
+Open **http://localhost:3000** — login with `admin@forgeguardian.local` / `changeme123`.
+
+**CLI only:**
 ```bash
 # One-line install (Linux / macOS / WSL) — no Go required
 curl -sSfL https://raw.githubusercontent.com/Mah3Sec/ForgeGuardian/main/install.sh | bash
 
 # Go install (requires Go 1.23+)
 go install github.com/mah3sec/forgeguardian/cmd/fgctl@latest
-
-# Build from source
-git clone https://github.com/Mah3Sec/ForgeGuardian.git
-cd ForgeGuardian && make build   # → bin/fgctl  bin/fg-agent  bin/intel-agent
 ```
 
 > **Windows?** Download the `.zip` from [Releases](https://github.com/Mah3Sec/ForgeGuardian/releases), extract, and add to PATH.

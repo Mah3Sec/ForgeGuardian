@@ -39,6 +39,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -172,6 +174,29 @@ func main() {
 		v1.POST("/auth/login", middleware.LoginRateLimiter(), h.Login)
 		v1.POST("/auth/logout", h.Logout)
 		v1.GET("/auth/me", h.AuthMe)
+	}
+
+	// Embedded dashboard: serve pre-built static files with SPA fallback.
+	if cfg.DashboardDir != "" {
+		if _, err := os.Stat(filepath.Join(cfg.DashboardDir, "index.html")); err == nil {
+			fs := http.Dir(cfg.DashboardDir)
+			r.NoRoute(func(c *gin.Context) {
+				p := c.Request.URL.Path
+				if strings.HasPrefix(p, "/api/") {
+					c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+					return
+				}
+				if f, err := fs.Open(p); err == nil {
+					f.Close()
+					http.FileServer(fs).ServeHTTP(c.Writer, c.Request)
+					return
+				}
+				c.File(filepath.Join(cfg.DashboardDir, "index.html"))
+			})
+			logger.Info("embedded dashboard enabled", "dir", cfg.DashboardDir)
+		} else {
+			logger.Warn("DASHBOARD_DIR set but index.html not found", "dir", cfg.DashboardDir)
+		}
 	}
 
 	srv := &http.Server{

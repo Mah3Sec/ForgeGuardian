@@ -2,7 +2,8 @@
 .github
 bin/
 dist/
-dashboard/
+dashboard/node_modules/
+dashboard/.vite/
 *.exe
 *.test
 coverage.out
@@ -12,6 +13,7 @@ coverage.out
 .DS_Store
 .idea/
 .vscode/
+.claude/
 Formula/
 infra/terraform/
 infra/k8s/base/

@@ -122,14 +122,22 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Build API image (with SBOM + provenance)
+      - name: Build all-in-one image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: forgeguardian:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build API-only image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./internal/api/Dockerfile
           push: false
-          sbom: true
-          provenance: mode=max
           tags: forgeguardian/api:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

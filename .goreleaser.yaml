@@ -130,16 +130,15 @@ release:
   header: |
     ## ForgeGuardian {{.Version}}
 
-    ### Install
-
-    **One-line install (no Go required):**
+    ### Full Platform (API + Dashboard)
     ```bash
-    curl -sSfL https://raw.githubusercontent.com/Mah3Sec/ForgeGuardian/main/install.sh | bash
+    docker run -d --name forgeguardian -p 3000:3000 ghcr.io/mah3sec/forgeguardian:{{.Tag}}
+    # Open http://localhost:3000 — login: admin@forgeguardian.local / changeme123
     ```
 
-    **Go install (requires Go 1.23+):**
+    ### CLI Only
     ```bash
-    go install github.com/mah3sec/forgeguardian/cmd/fgctl@{{.Tag}}
+    curl -sSfL https://raw.githubusercontent.com/Mah3Sec/ForgeGuardian/main/install.sh | bash
     ```
 
     Or download a prebuilt binary below.
