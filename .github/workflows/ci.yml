@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 env:
   GO_VERSION: "1.25"
@@ -111,34 +112,48 @@ jobs:
           name: semgrep-results
           path: semgrep.json
 
-  # ── Docker: bake with SBOM + provenance ──────────────────────────────────
-  docker-bake:
-    name: Docker Build
+  # ── Docker: build, push to GHCR ─────────────────────────────────────────
+  docker-publish:
+    name: Docker Build & Publish
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     needs: [go-build, ts-ci]
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set lowercase owner
+        run: echo "OWNER_LC=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - uses: docker/setup-buildx-action@v3
 
-      - name: Build all-in-one image
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push all-in-one image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
-          push: false
-          tags: forgeguardian:${{ github.sha }}
+          push: true
+          tags: |
+            ghcr.io/${{ env.OWNER_LC }}/forgeguardian:latest
+            ghcr.io/${{ env.OWNER_LC }}/forgeguardian:main
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build API-only image
+      - name: Build and push API-only image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./internal/api/Dockerfile
-          push: false
-          tags: forgeguardian/api:${{ github.sha }}
+          push: true
+          tags: |
+            ghcr.io/${{ env.OWNER_LC }}/forgeguardian-api:latest
+            ghcr.io/${{ env.OWNER_LC }}/forgeguardian-api:main
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
