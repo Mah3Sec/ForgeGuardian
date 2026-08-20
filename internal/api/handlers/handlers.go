@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -60,18 +61,55 @@ func (s *ServerConfig) GetAdminIdentity() *auth.AdminIdentity { return s.AdminId
 func (s *ServerConfig) GetSessionSecret() []byte              { return s.SessionSecret }
 func (s *ServerConfig) GetCookieSecure() bool                 { return s.CookieSecure }
 
+// cachedScanResult holds an in-memory record of a completed scan so that the
+// dashboard can display stats, graphs, and activity without PostgreSQL.
+type cachedScanResult struct {
+	Ecosystem       string
+	Name            string
+	Version         string
+	SHA256          string
+	Summary         scanner.ScanSummary
+	HighestSeverity string
+	ScannedAt       time.Time
+}
+
+// scanCache is a bounded in-memory store of recent scan results. It serves as
+// the data source for all dashboard endpoints when no database is configured.
+type scanCache struct {
+	mu      sync.RWMutex
+	results []cachedScanResult
+}
+
+func (sc *scanCache) add(r cachedScanResult) {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	sc.results = append(sc.results, r)
+	if len(sc.results) > 200 {
+		sc.results = sc.results[len(sc.results)-200:]
+	}
+}
+
+func (sc *scanCache) list() []cachedScanResult {
+	sc.mu.RLock()
+	defer sc.mu.RUnlock()
+	cp := make([]cachedScanResult, len(sc.results))
+	copy(cp, sc.results)
+	return cp
+}
+
 // Handler holds all dependencies for API handlers.
 type Handler struct {
-	cfg  Config
-	log  *slog.Logger
-	db   *dbsqlc.Queries // nil when DATABASE_URL is not set
-	jobs *jobRegistry
+	cfg   Config
+	log   *slog.Logger
+	db    *dbsqlc.Queries // nil when DATABASE_URL is not set
+	jobs  *jobRegistry
+	cache *scanCache
 }
 
 // New creates a handler suite. pool may be nil; DB-backed endpoints will return
 // 503 gracefully when the database is unavailable.
 func New(cfg Config, log *slog.Logger, pool *pgxpool.Pool) *Handler {
-	h := &Handler{cfg: cfg, log: log, jobs: newJobRegistry()}
+	h := &Handler{cfg: cfg, log: log, jobs: newJobRegistry(), cache: &scanCache{}}
 	if pool != nil {
 		h.db = dbsqlc.New(pool)
 	}
@@ -92,9 +130,6 @@ func (h *Handler) dbAvailable(c *gin.Context) bool {
 // ListPackages returns a paginated list of packages.
 // GET /api/v1/packages?page=1&page_size=50&ecosystem=npm
 func (h *Handler) ListPackages(c *gin.Context) {
-	if !h.dbAvailable(c) {
-		return
-	}
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	size, _ := strconv.Atoi(c.DefaultQuery("page_size", "50"))
 	eco := c.Query("ecosystem")
@@ -104,25 +139,72 @@ func (h *Handler) ListPackages(c *gin.Context) {
 	if size < 1 || size > 200 {
 		size = 50
 	}
-	offset := int32((page - 1) * size)
 
-	packages, err := h.db.ListPackages(c.Request.Context(), eco, int32(size), offset)
-	if err != nil {
-		h.log.Error("ListPackages query failed", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if h.db != nil {
+		offset := int32((page - 1) * size)
+		packages, err := h.db.ListPackages(c.Request.Context(), eco, int32(size), offset)
+		if err != nil {
+			h.log.Error("ListPackages query failed", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		total, err := h.db.CountPackages(c.Request.Context(), eco)
+		if err != nil {
+			h.log.Error("CountPackages query failed", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"page":      page,
+			"page_size": size,
+			"total":     total,
+			"packages":  packages,
+		})
 		return
 	}
-	total, err := h.db.CountPackages(c.Request.Context(), eco)
-	if err != nil {
-		h.log.Error("CountPackages query failed", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+
+	type cachedPkg struct {
+		Ecosystem string `json:"ecosystem"`
+		Name      string `json:"name"`
+		Versions  int    `json:"version_count"`
+		Findings  int    `json:"total_findings"`
+	}
+	cached := h.cache.list()
+	pkgMap := map[string]*cachedPkg{}
+	versionMap := map[string]map[string]bool{}
+	for _, r := range cached {
+		if eco != "" && r.Ecosystem != eco {
+			continue
+		}
+		key := r.Ecosystem + "/" + r.Name
+		if _, ok := pkgMap[key]; !ok {
+			pkgMap[key] = &cachedPkg{Ecosystem: r.Ecosystem, Name: r.Name}
+			versionMap[key] = map[string]bool{}
+		}
+		versionMap[key][r.Version] = true
+		pkgMap[key].Findings += r.Summary.Total
+	}
+	for key, p := range pkgMap {
+		p.Versions = len(versionMap[key])
+	}
+	pkgs := make([]cachedPkg, 0, len(pkgMap))
+	for _, p := range pkgMap {
+		pkgs = append(pkgs, *p)
+	}
+	total := len(pkgs)
+	start := (page - 1) * size
+	if start > total {
+		start = total
+	}
+	end := start + size
+	if end > total {
+		end = total
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"page":      page,
 		"page_size": size,
 		"total":     total,
-		"packages":  packages,
+		"packages":  pkgs[start:end],
 	})
 }
 
@@ -209,6 +291,16 @@ func (h *Handler) TriggerScan(c *gin.Context) {
 		results := scanner.NewWithIntelligence(h.cfg.GetIntelStorePath()).Scan(ctx, artifact)
 		findings := scanner.MergeFindings(results)
 		summary := scanner.Summarize(findings)
+
+		h.cache.add(cachedScanResult{
+			Ecosystem:       req.Ecosystem,
+			Name:            req.Package,
+			Version:         req.Version,
+			SHA256:          artifact.SHA256,
+			Summary:         summary,
+			HighestSeverity: string(summary.HighestSev),
+			ScannedAt:       time.Now(),
+		})
 
 		if h.db != nil {
 			if err := h.persistScanResult(ctx, req.Ecosystem, req.Package, req.Version, artifact.SHA256, findings, summary, ""); err != nil {
@@ -329,7 +421,8 @@ func (h *Handler) ScanUpload(c *gin.Context) {
 // GetScanResults returns persisted scan results for a package version.
 // GET /api/v1/scan/:ecosystem/:name/:version
 func (h *Handler) GetScanResults(c *gin.Context) {
-	if !h.dbAvailable(c) {
+	if h.db == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "scan result persistence requires a database — results are available in the scan response itself"})
 		return
 	}
 	eco := c.Param("ecosystem")
@@ -553,22 +646,49 @@ func (h *Handler) VerifyAttestation(c *gin.Context) {
 // DashboardStats returns aggregate statistics for the dashboard.
 // GET /api/v1/dashboard/stats
 func (h *Handler) DashboardStats(c *gin.Context) {
-	if !h.dbAvailable(c) {
+	if h.db != nil {
+		stats, err := h.db.DashboardStats(c.Request.Context())
+		if err != nil {
+			h.log.Error("DashboardStats query failed", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"total_packages":     stats.TotalPackages,
+			"total_versions":     stats.TotalVersions,
+			"total_findings":     stats.TotalFindings,
+			"critical_findings":  stats.CriticalFindings,
+			"high_findings":      stats.HighFindings,
+			"scanned_today":      stats.ScannedToday,
+			"ecosystems_covered": []string{"npm", "pypi", "go", "rubygems", "crates", "maven", "huggingface", "mcp"},
+			"last_updated":       time.Now().UTC(),
+		})
 		return
 	}
-	stats, err := h.db.DashboardStats(c.Request.Context())
-	if err != nil {
-		h.log.Error("DashboardStats query failed", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+
+	cached := h.cache.list()
+	pkgs := map[string]bool{}
+	versions := map[string]bool{}
+	var total, crit, high int64
+	today := time.Now().Format("2006-01-02")
+	var scannedToday int64
+	for _, r := range cached {
+		pkgs[r.Ecosystem+"/"+r.Name] = true
+		versions[r.Ecosystem+"/"+r.Name+"@"+r.Version] = true
+		total += int64(r.Summary.Total)
+		crit += int64(r.Summary.Critical)
+		high += int64(r.Summary.High)
+		if r.ScannedAt.Format("2006-01-02") == today {
+			scannedToday++
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"total_packages":     stats.TotalPackages,
-		"total_versions":     stats.TotalVersions,
-		"total_findings":     stats.TotalFindings,
-		"critical_findings":  stats.CriticalFindings,
-		"high_findings":      stats.HighFindings,
-		"scanned_today":      stats.ScannedToday,
+		"total_packages":     len(pkgs),
+		"total_versions":     len(versions),
+		"total_findings":     total,
+		"critical_findings":  crit,
+		"high_findings":      high,
+		"scanned_today":      scannedToday,
 		"ecosystems_covered": []string{"npm", "pypi", "go", "rubygems", "crates", "maven", "huggingface", "mcp"},
 		"last_updated":       time.Now().UTC(),
 	})
@@ -577,23 +697,55 @@ func (h *Handler) DashboardStats(c *gin.Context) {
 // DashboardRecent returns recent scan activity.
 // GET /api/v1/dashboard/recent?limit=20
 func (h *Handler) DashboardRecent(c *gin.Context) {
-	if !h.dbAvailable(c) {
-		return
-	}
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	if limit < 1 || limit > 100 {
 		limit = 20
 	}
-	results, err := h.db.ListRecentScans(c.Request.Context(), int32(limit))
-	if err != nil {
-		h.log.Error("ListRecentScans query failed", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+
+	if h.db != nil {
+		results, err := h.db.ListRecentScans(c.Request.Context(), int32(limit))
+		if err != nil {
+			h.log.Error("ListRecentScans query failed", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if results == nil {
+			results = []dbsqlc.RecentScanRow{}
+		}
+		c.JSON(http.StatusOK, gin.H{"limit": limit, "results": results})
 		return
 	}
-	if results == nil {
-		results = []dbsqlc.RecentScanRow{}
+
+	cached := h.cache.list()
+	type recentRow struct {
+		Ecosystem       string `json:"ecosystem"`
+		Name            string `json:"name"`
+		Version         string `json:"version"`
+		TotalFindings   int    `json:"total_findings"`
+		CriticalFindings int   `json:"critical_findings"`
+		HighFindings    int    `json:"high_findings"`
+		HighestSeverity string `json:"highest_severity"`
+		ScannedAt       string `json:"scanned_at"`
 	}
-	c.JSON(http.StatusOK, gin.H{"limit": limit, "results": results})
+	rows := make([]recentRow, 0, limit)
+	start := len(cached) - limit
+	if start < 0 {
+		start = 0
+	}
+	for i := len(cached) - 1; i >= start; i-- {
+		r := cached[i]
+		rows = append(rows, recentRow{
+			Ecosystem:        r.Ecosystem,
+			Name:             r.Name,
+			Version:          r.Version,
+			TotalFindings:    r.Summary.Total,
+			CriticalFindings: r.Summary.Critical,
+			HighFindings:     r.Summary.High,
+			HighestSeverity:  r.HighestSeverity,
+			ScannedAt:        r.ScannedAt.Format(time.RFC3339),
+		})
+	}
+	c.JSON(http.StatusOK, gin.H{"limit": limit, "results": rows})
 }
 
 // DashboardGraph returns a dependency-graph view of recently scanned
@@ -614,33 +766,53 @@ func (h *Handler) DashboardGraph(c *gin.Context) {
 		Target string `json:"target"`
 	}
 
-	if !h.dbAvailable(c) {
-		return
-	}
-
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	if limit < 1 || limit > 100 {
 		limit = 20
 	}
 
-	rows, err := h.db.ListRecentScans(c.Request.Context(), int32(limit))
-	if err != nil {
-		h.log.Error("ListRecentScans query failed", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
 	nodes := []graphNode{{ID: "root", Name: "your-app", Version: "", Severity: "none"}}
 	links := []graphLink{}
-	for _, r := range rows {
-		id := fmt.Sprintf("%s/%s@%s", r.Ecosystem, r.Name, r.Version)
-		nodes = append(nodes, graphNode{
-			ID:       id,
-			Name:     r.Name,
-			Version:  r.Version,
-			Severity: strings.ToLower(r.HighestSeverity),
-		})
-		links = append(links, graphLink{Source: "root", Target: id})
+
+	if h.db != nil {
+		rows, err := h.db.ListRecentScans(c.Request.Context(), int32(limit))
+		if err != nil {
+			h.log.Error("ListRecentScans query failed", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		for _, r := range rows {
+			id := fmt.Sprintf("%s/%s@%s", r.Ecosystem, r.Name, r.Version)
+			nodes = append(nodes, graphNode{
+				ID:       id,
+				Name:     r.Name,
+				Version:  r.Version,
+				Severity: strings.ToLower(r.HighestSeverity),
+			})
+			links = append(links, graphLink{Source: "root", Target: id})
+		}
+	} else {
+		cached := h.cache.list()
+		seen := map[string]bool{}
+		start := len(cached) - limit
+		if start < 0 {
+			start = 0
+		}
+		for i := len(cached) - 1; i >= start; i-- {
+			r := cached[i]
+			id := fmt.Sprintf("%s/%s@%s", r.Ecosystem, r.Name, r.Version)
+			if seen[id] {
+				continue
+			}
+			seen[id] = true
+			nodes = append(nodes, graphNode{
+				ID:       id,
+				Name:     r.Name,
+				Version:  r.Version,
+				Severity: strings.ToLower(r.HighestSeverity),
+			})
+			links = append(links, graphLink{Source: "root", Target: id})
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"nodes": nodes, "links": links})
@@ -680,6 +852,29 @@ func (h *Handler) DashboardTimeline(c *gin.Context) {
 					Total:    row.Critical + row.High + row.Medium + row.Low,
 				})
 			}
+		}
+	} else {
+		cached := h.cache.list()
+		byDay := map[string]*timelinePoint{}
+		cutoff := time.Now().AddDate(0, 0, -days)
+		for _, r := range cached {
+			if r.ScannedAt.Before(cutoff) {
+				continue
+			}
+			day := r.ScannedAt.Format("2006-01-02")
+			p, ok := byDay[day]
+			if !ok {
+				p = &timelinePoint{Date: day}
+				byDay[day] = p
+			}
+			p.Critical += int64(r.Summary.Critical)
+			p.High += int64(r.Summary.High)
+			p.Medium += int64(r.Summary.Medium)
+			p.Low += int64(r.Summary.Low)
+			p.Total += int64(r.Summary.Total)
+		}
+		for _, p := range byDay {
+			points = append(points, *p)
 		}
 	}
 
@@ -801,6 +996,37 @@ func (h *Handler) DashboardActivity(c *gin.Context) {
 				})
 			}
 		}
+	} else {
+		cached := h.cache.list()
+		start := len(cached) - limit
+		if start < 0 {
+			start = 0
+		}
+		for i := len(cached) - 1; i >= start; i-- {
+			r := cached[i]
+			evType := "scan_complete"
+			msg := fmt.Sprintf("%s@%s scanned — %d finding(s)", r.Name, r.Version, r.Summary.Total)
+			sev := "INFORMATIONAL"
+			if r.HighestSeverity != "" {
+				sev = r.HighestSeverity
+				if r.Summary.Critical > 0 {
+					evType = "finding_critical"
+					msg = fmt.Sprintf("[%s] %s@%s — %d critical finding(s)", r.HighestSeverity, r.Name, r.Version, r.Summary.Critical)
+				} else if r.Summary.High > 0 {
+					evType = "finding_critical"
+					msg = fmt.Sprintf("[%s] %s@%s — %d high finding(s)", r.HighestSeverity, r.Name, r.Version, r.Summary.High)
+				}
+			}
+			events = append(events, activityEvent{
+				ID:          fmt.Sprintf("evt-%d", len(cached)-1-i),
+				Type:        evType,
+				Message:     msg,
+				Severity:    sev,
+				PackageName: r.Name,
+				Ecosystem:   r.Ecosystem,
+				OccurredAt:  r.ScannedAt.Format(time.RFC3339),
+			})
+		}
 	}
 
 	if events == nil {
@@ -848,6 +1074,35 @@ func (h *Handler) ActiveRisks(c *gin.Context) {
 					FirstSeen:    r.ScannedAt.Time.Format(time.RFC3339),
 				})
 			}
+		}
+	} else {
+		cached := h.cache.list()
+		seen := map[string]bool{}
+		for i := len(cached) - 1; i >= 0; i-- {
+			r := cached[i]
+			if r.Summary.Total == 0 {
+				continue
+			}
+			key := r.Ecosystem + "/" + r.Name + "@" + r.Version
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			score := r.Summary.Critical*40 + r.Summary.High*20
+			if score > 100 {
+				score = 100
+			}
+			grade := riskGrade(score)
+			risks = append(risks, riskItem{
+				PackageName:  r.Name,
+				Version:      r.Version,
+				Ecosystem:    r.Ecosystem,
+				RiskGrade:    grade,
+				RiskScore:    score,
+				FindingCount: r.Summary.Total,
+				TopSeverity:  r.HighestSeverity,
+				FirstSeen:    r.ScannedAt.Format(time.RFC3339),
+			})
 		}
 	}
 

@@ -100,7 +100,8 @@ func (h *Handler) CheckAllowlist(c *gin.Context) {
 // ListAlerts returns paginated alerts.
 // GET /api/v1/alerts?page=1&page_size=50&severity=HIGH&dismissed=false
 func (h *Handler) ListAlerts(c *gin.Context) {
-	if !h.dbAvailable(c) {
+	if h.db == nil {
+		c.JSON(http.StatusOK, gin.H{"page": 1, "page_size": 50, "total": 0, "alerts": []any{}})
 		return
 	}
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
