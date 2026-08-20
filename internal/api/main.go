@@ -173,6 +173,7 @@ func main() {
 		v1.POST("/alerts/:id/dismiss", h.DismissAlert)
 		v1.POST("/auth/login", middleware.LoginRateLimiter(), h.Login)
 		v1.POST("/auth/logout", h.Logout)
+		v1.POST("/auth/password", h.ChangePassword)
 		v1.GET("/auth/me", h.AuthMe)
 	}
 

@@ -63,6 +63,43 @@ func (h *Handler) Logout(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
+// ChangePassword lets the logged-in admin change their password.
+// POST /api/v1/auth/password   body: {"current_password":"...","new_password":"..."}
+func (h *Handler) ChangePassword(c *gin.Context) {
+	admin := h.cfg.GetAdminIdentity()
+	if admin == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "login is not enabled on this server"})
+		return
+	}
+
+	tok, err := c.Cookie(sessionCookieName)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "not authenticated"})
+		return
+	}
+	if _, err := auth.ParseToken(tok, h.cfg.GetSessionSecret()); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "not authenticated"})
+		return
+	}
+
+	var req struct {
+		CurrentPassword string `json:"current_password" binding:"required"`
+		NewPassword     string `json:"new_password"     binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := auth.UpdateAdminPassword(admin, req.CurrentPassword, req.NewPassword); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	h.log.Info("admin password changed")
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
 // AuthMe reports the current session's authentication state.
 // GET /api/v1/auth/me
 func (h *Handler) AuthMe(c *gin.Context) {

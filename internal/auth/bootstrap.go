@@ -72,3 +72,31 @@ func LoadOrBootstrapAdmin(email, plaintextPassword string) (*AdminIdentity, erro
 
 	return identity, nil
 }
+
+// UpdateAdminPassword verifies the old password, hashes the new one, and
+// persists the updated identity to AdminIdentityPath(). The caller should
+// hold a reference to the same *AdminIdentity used by the running server
+// so the in-memory state stays in sync.
+func UpdateAdminPassword(identity *AdminIdentity, oldPlaintext, newPlaintext string) error {
+	if err := CheckPassword(identity.PasswordHash, oldPlaintext); err != nil {
+		return fmt.Errorf("current password is incorrect")
+	}
+	if len(newPlaintext) < 8 {
+		return fmt.Errorf("new password must be at least 8 characters")
+	}
+	hash, err := HashPassword(newPlaintext)
+	if err != nil {
+		return err
+	}
+	identity.PasswordHash = hash
+
+	path := AdminIdentityPath()
+	out, err := json.Marshal(identity)
+	if err != nil {
+		return fmt.Errorf("auth: marshal admin identity: %w", err)
+	}
+	if err := os.WriteFile(path, out, 0o600); err != nil {
+		return fmt.Errorf("auth: write admin identity: %w", err)
+	}
+	return nil
+}

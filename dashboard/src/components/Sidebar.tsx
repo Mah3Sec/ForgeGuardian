@@ -3,8 +3,11 @@ import {
   FolderOpen, Package, FileText, ListFilter, KeyRound, Download, Webhook,
   GitMerge, LayoutDashboard, ChevronLeft, ChevronRight, FileCheck, PenTool,
   BookOpen, LogOut, Network, Puzzle, Server, Globe2, Building2, Sparkles, Cpu,
+  Settings,
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { useUIStore } from '../store/ui';
+import { getAuthStatus } from '../lib/api';
 import { cn } from './ui/utils';
 
 export interface NavItem {
@@ -187,26 +190,8 @@ export function Sidebar({ current, onNavigate, onLogout }: SidebarProps) {
         )}
       </div>
 
-      {/* User profile — click to log out */}
-      {sidebarOpen && (
-        <button
-          onClick={() => onLogout?.()}
-          title={onLogout ? 'Log out' : undefined}
-          className={cn(
-            'border-t border-border-color px-3.5 py-2.5 flex items-center gap-2.5 bg-transparent w-full text-left [font-family:inherit]',
-            onLogout ? 'cursor-pointer hover:bg-surface-muted' : 'cursor-default'
-          )}
-        >
-          <div className="w-7 h-7 rounded-full bg-primary-blue flex items-center justify-center text-[0.6rem] font-bold text-white shrink-0 font-mono">
-            FG
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[0.75rem] font-semibold text-text-primary m-0">forgeadmin</p>
-            <p className="text-[0.62rem] text-text-muted m-0">Administrator</p>
-          </div>
-          {onLogout && <LogOut size={14} className="text-text-muted shrink-0" />}
-        </button>
-      )}
+      {/* User profile + logout */}
+      <UserProfile sidebarOpen={sidebarOpen} onLogout={onLogout} onNavigate={onNavigate} />
 
       {/* Collapse toggle */}
       <button
@@ -216,5 +201,64 @@ export function Sidebar({ current, onNavigate, onLogout }: SidebarProps) {
         {sidebarOpen ? <ChevronLeft size={15} /> : <ChevronRight size={15} />}
       </button>
     </aside>
+  );
+}
+
+function UserProfile({ sidebarOpen, onLogout, onNavigate }: { sidebarOpen: boolean; onLogout?: () => void; onNavigate: (path: string) => void }) {
+  const auth = useQuery({ queryKey: ['auth-me'], queryFn: getAuthStatus, retry: false, staleTime: 60_000 });
+  const email = auth.data?.email ?? 'admin';
+  const initials = email.slice(0, 2).toUpperCase();
+
+  if (sidebarOpen) {
+    return (
+      <div className="border-t border-border-color">
+        <div className="px-3.5 py-2.5 flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-full bg-primary-blue flex items-center justify-center text-[0.6rem] font-bold text-white shrink-0 font-mono">
+            {initials}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[0.75rem] font-semibold text-text-primary m-0 truncate">{email}</p>
+            <p className="text-[0.62rem] text-text-muted m-0">Administrator</p>
+          </div>
+        </div>
+        <div className="flex border-t border-border-color">
+          <button
+            onClick={() => onNavigate('/settings')}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[0.7rem] text-text-secondary hover:bg-surface-muted bg-transparent cursor-pointer [font-family:inherit]"
+          >
+            <Settings size={13} /> Settings
+          </button>
+          {onLogout && (
+            <button
+              onClick={() => onLogout()}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[0.7rem] text-text-secondary hover:bg-surface-muted bg-transparent cursor-pointer border-l border-border-color [font-family:inherit]"
+            >
+              <LogOut size={13} /> Log out
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-t border-border-color flex flex-col items-center gap-1 py-2">
+      <button
+        onClick={() => onNavigate('/settings')}
+        title="Settings"
+        className="p-2 rounded-md text-text-secondary hover:bg-surface-muted bg-transparent cursor-pointer"
+      >
+        <Settings size={15} />
+      </button>
+      {onLogout && (
+        <button
+          onClick={() => onLogout()}
+          title="Log out"
+          className="p-2 rounded-md text-text-secondary hover:bg-surface-muted bg-transparent cursor-pointer"
+        >
+          <LogOut size={15} />
+        </button>
+      )}
+    </div>
   );
 }

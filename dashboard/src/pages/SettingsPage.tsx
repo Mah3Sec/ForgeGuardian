@@ -1,10 +1,13 @@
-import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import {
   Info, Server, ShieldCheck, LogOut, Webhook, KeyRound,
-  Users, CreditCard, ScrollText, Clock,
+  Users, CreditCard, ScrollText, Clock, Lock, Loader, CheckCircle,
 } from 'lucide-react'
-import { getAuthStatus, logout } from '../lib/api'
+import { getAuthStatus, logout, changePassword } from '../lib/api'
 import { useUIStore } from '../store/ui'
+import { Input } from '../components/ui/input'
+import { Button } from '../components/ui/button'
 
 function SectionCard({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
   return (
@@ -26,7 +29,6 @@ function ComingSoonBadge() {
   )
 }
 
-// General — real API URL display, restyled to the new light-theme tokens.
 function GeneralSection() {
   return (
     <SectionCard title="General" icon={Server}>
@@ -43,12 +45,18 @@ function GeneralSection() {
   )
 }
 
-// Security — real auth system state via getAuthStatus(). Sidebar.tsx already
-// has a logout button when auth is enabled; this section shows status and a
-// convenience logout action, not a separate session-management UI (the
-// backend is single-JWT-cookie with no session table).
 function SecuritySection() {
-  const auth = useQuery({ queryKey: ['auth-me', 'settings'], queryFn: getAuthStatus, retry: false })
+  const qc = useQueryClient()
+  const navigate = useUIStore(s => s.navigate)
+  const auth = useQuery({ queryKey: ['auth-me'], queryFn: getAuthStatus, retry: false })
+
+  const logoutMutation = useMutation({
+    mutationFn: () => logout(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['auth-me'] })
+      navigate('/')
+    },
+  })
 
   return (
     <SectionCard title="Security" icon={ShieldCheck}>
@@ -65,7 +73,7 @@ function SecuritySection() {
             <p className="text-xs text-text-secondary mt-0.5">
               {auth.data?.auth_enabled
                 ? auth.data.authenticated
-                  ? `Signed in${auth.data.email ? ` as ${auth.data.email}` : ''}.`
+                  ? `Signed in as ${auth.data.email ?? 'admin'}.`
                   : 'Not currently signed in.'
                 : 'FG_API_KEY / session auth is not configured on this server — the dashboard is unauthenticated.'}
             </p>
@@ -73,10 +81,12 @@ function SecuritySection() {
           {auth.data?.auth_enabled && auth.data.authenticated && (
             <button
               type="button"
-              onClick={() => logout()}
-              className="flex items-center gap-1.5 text-xs font-medium rounded-md border border-border-color px-3 py-1.5 text-text-primary hover:bg-surface-muted shrink-0"
+              onClick={() => logoutMutation.mutate()}
+              disabled={logoutMutation.isPending}
+              className="flex items-center gap-1.5 text-xs font-medium rounded-md border border-border-color px-3 py-1.5 text-text-primary hover:bg-surface-muted shrink-0 disabled:opacity-50"
             >
-              <LogOut size={12} /> Log out
+              {logoutMutation.isPending ? <Loader size={12} className="animate-spin" /> : <LogOut size={12} />}
+              {logoutMutation.isPending ? 'Logging out…' : 'Log out'}
             </button>
           )}
         </div>
@@ -85,9 +95,95 @@ function SecuritySection() {
   )
 }
 
-// Notifications — real webhook-test config already covered fully by
-// WebhooksPage.tsx and the Integrations page's Notifications card; this
-// section is a brief pointer, not a rebuild.
+function ChangePasswordSection() {
+  const auth = useQuery({ queryKey: ['auth-me'], queryFn: getAuthStatus, retry: false })
+  const [currentPw, setCurrentPw] = useState('')
+  const [newPw, setNewPw] = useState('')
+  const [confirmPw, setConfirmPw] = useState('')
+  const [success, setSuccess] = useState(false)
+
+  const mutation = useMutation({
+    mutationFn: () => changePassword(currentPw, newPw),
+    onSuccess: () => {
+      setCurrentPw('')
+      setNewPw('')
+      setConfirmPw('')
+      setSuccess(true)
+      setTimeout(() => setSuccess(false), 4000)
+    },
+  })
+
+  if (!auth.data?.auth_enabled || !auth.data?.authenticated) return null
+
+  const mismatch = confirmPw !== '' && newPw !== confirmPw
+  const tooShort = newPw !== '' && newPw.length < 8
+  const canSubmit = currentPw && newPw && confirmPw && !mismatch && !tooShort && !mutation.isPending
+
+  return (
+    <SectionCard title="Change Password" icon={Lock}>
+      <form
+        onSubmit={e => {
+          e.preventDefault()
+          if (canSubmit) mutation.mutate()
+        }}
+        className="space-y-3 max-w-sm"
+      >
+        <div>
+          <label className="block text-xs font-mono text-text-secondary mb-1">CURRENT PASSWORD</label>
+          <Input
+            type="password"
+            value={currentPw}
+            onChange={e => setCurrentPw(e.target.value)}
+            placeholder="••••••••"
+            autoComplete="current-password"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-mono text-text-secondary mb-1">NEW PASSWORD</label>
+          <Input
+            type="password"
+            value={newPw}
+            onChange={e => setNewPw(e.target.value)}
+            placeholder="Min. 8 characters"
+            autoComplete="new-password"
+          />
+          {tooShort && <p className="text-[0.65rem] text-critical mt-1">Must be at least 8 characters.</p>}
+        </div>
+        <div>
+          <label className="block text-xs font-mono text-text-secondary mb-1">CONFIRM NEW PASSWORD</label>
+          <Input
+            type="password"
+            value={confirmPw}
+            onChange={e => setConfirmPw(e.target.value)}
+            placeholder="••••••••"
+            autoComplete="new-password"
+          />
+          {mismatch && <p className="text-[0.65rem] text-critical mt-1">Passwords do not match.</p>}
+        </div>
+
+        {mutation.isError && (
+          <p className="text-xs text-critical">{(mutation.error as Error).message}</p>
+        )}
+
+        {success && (
+          <div className="flex items-center gap-1.5 text-xs text-success">
+            <CheckCircle size={13} /> Password changed successfully.
+          </div>
+        )}
+
+        <Button
+          type="submit"
+          disabled={!canSubmit}
+          className="bg-primary-blue font-mono text-white hover:bg-primary-blue/90 text-xs"
+        >
+          {mutation.isPending ? <Loader size={13} className="animate-spin" /> : null}
+          {mutation.isPending ? 'Updating…' : 'Update Password'}
+        </Button>
+      </form>
+    </SectionCard>
+  )
+}
+
 function NotificationsSection() {
   const navigate = useUIStore(s => s.navigate)
   return (
@@ -107,10 +203,6 @@ function NotificationsSection() {
   )
 }
 
-// API keys — there is no key-management CRUD backend (one shared static
-// FG_API_KEY env var, no create/list/revoke endpoints). Show the current
-// key's configured status only — never the secret value, never a fake
-// "create new key" form with nowhere real to POST to.
 function ApiKeysSection() {
   const configured = (import.meta.env.VITE_API_KEY ?? '') !== ''
   return (
@@ -138,10 +230,6 @@ function ApiKeysSection() {
   )
 }
 
-// Team, Billing, Audit Log — deliberate, spec-acknowledged placeholders.
-// No multi-user backend, no billing system, no persisted audit trail exist
-// yet — these are intentional, polished "coming soon" panels rather than
-// fabricated sample data that could be mistaken for real functionality.
 function PlaceholderSection({
   title,
   icon,
@@ -173,6 +261,7 @@ export function SettingsPage() {
 
       <GeneralSection />
       <SecuritySection />
+      <ChangePasswordSection />
       <NotificationsSection />
       <ApiKeysSection />
 
@@ -192,7 +281,6 @@ export function SettingsPage() {
         reason="No persisted audit trail exists server-side yet. Recent activity (scans, findings) is visible on the System Audit page, but a durable, queryable audit log is not yet implemented."
       />
 
-      {/* Version info */}
       <div className="rounded-xl border border-border-color bg-surface p-4 flex items-start gap-3 shadow-sm">
         <Info size={14} className="text-text-muted mt-0.5" />
         <div className="space-y-0.5">

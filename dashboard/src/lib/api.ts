@@ -443,6 +443,12 @@ export const login = (email: string, password: string) =>
 export const logout = () =>
   request<{ ok: boolean }>('/api/v1/auth/logout', { method: 'POST' });
 
+export const changePassword = (currentPassword: string, newPassword: string) =>
+  request<{ ok: boolean }>('/api/v1/auth/password', {
+    method: 'POST',
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  });
+
 export const getAuthStatus = () =>
   request<{ auth_enabled: boolean; authenticated: boolean; email?: string }>('/api/v1/auth/me');
 
