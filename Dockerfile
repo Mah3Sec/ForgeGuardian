@@ -40,7 +40,7 @@ FROM debian:bookworm-slim
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates && \
     rm -rf /var/lib/apt/lists/* && \
-    groupadd -r fg && useradd -r -g fg -s /bin/false fg && \
+    groupadd -r fg && useradd -r -g fg -d /data -s /bin/false fg && \
     mkdir -p /data && chown fg:fg /data
 
 COPY --from=api-builder /forgeguardian-api /app/forgeguardian-api
@@ -49,6 +49,7 @@ COPY docker/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
 USER fg
+ENV HOME=/data
 WORKDIR /app
 EXPOSE 3000
 VOLUME /data
