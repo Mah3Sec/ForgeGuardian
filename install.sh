@@ -200,7 +200,7 @@ install_from_github() {
 # inside a checkout — e.g. piped via curl with no local clone at all.
 install_from_source() {
   command -v go >/dev/null 2>&1 \
-    || die "go not found in PATH (install Go 1.23+ from https://go.dev/dl/)"
+    || die "go not found in PATH (install Go 1.25+ from https://go.dev/dl/)"
 
   local go_version
   go_version=$(go version | awk '{print $3}' | sed 's/go//')

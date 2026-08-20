@@ -73,7 +73,7 @@ ForgeGuardian is a CLI-first supply chain security platform that covers:
 
 | Tool | Version | Install |
 |------|---------|---------|
-| Go | 1.23+ | https://go.dev/dl/ |
+| Go | 1.25+ | https://go.dev/dl/ |
 | Git | any | system package manager |
 | Internet access | — | package downloads + OSV API |
 
@@ -144,7 +144,7 @@ All curl calls in the installer include retry logic (3 attempts) and a 30s timeo
 ```bash
 git clone https://github.com/mah3sec/forgeguardian
 cd forgeguardian
-bash scripts/bootstrap.sh   # validates Go ≥1.23, Node ≥20, optional tools; runs go build + npm ci
+bash scripts/bootstrap.sh   # validates Go ≥1.25, Node ≥20, optional tools; runs go build + npm ci
 make build                  # → bin/fgctl  bin/fg-agent  bin/intel-agent
 ./bin/fgctl doctor
 ```
@@ -990,7 +990,7 @@ fgctl sign npm/chalk@5.3.0 --out=/tmp/chalk.att.json
 ```bash
 docker run --rm -it \
   -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY \
-  golang:1.23-alpine sh
+  golang:1.25-alpine sh
 
 # Inside container:
 go install github.com/mah3sec/forgeguardian/cmd/fgctl@latest
@@ -1013,7 +1013,7 @@ fg-agent --recipe=npm --package=lodash --version=4.17.20 \
 `.devcontainer/devcontainer.json`:
 ```json
 {
-  "image": "mcr.microsoft.com/devcontainers/go:1.23",
+  "image": "mcr.microsoft.com/devcontainers/go:1.25",
   "postCreateCommand": "go install github.com/mah3sec/forgeguardian/cmd/fgctl@latest",
   "containerEnv": { "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}" }
 }

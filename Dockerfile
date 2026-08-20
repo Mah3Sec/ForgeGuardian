@@ -14,7 +14,7 @@
 #     forgeguardian
 
 # ── Stage 1: Build Go API ────────────────────────────────────────────────────
-FROM golang:1.23-bookworm AS api-builder
+FROM golang:1.25-bookworm AS api-builder
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download

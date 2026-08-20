@@ -209,7 +209,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version: "1.25"
 
       - name: Install ForgeGuardian
         run: go install github.com/mah3sec/forgeguardian/cmd/fgctl@latest
@@ -260,7 +260,7 @@ jobs:
 ```yaml
 forgeguardian-scan:
   stage: security
-  image: golang:1.23-alpine
+  image: golang:1.25-alpine
   before_script:
     - go install github.com/mah3sec/forgeguardian/cmd/fgctl@latest
     - fgctl update

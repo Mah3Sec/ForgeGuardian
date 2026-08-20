@@ -14,7 +14,7 @@
 
 > Community-driven detection. AI-native triage. Full 8-engine scanning. Works offline.
 
-![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?style=flat-square&logo=go)
+![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat-square&logo=go)
 ![License](https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square)
 ![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20WSL-blue?style=flat-square)
 ![Signatures](https://img.shields.io/badge/Community%20Signatures-24-orange?style=flat-square)
@@ -44,7 +44,7 @@ One tool. 9 ecosystems. AI triage. Community signatures. SLSA Level 3 provenance
 # One-line install (Linux / macOS / WSL) — no Go required
 curl -sSfL https://raw.githubusercontent.com/Mah3Sec/ForgeGuardian/main/install.sh | bash
 
-# Go install (requires Go 1.23+)
+# Go install (requires Go 1.25+)
 go install github.com/mah3sec/forgeguardian/cmd/fgctl@latest
 
 # Build from source

@@ -82,7 +82,7 @@ We'll write the signature from your report.
 ```bash
 git clone https://github.com/mah3sec/forgeguardian
 cd forgeguardian
-bash scripts/bootstrap.sh   # validates Go ≥1.23, Node ≥20, optional tools; runs go build + npm ci
+bash scripts/bootstrap.sh   # validates Go ≥1.25, Node ≥20, optional tools; runs go build + npm ci
 make build                  # → bin/fgctl  bin/fg-agent  bin/intel-agent
 make test                   # all unit tests
 make smoke-test             # integration tests against real packages (needs internet)
