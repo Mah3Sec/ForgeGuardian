@@ -123,8 +123,8 @@ export function Sidebar({ current, onNavigate, onLogout }: SidebarProps) {
       {/* Logo */}
       <div
         className={cn(
-          'flex items-center border-b border-border-color cursor-pointer',
-          sidebarOpen ? 'px-3 pt-3 pb-2.5 justify-center' : 'px-0 py-3 justify-center'
+          'flex items-center gap-2 border-b border-border-color cursor-pointer overflow-hidden',
+          sidebarOpen ? 'px-3 pt-3 pb-2.5' : 'px-0 py-3 justify-center'
         )}
         onClick={() => onNavigate('/')}
       >
@@ -133,10 +133,13 @@ export function Sidebar({ current, onNavigate, onLogout }: SidebarProps) {
           alt="ForgeGuardian"
           className="shrink-0 transition-all duration-200"
           style={{
-            height: sidebarOpen ? 40 : 32,
+            height: sidebarOpen ? 34 : 30,
             objectFit: 'contain',
           }}
         />
+        {sidebarOpen && (
+          <span className="text-[0.85rem] font-semibold tracking-tight text-text-primary whitespace-nowrap">ForgeGuardian</span>
+        )}
       </div>
 
       {/* Workspace switcher */}

@@ -35,8 +35,9 @@ export function EnterprisePage({ onNavigateHome }: EnterprisePageProps) {
   return (
     <div className="min-h-screen bg-bg-base text-text-primary">
       <nav className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-border-color bg-surface/80 px-4 sm:px-6 py-3.5 backdrop-blur-md">
-        <button onClick={onNavigateHome} className="flex items-center min-w-0 shrink bg-transparent border-none cursor-pointer">
-          <img src="/logo-icon.png" alt="ForgeGuardian" className="shrink-0" style={{ height: 40, objectFit: 'contain' }} />
+        <button onClick={onNavigateHome} className="flex items-center gap-2.5 min-w-0 shrink bg-transparent border-none cursor-pointer">
+          <img src="/logo-icon.png" alt="ForgeGuardian" className="shrink-0" style={{ height: 36, objectFit: 'contain' }} />
+          <span className="text-[1.05rem] font-semibold tracking-tight text-text-primary whitespace-nowrap">ForgeGuardian</span>
         </button>
         <div className="flex items-center gap-2 shrink-0">
           <a

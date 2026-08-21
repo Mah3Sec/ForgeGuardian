@@ -37,8 +37,9 @@ export function AuthPanel({ onLoggedIn }: AuthPanelProps) {
         <div className="pointer-events-none absolute inset-0">
           <NetworkGraph mode="ambient" opacity={0.18} width={640} height={560} />
         </div>
-        <div className="relative z-10 flex items-center">
-          <img src="/logo-icon.png" alt="ForgeGuardian" className="drop-shadow-[0_0_8px_rgba(37,99,235,0.6)]" style={{ height: 56, objectFit: 'contain' }} />
+        <div className="relative z-10 flex items-center gap-3">
+          <img src="/logo-icon.png" alt="ForgeGuardian" className="drop-shadow-[0_0_8px_rgba(37,99,235,0.6)]" style={{ height: 48, objectFit: 'contain' }} />
+          <span className="text-xl font-semibold tracking-tight text-white drop-shadow-[0_0_8px_rgba(37,99,235,0.4)]">ForgeGuardian</span>
         </div>
         <div className="relative z-10">
           <p className="text-2xl font-semibold leading-snug">
