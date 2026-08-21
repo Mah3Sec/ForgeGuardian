@@ -129,14 +129,12 @@ export function Sidebar({ current, onNavigate, onLogout }: SidebarProps) {
         onClick={() => onNavigate('/')}
       >
         <img
-          src="/logo.png"
+          src="/logo-icon.png"
           alt="ForgeGuardian"
           className="shrink-0 transition-all duration-200"
           style={{
-            height: sidebarOpen ? 56 : 36,
-            maxWidth: sidebarOpen ? 210 : 36,
-            objectFit: sidebarOpen ? 'contain' : 'cover',
-            objectPosition: 'left center',
+            height: sidebarOpen ? 40 : 32,
+            objectFit: 'contain',
           }}
         />
       </div>

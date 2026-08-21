@@ -169,7 +169,7 @@ export function PitchPage({ onLoggedIn, onNavigateEnterprise }: PitchPageProps) 
         }
       >
         <div className="flex items-center min-w-0 shrink">
-          <img src="/logo.png" alt="ForgeGuardian" className="shrink-0" style={{ height: 44, maxWidth: 220, objectFit: 'contain' }} />
+          <img src="/logo-icon.png" alt="ForgeGuardian" className="shrink-0" style={{ height: 40, objectFit: 'contain' }} />
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <a
