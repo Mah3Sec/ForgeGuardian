@@ -160,14 +160,6 @@ function AppShell({ path, setPath }: { path: string; setPath: (p: string) => voi
     );
   }
 
-  if (path === '/docs' || path === '/api-docs') {
-    return (
-      <Suspense fallback={<RouteFallback />}>
-        <PublicDocsShell path={path} onNavigateHome={() => setPath('/')} onNavigate={setPath} />
-      </Suspense>
-    );
-  }
-
   // Auth gate — deny by default. Never render the dashboard before we have
   // confirmed the user is authenticated (or that auth is disabled).
   const authData = authStatus.data;
@@ -237,36 +229,6 @@ function AppShell({ path, setPath }: { path: string; setPath: (p: string) => voi
             <Router path={path} />
           </Suspense>
         </main>
-      </div>
-    </div>
-  );
-}
-
-function PublicDocsShell({ path, onNavigateHome, onNavigate }: { path: string; onNavigateHome: () => void; onNavigate: (p: string) => void }) {
-  return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-base)', color: 'var(--fg)' }}>
-      <nav className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-border-color bg-surface/80 px-4 sm:px-6 py-3 backdrop-blur-md">
-        <button onClick={onNavigateHome} className="flex items-center gap-2.5 min-w-0 shrink bg-transparent border-none cursor-pointer">
-          <img src="/logo-icon.png" alt="ForgeGuardian" className="shrink-0" style={{ height: 34, objectFit: 'contain' }} />
-          <span className="text-[1rem] font-semibold tracking-tight text-text-primary whitespace-nowrap">ForgeGuardian</span>
-        </button>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => onNavigate(path === '/docs' ? '/api-docs' : '/docs')}
-            className="rounded-md border border-border-color px-3 py-1.5 text-sm font-medium text-text-primary hover:bg-surface-muted bg-transparent cursor-pointer"
-          >
-            {path === '/docs' ? 'API Reference' : 'Developer Docs'}
-          </button>
-          <button
-            onClick={onNavigateHome}
-            className="rounded-md border border-border-color bg-surface px-3 py-1.5 text-sm font-medium text-text-primary hover:bg-surface-muted cursor-pointer"
-          >
-            Home
-          </button>
-        </div>
-      </nav>
-      <div className="flex-1">
-        {path === '/docs' ? <DocsPage /> : <ApiDocsPage />}
       </div>
     </div>
   );
