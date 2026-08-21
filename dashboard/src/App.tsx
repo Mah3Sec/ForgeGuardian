@@ -160,16 +160,20 @@ function AppShell({ path, setPath }: { path: string; setPath: (p: string) => voi
     );
   }
 
-  // Auth settled: check whether login is required.
-  // isSettled = query succeeded OR failed; while still loading, render the
-  // dashboard optimistically so a flaky/absent backend never blocks the UI.
+  // Auth gate — deny by default. Never render the dashboard before we have
+  // confirmed the user is authenticated (or that auth is disabled).
   const authData = authStatus.data;
-  const authSettled = !authStatus.isLoading;
 
-  const gated = authSettled
-    && !authStatus.isError
-    && authData?.auth_enabled === true
-    && authData?.authenticated === false;
+  // While loading with no cached data (initial load, or cache cleared after
+  // logout), show a blank loading state — not the dashboard.
+  if (!authData && (authStatus.isLoading || authStatus.isFetching)) {
+    return <RouteFallback />;
+  }
+
+  // Gate: auth enabled + not authenticated, OR no auth data at all (API
+  // unreachable / error with no cached result) — show login.
+  const gated = (authData?.auth_enabled === true && authData?.authenticated === false)
+    || (!authData && authStatus.isError);
 
   if (gated) {
     return (
@@ -182,7 +186,7 @@ function AppShell({ path, setPath }: { path: string; setPath: (p: string) => voi
     );
   }
 
-  const authEnabled = authSettled && !authStatus.isError && authData?.auth_enabled === true;
+  const authEnabled = authData?.auth_enabled === true;
 
   if (authEnabled && authData?.password_must_change) {
     return (
@@ -215,7 +219,9 @@ function AppShell({ path, setPath }: { path: string; setPath: (p: string) => voi
           onNavigate={setPath}
           onLogout={async () => {
             await logout();
+            qc.setQueryData(['auth-me'], null);
             qc.invalidateQueries({ queryKey: ['auth-me'] });
+            setPath('/');
           }}
         />
         <main className="flex-1 overflow-auto">
