@@ -57,8 +57,6 @@ const ExportsPage           = lazy(() => import('./pages/ExportsPage').then(m =>
 const CiCdPage              = lazy(() => import('./pages/CiCdPage').then(m => ({ default: m.CiCdPage })));
 const ProvenancePage        = lazy(() => import('./pages/ProvenancePage').then(m => ({ default: m.ProvenancePage })));
 const IntelAuthoringPage    = lazy(() => import('./pages/IntelAuthoringPage').then(m => ({ default: m.IntelAuthoringPage })));
-const DocsPage              = lazy(() => import('./pages/DocsPage').then(m => ({ default: m.DocsPage })));
-const ApiDocsPage           = lazy(() => import('./pages/ApiDocsPage').then(m => ({ default: m.ApiDocsPage })));
 const PitchPage             = lazy(() => import('./pages/PitchPage').then(m => ({ default: m.PitchPage })));
 const EnterprisePage        = lazy(() => import('./pages/EnterprisePage').then(m => ({ default: m.EnterprisePage })));
 const OnboardingPage        = lazy(() => import('./pages/OnboardingPage').then(m => ({ default: m.OnboardingPage })));
@@ -120,8 +118,6 @@ function Router({ path }: { path: string }) {
     case '/cicd':        return <ErrorBoundary><CiCdPage /></ErrorBoundary>;
     case '/provenance':  return <ErrorBoundary><ProvenancePage /></ErrorBoundary>;
     case '/intel/new':   return <ErrorBoundary><IntelAuthoringPage /></ErrorBoundary>;
-    case '/docs':        return <ErrorBoundary><DocsPage /></ErrorBoundary>;
-    case '/api-docs':    return <ErrorBoundary><ApiDocsPage /></ErrorBoundary>;
     case '/attack-surface': return <ErrorBoundary><AttackSurfacePage /></ErrorBoundary>;
     case '/graph':          return <ErrorBoundary><GraphPage /></ErrorBoundary>;
     case '/integrations':   return <ErrorBoundary><IntegrationsPage /></ErrorBoundary>;

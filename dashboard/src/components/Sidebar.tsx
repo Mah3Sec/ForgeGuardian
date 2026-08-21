@@ -2,7 +2,7 @@ import {
   Shield, Search, RefreshCw, HardDrive, Bot, Activity, GitBranch, Bell,
   FolderOpen, Package, FileText, ListFilter, KeyRound, Download, Webhook,
   GitMerge, LayoutDashboard, ChevronLeft, ChevronRight, FileCheck, PenTool,
-  BookOpen, LogOut, Network, Puzzle, Server, Globe2, Building2, Sparkles, Cpu,
+  LogOut, Network, Puzzle, Globe2, Building2, Sparkles, Cpu,
   Settings, ClipboardList, Terminal,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -77,8 +77,6 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     section: 'RESOURCES',
     items: [
-      { label: 'Developer Docs',      icon: BookOpen,     path: '/docs' },
-      { label: 'API Reference',       icon: Server,       path: '/api-docs' },
       { label: 'About ForgeGuardian', icon: Globe2,       path: '/welcome' },
       { label: 'Enterprise',          icon: Building2,    path: '/enterprise' },
     ],
