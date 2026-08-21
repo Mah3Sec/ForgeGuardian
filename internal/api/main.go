@@ -206,9 +206,12 @@ func main() {
 					return
 				}
 				if f, err := fs.Open(p); err == nil {
+					stat, _ := f.Stat()
 					f.Close()
-					http.FileServer(fs).ServeHTTP(c.Writer, c.Request)
-					return
+					if stat != nil && !stat.IsDir() {
+						http.FileServer(fs).ServeHTTP(c.Writer, c.Request)
+						return
+					}
 				}
 				c.File(filepath.Join(cfg.DashboardDir, "index.html"))
 			})
