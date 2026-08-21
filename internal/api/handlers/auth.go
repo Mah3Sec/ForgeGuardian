@@ -52,14 +52,34 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-	c.SetCookie(sessionCookieName, token, int(sessionTTL.Seconds()), "/", "", h.cfg.GetCookieSecure(), true /* httpOnly */)
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    token,
+		Path:     "/",
+		MaxAge:   int(sessionTTL.Seconds()),
+		Secure:   h.cfg.GetCookieSecure(),
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	})
+	resp := gin.H{"ok": true}
+	if admin.PasswordMustChange {
+		resp["password_must_change"] = true
+	}
+	c.JSON(http.StatusOK, resp)
 }
 
 // Logout clears the dashboard session cookie.
 // POST /api/v1/auth/logout
 func (h *Handler) Logout(c *gin.Context) {
-	c.SetCookie(sessionCookieName, "", -1, "/", "", h.cfg.GetCookieSecure(), true)
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		Secure:   h.cfg.GetCookieSecure(),
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	})
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -121,5 +141,9 @@ func (h *Handler) AuthMe(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"auth_enabled": true, "authenticated": true, "email": claims.Email})
+	resp := gin.H{"auth_enabled": true, "authenticated": true, "email": claims.Email}
+	if admin.PasswordMustChange {
+		resp["password_must_change"] = true
+	}
+	c.JSON(http.StatusOK, resp)
 }

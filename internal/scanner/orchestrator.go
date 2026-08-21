@@ -185,22 +185,30 @@ type ScanSummary struct {
 	HighestSev    core.Severity
 }
 
-// Summarize counts findings by severity.
+// Summarize counts findings by severity. INFORMATIONAL "configuration" findings
+// (engine-not-installed hints) are counted separately and excluded from Total
+// so they don't inflate the finding count on the dashboard.
 func Summarize(findings []core.Finding) ScanSummary {
 	var s ScanSummary
 	for _, f := range findings {
-		s.Total++
 		switch f.Severity {
 		case core.SeverityCritical:
 			s.Critical++
+			s.Total++
 		case core.SeverityHigh:
 			s.High++
+			s.Total++
 		case core.SeverityMedium:
 			s.Medium++
+			s.Total++
 		case core.SeverityLow:
 			s.Low++
+			s.Total++
 		default:
 			s.Informational++
+			if f.Type != "configuration" {
+				s.Total++
+			}
 		}
 	}
 	switch {

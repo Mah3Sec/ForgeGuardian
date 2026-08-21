@@ -3,6 +3,7 @@ import React from 'react';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { useUIStore } from './store/ui';
 import { getAuthStatus, logout } from './lib/api';
+import { ForcePasswordChange } from './components/ForcePasswordChange';
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -70,6 +71,10 @@ const AlertsPage            = lazy(() => import('./pages/AlertsPage').then(m => 
 const AgentsPage            = lazy(() => import('./pages/AgentsPage').then(m => ({ default: m.AgentsPage })));
 const ProjectsPage          = lazy(() => import('./pages/ProjectsPage').then(m => ({ default: m.ProjectsPage })));
 const WebhooksPage          = lazy(() => import('./pages/WebhooksPage').then(m => ({ default: m.WebhooksPage })));
+const GraphPage             = lazy(() => import('./pages/GraphPage').then(m => ({ default: m.GraphPage })));
+const ScanSessionsPage      = lazy(() => import('./pages/ScanSessionsPage'));
+const SessionDetailPage     = lazy(() => import('./pages/SessionDetailPage'));
+const LogMonitorPage        = lazy(() => import('./pages/LogMonitorPage').then(m => ({ default: m.LogMonitorPage })));
 
 function RouteFallback() {
   return <div style={{ minHeight: '60vh' }} />;
@@ -80,17 +85,27 @@ const qc = new QueryClient({
 });
 
 function Router({ path }: { path: string }) {
+  // Dynamic route: /sessions/:id
+  if (path.startsWith('/sessions/')) {
+    const sessionId = path.slice('/sessions/'.length);
+    return <ErrorBoundary><SessionDetailPage sessionId={sessionId} /></ErrorBoundary>;
+  }
+
   switch (path) {
     case '/dashboard':   return <ErrorBoundary><DashboardPage /></ErrorBoundary>;
     case '/scan':        return <ErrorBoundary><ScanPage /></ErrorBoundary>;
+    case '/sessions':    return <ErrorBoundary><ScanSessionsPage /></ErrorBoundary>;
     case '/advisory':    return <ErrorBoundary><AdvisoryPage /></ErrorBoundary>;
     case '/sbom':        return <ErrorBoundary><SBOMPage /></ErrorBoundary>;
     case '/sign':        return <ErrorBoundary><SignPage /></ErrorBoundary>;
     case '/intelligence':return <ErrorBoundary><IntelligencePage /></ErrorBoundary>;
     case '/monitor':     return <ErrorBoundary><MonitorPage /></ErrorBoundary>;
+    case '/logs':        return <ErrorBoundary><LogMonitorPage /></ErrorBoundary>;
     case '/risks':       return <ErrorBoundary><RisksPage /></ErrorBoundary>;
-    case '/inventory':   return <ErrorBoundary><InventoryPage /></ErrorBoundary>;
-    case '/policy':      return <ErrorBoundary><PolicyPage /></ErrorBoundary>;
+    case '/inventory':
+    case '/dependencies': return <ErrorBoundary><InventoryPage /></ErrorBoundary>;
+    case '/policy':
+    case '/policies':    return <ErrorBoundary><PolicyPage /></ErrorBoundary>;
     case '/audit':       return <ErrorBoundary><SystemAuditPage /></ErrorBoundary>;
     case '/agents':      return <ErrorBoundary><AgentsPage /></ErrorBoundary>;
     case '/settings':    return <ErrorBoundary><SettingsPage /></ErrorBoundary>;
@@ -108,31 +123,24 @@ function Router({ path }: { path: string }) {
     case '/docs':        return <ErrorBoundary><DocsPage /></ErrorBoundary>;
     case '/api-docs':    return <ErrorBoundary><ApiDocsPage /></ErrorBoundary>;
     case '/attack-surface': return <ErrorBoundary><AttackSurfacePage /></ErrorBoundary>;
+    case '/graph':          return <ErrorBoundary><GraphPage /></ErrorBoundary>;
     case '/integrations':   return <ErrorBoundary><IntegrationsPage /></ErrorBoundary>;
-    default:             return <ErrorBoundary><DashboardPage /></ErrorBoundary>;  // unknown dashboard routes fall back to overview
+    default:             return <ErrorBoundary><DashboardPage /></ErrorBoundary>;
   }
 }
 
 function AppShell({ path, setPath }: { path: string; setPath: (p: string) => void }) {
-  // Auth gate — checked once per app mount. `retry: false` so a failed
-  // fetch (e.g. no backend reachable) settles quickly into isError rather
-  // than hanging; on isError we fail open to today's ungated behavior so a
-  // flaky /auth/me never locks a user out of an otherwise-working dashboard.
   const authStatus = useQuery({
     queryKey: ['auth-me'],
     queryFn: getAuthStatus,
     retry: false,
+    staleTime: 60_000,
   });
 
-  // Onboarding gate — purely a client-side "has this browser seen the
-  // onboarding flow" flag (localStorage). There is no backend concept of an
-  // onboarded account; a new browser/profile will see onboarding again even
-  // for the same server-side user, which is expected for a local flag.
   const [onboarded, setOnboarded] = useState(
     () => localStorage.getItem('fg_onboarded') === 'true'
   );
 
-  // Public pages render immediately — no auth check needed.
   if (path === '/' || path === '/welcome') {
     return (
       <Suspense fallback={<RouteFallback />}>
@@ -152,13 +160,16 @@ function AppShell({ path, setPath }: { path: string; setPath: (p: string) => voi
     );
   }
 
-  if (authStatus.isLoading) {
-    return <div style={{ minHeight: '100vh', background: 'var(--bg-base)' }} />;
-  }
+  // Auth settled: check whether login is required.
+  // isSettled = query succeeded OR failed; while still loading, render the
+  // dashboard optimistically so a flaky/absent backend never blocks the UI.
+  const authData = authStatus.data;
+  const authSettled = !authStatus.isLoading;
 
-  const gated = !authStatus.isError
-    && authStatus.data?.auth_enabled === true
-    && authStatus.data?.authenticated === false;
+  const gated = authSettled
+    && !authStatus.isError
+    && authData?.auth_enabled === true
+    && authData?.authenticated === false;
 
   if (gated) {
     return (
@@ -171,10 +182,15 @@ function AppShell({ path, setPath }: { path: string; setPath: (p: string) => voi
     );
   }
 
-  // Onboarding only makes sense right after a real login — when auth is
-  // disabled (today's open self-hosted default, or /auth/me unreachable),
-  // there's no login moment to follow, so go straight to the dashboard.
-  const authEnabled = !authStatus.isError && authStatus.data?.auth_enabled === true;
+  const authEnabled = authSettled && !authStatus.isError && authData?.auth_enabled === true;
+
+  if (authEnabled && authData?.password_must_change) {
+    return (
+      <ForcePasswordChange
+        onChanged={() => qc.invalidateQueries({ queryKey: ['auth-me'] })}
+      />
+    );
+  }
 
   if (authEnabled && !onboarded) {
     return (

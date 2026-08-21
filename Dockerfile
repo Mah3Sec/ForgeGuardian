@@ -1,4 +1,4 @@
-# ForgeGuardian — All-in-one Docker image
+# ForgeGuardian v1.0.0 — All-in-one Docker image
 #
 # Usage:
 #   docker build -t forgeguardian .
@@ -12,6 +12,12 @@
 #     -e FG_ADMIN_EMAIL=you@example.com \
 #     -e FG_ADMIN_PASSWORD=YourSecurePass \
 #     forgeguardian
+#
+# Using the CLI from Docker:
+#   docker exec forgeguardian fgctl version
+#   docker exec forgeguardian fgctl scan npm/lodash@4.17.21
+#   docker exec forgeguardian fgctl scan . --sync
+#   docker exec -it forgeguardian fgctl doctor
 
 # ── Stage 1: Build Go API ────────────────────────────────────────────────────
 FROM golang:1.25-bookworm AS api-builder
@@ -19,12 +25,17 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-ARG VERSION=dev
+ARG VERSION=1.0.0
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -trimpath \
     -ldflags="-s -w -X main.version=${VERSION}" \
     -o /forgeguardian-api \
     ./internal/api/
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -trimpath \
+    -ldflags="-s -w -X main.version=${VERSION}" \
+    -o /fgctl \
+    ./cmd/fgctl/
 
 # ── Stage 2: Build Dashboard ─────────────────────────────────────────────────
 FROM node:24-slim AS dashboard-builder
@@ -44,6 +55,7 @@ RUN apt-get update && \
     mkdir -p /data && chown fg:fg /data
 
 COPY --from=api-builder /forgeguardian-api /app/forgeguardian-api
+COPY --from=api-builder /fgctl /usr/local/bin/fgctl
 COPY --from=dashboard-builder /app/dist /app/dashboard
 COPY docker/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh

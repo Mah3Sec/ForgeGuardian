@@ -207,7 +207,9 @@ func (q *Queries) GetScanResult(ctx context.Context, ecosystem, name, version st
 
 const listRecentScansSQL = `
 SELECT p.ecosystem, p.name, pv.version,
-       sr.highest_severity, sr.total_findings, sr.critical_findings, sr.high_findings, sr.scanned_at
+       sr.highest_severity, sr.total_findings,
+       sr.critical_findings, sr.high_findings, sr.medium_findings, sr.low_findings,
+       sr.scanned_at
 FROM scan_results sr
 JOIN package_versions pv ON pv.id = sr.package_version_id
 JOIN packages p ON p.id = pv.package_id
@@ -226,7 +228,9 @@ func (q *Queries) ListRecentScans(ctx context.Context, limit int32) ([]RecentSca
 		var r RecentScanRow
 		if err := rows.Scan(
 			&r.Ecosystem, &r.Name, &r.Version,
-			&r.HighestSeverity, &r.TotalFindings, &r.CriticalFindings, &r.HighFindings, &r.ScannedAt,
+			&r.HighestSeverity, &r.TotalFindings,
+			&r.CriticalFindings, &r.HighFindings, &r.MediumFindings, &r.LowFindings,
+			&r.ScannedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -242,6 +246,8 @@ SELECT
     (SELECT COALESCE(SUM(total_findings),   0) FROM scan_results)                       AS total_findings,
     (SELECT COALESCE(SUM(critical_findings),0) FROM scan_results)                       AS critical_findings,
     (SELECT COALESCE(SUM(high_findings),    0) FROM scan_results)                       AS high_findings,
+    (SELECT COALESCE(SUM(medium_findings),  0) FROM scan_results)                       AS medium_findings,
+    (SELECT COALESCE(SUM(low_findings),     0) FROM scan_results)                       AS low_findings,
     (SELECT COUNT(*) FROM scan_results WHERE scanned_at >= now() - interval '24 hours') AS scanned_today`
 
 func (q *Queries) DashboardStats(ctx context.Context) (DashboardStatsRow, error) {
@@ -250,6 +256,7 @@ func (q *Queries) DashboardStats(ctx context.Context) (DashboardStatsRow, error)
 	err := row.Scan(
 		&r.TotalPackages, &r.TotalVersions,
 		&r.TotalFindings, &r.CriticalFindings, &r.HighFindings,
+		&r.MediumFindings, &r.LowFindings,
 		&r.ScannedToday,
 	)
 	return r, err

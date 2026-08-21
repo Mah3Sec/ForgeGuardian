@@ -27,6 +27,7 @@
 //	POST /api/v1/intelligence/validate              validate a signature YAML document
 //	POST /api/v1/intelligence/test                  heuristic signature test against a live scan
 //	GET  /api/v1/audit/stats                        signature store runtime statistics
+//	POST /api/v1/cli/sync                            accept CLI scan results for dashboard display
 //	POST /api/v1/auth/login                         dashboard login (sets session cookie)
 //	POST /api/v1/auth/logout                        dashboard logout (clears session cookie)
 //	GET  /api/v1/auth/me                            current dashboard session auth state
@@ -59,7 +60,8 @@ func main() {
 
 	cfg := loadConfig()
 
-	adminIdentity, err := auth.LoadOrBootstrapAdmin(cfg.AdminEmail, cfg.AdminPassword)
+	isDefaultCreds := cfg.AdminPassword == "changeme123"
+	adminIdentity, err := auth.LoadOrBootstrapAdmin(cfg.AdminEmail, cfg.AdminPassword, isDefaultCreds)
 	if err != nil {
 		logger.Error("admin bootstrap failed", "error", err)
 		os.Exit(1)
@@ -71,6 +73,9 @@ func main() {
 	}
 	if authEnabled {
 		logger.Info("dashboard login enabled", "email", adminIdentity.Email)
+		if adminIdentity.PasswordMustChange {
+			logger.Warn("running with default credentials — password change required on first login")
+		}
 	} else {
 		logger.Warn("FG_ADMIN_EMAIL/FG_ADMIN_PASSWORD not set — dashboard login disabled (open access, dev mode)")
 	}
@@ -105,6 +110,7 @@ func main() {
 	}
 
 	r := gin.New()
+	r.Use(middleware.SecurityHeaders())
 	r.Use(middleware.Logger(logger))
 	r.Use(middleware.Recovery(logger))
 	r.Use(middleware.CORS(cfg.DashboardOrigin))
@@ -132,6 +138,15 @@ func main() {
 		CookieSecure:    cfg.CookieSecure,
 	}
 	h := handlers.New(hcfg, logger, pool)
+
+	// Re-wire the global logger to tee into the handler's log ring buffer
+	// so the dashboard can display server-side logs.
+	captureLogger := slog.New(handlers.NewLogCaptureHandler(
+		slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}),
+		h.LogRing(),
+	))
+	slog.SetDefault(captureLogger)
+
 	v1 := r.Group("/api/v1")
 	{
 		v1.GET("/packages", h.ListPackages)
@@ -154,6 +169,7 @@ func main() {
 		v1.GET("/intelligence/signatures", h.ListSignatures)
 		v1.POST("/intelligence/refresh", h.RefreshIntelligence)
 		v1.GET("/dashboard/activity", h.DashboardActivity)
+		v1.GET("/logs", h.ServerLogs)
 		v1.GET("/risks", h.ActiveRisks)
 		v1.GET("/policy/status", h.PolicyStatus)
 		v1.PUT("/policy", h.SavePolicy)
@@ -171,6 +187,8 @@ func main() {
 		v1.GET("/alerts", h.ListAlerts)
 		v1.POST("/alerts", h.CreateAlert)
 		v1.POST("/alerts/:id/dismiss", h.DismissAlert)
+		v1.GET("/export/report", h.ExportReport)
+		v1.POST("/cli/sync", h.CLISync)
 		v1.POST("/auth/login", middleware.LoginRateLimiter(), h.Login)
 		v1.POST("/auth/logout", h.Logout)
 		v1.POST("/auth/password", h.ChangePassword)

@@ -20,8 +20,11 @@ import { cn } from '../components/ui/utils';
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
-function trendFromSeries(data: number[]): { trend: MetricCardTrend; value: string } {
-  if (data.length < 2) return { trend: 'flat', value: 'No data yet' };
+function trendFromSeries(data: number[], currentValue?: number): { trend: MetricCardTrend; value: string } {
+  if (data.length < 2) {
+    if (currentValue !== undefined && currentValue > 0) return { trend: 'flat', value: `${currentValue} current` };
+    return { trend: 'flat', value: 'Baseline' };
+  }
   const d = data[data.length - 1] - data[0];
   if (d === 0) return { trend: 'flat', value: 'No change (7d)' };
   return { trend: d > 0 ? 'up' : 'down', value: `${d > 0 ? '+' : ''}${d} (7d)` };
@@ -109,7 +112,7 @@ function DependencyGraphCard({ onNavigate }: { onNavigate: (p: string) => void }
     <Card>
       <CardHeader
         title="Dependency Graph"
-        action={<LinkBtn label="View full graph →" onClick={() => onNavigate('/inventory')} />}
+        action={<LinkBtn label="View full graph →" onClick={() => onNavigate('/graph')} />}
       />
       {/* Legend */}
       <div className="flex gap-4 px-4 pb-2.5 flex-wrap">
@@ -497,17 +500,13 @@ export function DashboardPage() {
   const allRisks = risks.data?.risks ?? [];
   const allPkgs  = packages.data?.packages ?? [];
 
-  // Derive medium/low from latest timeline point — DashboardStats only
-  // tracks critical/high, so medium/low come from the timeline's most
-  // recent point rather than being fabricated.
-  const latestPt = pts7[pts7.length - 1];
-  const mediumCount = latestPt?.medium ?? 0;
-  const lowCount    = latestPt?.low    ?? 0;
+  const mediumCount = d?.medium_findings ?? 0;
+  const lowCount    = d?.low_findings    ?? 0;
 
-  const critTrend = trendFromSeries(sparklines.critical);
-  const highTrend = trendFromSeries(sparklines.high);
-  const medTrend  = trendFromSeries(sparklines.medium);
-  const lowTrend  = trendFromSeries(sparklines.low);
+  const critTrend = trendFromSeries(sparklines.critical, d?.critical_findings ?? 0);
+  const highTrend = trendFromSeries(sparklines.high, d?.high_findings ?? 0);
+  const medTrend  = trendFromSeries(sparklines.medium, mediumCount);
+  const lowTrend  = trendFromSeries(sparklines.low, lowCount);
 
   const score = computeSecurityScore({
     critical: d?.critical_findings ?? 0,

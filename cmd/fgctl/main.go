@@ -12,6 +12,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
@@ -371,6 +372,8 @@ func runScanCmd(args []string, log *slog.Logger, p *ui.Printer) error {
 	acceptNewHostKeyFlag := fs.Bool("accept-new-host-key", false, "trust a host key absent from known_hosts for this connection only (never written to known_hosts)")
 	remoteMaxDepthFlag := fs.Int("remote-max-depth", 0, "limit remote find depth for --remote (0 = unlimited)")
 	keepTempFlag := fs.Bool("keep-temp", false, "do not delete the local temp dir after a --remote scan (debugging)")
+	syncFlag := fs.Bool("sync", false, "push results to the ForgeGuardian dashboard API after scan")
+	syncURLFlag := fs.String("sync-url", "", "dashboard API base URL for --sync (default: FG_SYNC_URL env or http://localhost:8080)")
 	// Go's flag package stops at the first non-flag positional argument, so
 	// `scan . --format json` would leave "--format" and "json" unprocessed.
 	// Move any positional args (path or dot-notation) to the end so all flags
@@ -391,6 +394,7 @@ func runScanCmd(args []string, log *slog.Logger, p *ui.Printer) error {
 					"severity": true, "ecosystem": true, "format": true,
 					"remote": true, "remote-port": true, "identity": true,
 					"remote-path": true, "remote-max-depth": true,
+					"sync-url": true,
 				}
 				if knownValueFlags[name] && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
 					i++
@@ -450,6 +454,8 @@ func runScanCmd(args []string, log *slog.Logger, p *ui.Printer) error {
 		verbose:     *verboseFlag,
 		debug:       *debugFlag,
 		format:      *formatFlag,
+		sync:        *syncFlag,
+		syncURL:     *syncURLFlag,
 	}
 
 	// Remote SSH scan: `fgctl scan --remote user@host`
@@ -543,6 +549,18 @@ func runScanCmd(args []string, log *slog.Logger, p *ui.Printer) error {
 	}
 
 	p.PrintFindings(fmt.Sprintf("%s@%s", *pkgFlag, *verFlag), findings, summary)
+
+	if *syncFlag {
+		syncToDashboard(*syncURLFlag, map[string]any{
+			"scan_type": "registry",
+			"label":     fmt.Sprintf("%s/%s@%s", *recipeFlag, *pkgFlag, *verFlag),
+			"ecosystem": *recipeFlag,
+			"package":   *pkgFlag,
+			"version":   *verFlag,
+			"summary":   summary,
+			"findings":  findings,
+		}, log)
+	}
 
 	if *failOnFlag != "" {
 		threshold := core.Severity(strings.ToUpper(*failOnFlag))
@@ -1064,6 +1082,8 @@ type localScanOpts struct {
 	verbose     bool
 	debug       bool
 	format      string // "text" | "json" | "sarif"
+	sync        bool
+	syncURL     string
 }
 
 // isLocalPath returns true for ".", "..", paths starting with "./" "../" "/" or "~".
@@ -1169,6 +1189,53 @@ func printLocalScanResult(result *localscanner.ProjectScanResult, opts localScan
 		p.Success("No findings across %d package(s).", countScanned(result.Results))
 	}
 
+	if opts.sync {
+		type entryShape struct {
+			Ecosystem string `json:"ecosystem"`
+			Name      string `json:"name"`
+			Version   string `json:"version"`
+			FilePath  string `json:"file_path"`
+		}
+		type resultShape struct {
+			Entry    entryShape     `json:"entry"`
+			Findings []core.Finding `json:"findings"`
+			Skipped  bool           `json:"skipped"`
+		}
+		var syncResults []resultShape
+		var allFindings []core.Finding
+		for _, r := range filteredResults {
+			syncResults = append(syncResults, resultShape{
+				Entry: entryShape{
+					Ecosystem: r.Entry.Ecosystem,
+					Name:      r.Entry.Name,
+					Version:   r.Entry.Version,
+					FilePath:  r.Entry.FilePath,
+				},
+				Findings: r.Findings,
+				Skipped:  r.Skipped,
+			})
+			allFindings = append(allFindings, r.Findings...)
+		}
+		type manifestShape struct {
+			Path      string `json:"path"`
+			Ecosystem string `json:"ecosystem"`
+		}
+		var manifests []manifestShape
+		for _, m := range result.Manifests {
+			manifests = append(manifests, manifestShape{Path: m.Path, Ecosystem: m.Ecosystem})
+		}
+		log := slog.Default()
+		syncToDashboard(opts.syncURL, map[string]any{
+			"scan_type": "project",
+			"label":     displayLabel,
+			"root_dir":  result.RootDir,
+			"summary":   filteredSummary,
+			"findings":  allFindings,
+			"results":   syncResults,
+			"manifests": manifests,
+		}, log)
+	}
+
 	return checkFailOn(filteredResults, opts.failOn)
 }
 
@@ -1256,6 +1323,50 @@ func guessFirstVulnEcoAndName(results []localscanner.LocalScanResult) (eco, name
 		}
 	}
 	return "npm", "package"
+}
+
+// syncToDashboard POSTs scan results to the ForgeGuardian dashboard API
+// so CLI scan data appears on the web dashboard.
+func syncToDashboard(syncURL string, payload map[string]any, log *slog.Logger) {
+	if syncURL == "" {
+		syncURL = os.Getenv("FG_SYNC_URL")
+	}
+	if syncURL == "" {
+		syncURL = "http://localhost:8080"
+	}
+	endpoint := strings.TrimRight(syncURL, "/") + "/api/v1/cli/sync"
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		log.Warn("sync: marshal failed", "error", err)
+		return
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest("POST", endpoint, bytes.NewReader(body))
+	if err != nil {
+		log.Warn("sync: request creation failed", "error", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	apiKey := os.Getenv("FG_API_KEY")
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Warn("sync: dashboard unreachable", "url", endpoint, "error", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		log.Info("scan results synced to dashboard", "url", endpoint)
+	} else {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		log.Warn("sync: dashboard returned error", "status", resp.StatusCode, "body", string(respBody))
+	}
 }
 
 // signaturesStorePath returns the default path to the local signatures store.
@@ -1347,6 +1458,10 @@ Scan flags:
   --no-banner                           suppress ASCII banner
   --no-color                            disable ANSI colors
 
+Dashboard sync flags:
+  --sync                                push results to the dashboard API after scan
+  --sync-url=<url>                      dashboard API URL (default: FG_SYNC_URL env or http://localhost:8080)
+
 Remote scan flags  (scan --remote user@host):
   --remote=<user@host[:port]>           scan manifests on a remote host over SSH
   --remote-port=<port>                  SSH port (default: 22)
@@ -1363,6 +1478,7 @@ Examples:
   fgctl scan npm/lodash@4.17.20                         # scan specific package
   fgctl scan . --fail-on=high --format=sarif            # CI policy gate
   fgctl scan --remote deploy@10.0.4.12 --accept-new-host-key  # scan a remote host over SSH
+  fgctl scan . --sync                                        # scan and push results to dashboard
   fgctl advisory npm/lodash@4.17.20                     # AI advisory
   fgctl patch .                                         # autonomous patching
   fgctl monitor --watch .                               # continuous monitoring

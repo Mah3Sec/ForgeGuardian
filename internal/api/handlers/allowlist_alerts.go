@@ -13,7 +13,8 @@ import (
 // ListAllowlist returns all allowlisted packages.
 // GET /api/v1/allowlist
 func (h *Handler) ListAllowlist(c *gin.Context) {
-	if !h.dbAvailable(c) {
+	if h.db == nil {
+		c.JSON(http.StatusOK, gin.H{"allowlist": []any{}, "total": 0})
 		return
 	}
 	entries, err := h.db.ListAllowlist(c.Request.Context())
@@ -31,7 +32,8 @@ func (h *Handler) ListAllowlist(c *gin.Context) {
 // AddAllowlist adds or updates a package in the allowlist.
 // POST /api/v1/allowlist   body: {"ecosystem":"npm","package":"lodash","reason":"internal fork","added_by":"alice"}
 func (h *Handler) AddAllowlist(c *gin.Context) {
-	if !h.dbAvailable(c) {
+	if h.db == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "allowlist persistence requires a database — set DATABASE_URL to enable"})
 		return
 	}
 	var req struct {
@@ -59,7 +61,8 @@ func (h *Handler) AddAllowlist(c *gin.Context) {
 // DeleteAllowlist removes a package from the allowlist by ID.
 // DELETE /api/v1/allowlist/:id
 func (h *Handler) DeleteAllowlist(c *gin.Context) {
-	if !h.dbAvailable(c) {
+	if h.db == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "allowlist persistence requires a database — set DATABASE_URL to enable"})
 		return
 	}
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
@@ -78,7 +81,10 @@ func (h *Handler) DeleteAllowlist(c *gin.Context) {
 // CheckAllowlist checks whether a specific package is allowlisted.
 // GET /api/v1/allowlist/check?package=lodash&ecosystem=npm
 func (h *Handler) CheckAllowlist(c *gin.Context) {
-	if !h.dbAvailable(c) {
+	if h.db == nil {
+		pkg := c.Query("package")
+		eco := c.Query("ecosystem")
+		c.JSON(http.StatusOK, gin.H{"allowlisted": false, "package": pkg, "ecosystem": eco})
 		return
 	}
 	pkg := c.Query("package")

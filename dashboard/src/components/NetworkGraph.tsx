@@ -138,23 +138,46 @@ export function NetworkGraph({ mode, data, opacity = 0.08, width = 600, height =
   const paintDataNode = useCallback(
     (node: NetworkGraphNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
       const label = node.name
-      const fontSize = 12 / globalScale
-      const r = 6
-      const color = severityColor[node.severity ?? 'none'] ?? severityColor.none
+      const fontSize = 11 / globalScale
+      const isRoot = node.id === 'root'
+      const sev = node.severity ?? 'none'
+      const color = severityColor[sev] ?? severityColor.none
+      const r = isRoot ? 10 : sev === 'critical' ? 9 : sev === 'high' ? 8 : sev === 'medium' ? 7 : 5
 
-      ctx.beginPath()
-      ctx.arc(node.x!, node.y!, r, 0, 2 * Math.PI)
-      ctx.fillStyle = color
-      ctx.fill()
-      ctx.strokeStyle = `${color}66`
-      ctx.lineWidth = 2 / globalScale
-      ctx.stroke()
+      if (isRoot) {
+        ctx.beginPath()
+        ctx.arc(node.x!, node.y!, r, 0, 2 * Math.PI)
+        ctx.fillStyle = '#2563EB'
+        ctx.fill()
+        ctx.strokeStyle = '#2563EB44'
+        ctx.lineWidth = 4 / globalScale
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.arc(node.x!, node.y!, r + 4, 0, 2 * Math.PI)
+        ctx.strokeStyle = '#2563EB22'
+        ctx.lineWidth = 2 / globalScale
+        ctx.stroke()
+      } else {
+        ctx.beginPath()
+        ctx.arc(node.x!, node.y!, r + 3, 0, 2 * Math.PI)
+        ctx.fillStyle = `${color}18`
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(node.x!, node.y!, r, 0, 2 * Math.PI)
+        ctx.fillStyle = color
+        ctx.fill()
+        ctx.strokeStyle = `${color}55`
+        ctx.lineWidth = 2 / globalScale
+        ctx.stroke()
+      }
 
-      ctx.font = `${fontSize}px JetBrains Mono, monospace`
+      ctx.font = `${isRoot ? 'bold ' : ''}${fontSize}px Inter, system-ui, sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillStyle = '#111315'
-      ctx.fillText(label, node.x!, node.y! + r + fontSize)
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark' ||
+        (!document.documentElement.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)
+      ctx.fillStyle = isDark ? '#E5E7EB' : '#1F2937'
+      ctx.fillText(label, node.x!, node.y! + r + fontSize + 1)
     },
     []
   )
@@ -202,20 +225,34 @@ export function NetworkGraph({ mode, data, opacity = 0.08, width = 600, height =
     )
   }
 
+  const isDark = typeof document !== 'undefined' && (
+    document.documentElement.getAttribute('data-theme') === 'dark' ||
+    (!document.documentElement.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)
+  )
+  const bgColor = isDark ? '#141618' : '#FAFBFC'
+  const linkClr = isDark ? '#334155' : '#D1D5DB'
+
   return (
-    <div className="rounded-xl border border-border-color bg-surface overflow-hidden">
+    <div className="rounded-xl overflow-hidden">
       <ForceGraph2D
         ref={graphRef}
         graphData={graphData}
         width={width}
         height={height}
-        backgroundColor="#FFFFFF"
+        backgroundColor={bgColor}
         nodeColor={nodeColor}
         nodeLabel={(node) => `${(node as NetworkGraphNode).name}${(node as NetworkGraphNode).version ? `@${(node as NetworkGraphNode).version}` : ''}`}
         nodeCanvasObject={paintDataNode}
         nodeCanvasObjectMode={() => 'replace'}
-        linkColor={() => '#E6E8E6'}
-        linkWidth={1}
+        linkColor={() => linkClr}
+        linkWidth={1.5}
+        linkDirectionalArrowLength={4}
+        linkDirectionalArrowRelPos={0.85}
+        linkDirectionalArrowColor={() => linkClr}
+        linkCurvature={0.1}
+        d3AlphaDecay={0.03}
+        d3VelocityDecay={0.4}
+        cooldownTime={3000}
         enableZoomInteraction
         enablePanInteraction
         onNodeClick={onNodeClick ? (node) => onNodeClick(node as NetworkGraphNode) : undefined}

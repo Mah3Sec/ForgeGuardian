@@ -17,8 +17,9 @@ func AdminIdentityPath() string {
 // AdminIdentity is the persisted bootstrapped dashboard admin — email plus
 // bcrypt password hash. The plaintext password is never stored.
 type AdminIdentity struct {
-	Email        string `json:"email"`
-	PasswordHash string `json:"password_hash"`
+	Email              string `json:"email"`
+	PasswordHash       string `json:"password_hash"`
+	PasswordMustChange bool   `json:"password_must_change,omitempty"`
 }
 
 // LoadOrBootstrapAdmin checks for an existing persisted admin identity at
@@ -28,12 +29,13 @@ type AdminIdentity struct {
 // If no identity file exists and both email and plaintextPassword are
 // non-empty, the password is hashed and {email, hash} is persisted to
 // AdminIdentityPath() (parent dir created as needed, file mode 0600), then
-// returned.
+// returned. When isDefault is true, PasswordMustChange is set — the user
+// must change the password before the dashboard is fully usable.
 //
 // If no identity file exists and either email or plaintextPassword is
 // empty, (nil, nil) is returned — no error, just means dashboard login is
 // disabled. Callers should check for a nil identity to detect this case.
-func LoadOrBootstrapAdmin(email, plaintextPassword string) (*AdminIdentity, error) {
+func LoadOrBootstrapAdmin(email, plaintextPassword string, isDefault ...bool) (*AdminIdentity, error) {
 	path := AdminIdentityPath()
 
 	data, err := os.ReadFile(path)
@@ -57,7 +59,8 @@ func LoadOrBootstrapAdmin(email, plaintextPassword string) (*AdminIdentity, erro
 	if err != nil {
 		return nil, err
 	}
-	identity := &AdminIdentity{Email: email, PasswordHash: hash}
+	mustChange := len(isDefault) > 0 && isDefault[0]
+	identity := &AdminIdentity{Email: email, PasswordHash: hash, PasswordMustChange: mustChange}
 
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return nil, fmt.Errorf("auth: mkdir: %w", err)
@@ -89,6 +92,7 @@ func UpdateAdminPassword(identity *AdminIdentity, oldPlaintext, newPlaintext str
 		return err
 	}
 	identity.PasswordHash = hash
+	identity.PasswordMustChange = false
 
 	path := AdminIdentityPath()
 	out, err := json.Marshal(identity)

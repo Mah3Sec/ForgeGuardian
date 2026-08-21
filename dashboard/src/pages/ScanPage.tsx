@@ -1,10 +1,16 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { triggerScan, scanUpload, getJobStatus, triggerRemoteScan, getRemoteScanJobStatus } from '../lib/api';
+import {
+  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
+  Tooltip as RechartsTooltip, ResponsiveContainer,
+} from 'recharts';
+import { triggerScan, scanUpload, getJobStatus, triggerRemoteScan, getRemoteScanJobStatus, getRecentResults } from '../lib/api';
 import { SeverityBadge } from '../components/SeverityBadge';
 import { FindingsTable } from '../components/FindingsTable';
-import { Search, Upload, AlertCircle, ShieldCheck, CheckCircle, XCircle, Loader, Server, Lock } from 'lucide-react';
-import type { Finding, EngineStatus } from '../types/api';
+import { Search, Upload, AlertCircle, ShieldCheck, CheckCircle, XCircle, Loader, Server, Lock, Clock, FolderOpen, Package } from 'lucide-react';
+import type { Finding, EngineStatus, ScanSummary } from '../types/api';
+import { useSessionStore } from '../store/sessions';
+import { useWorkspaceStore } from '../store/workspace';
 
 const ECOSYSTEMS = ['npm', 'pypi', 'go', 'rubygems', 'crates', 'maven', 'huggingface', 'mcp'];
 
@@ -61,6 +67,84 @@ function EngineStatusBar({ engines }: { engines: EngineStatus[] }) {
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+function ScanHistory({ onRescan }: { onRescan: (eco: string, name: string, ver: string) => void }) {
+  const recent = useQuery({
+    queryKey: ['recent-scans'],
+    queryFn: () => getRecentResults(10),
+    retry: false,
+  });
+
+  const results = recent.data?.results ?? [];
+  const sevColor: Record<string, string> = {
+    CRITICAL: 'var(--color-critical)', HIGH: 'var(--color-high)',
+    MEDIUM: 'var(--color-medium)', LOW: '#60A5FA',
+  };
+
+  return (
+    <div className="space-y-4">
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2rem 0', gap: '1rem', textAlign: 'center' }}>
+        <ShieldCheck size={40} style={{ color: 'var(--color-muted)' }} />
+        <div>
+          <p style={{ fontSize: '0.9rem', color: 'var(--fg)', fontWeight: 600 }}>No scan results yet</p>
+          <p style={{ fontSize: '0.78rem', color: 'var(--color-muted)', marginTop: 4 }}>
+            Pick a registry package above, or upload an archive — then hit Run Full Scan.
+          </p>
+        </div>
+      </div>
+
+      {results.length > 0 && (
+        <div className="rounded-lg" style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Clock size={14} style={{ color: 'var(--color-muted)' }} />
+            <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--color-muted)' }}>
+              RECENT SCANS
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                  {['Package', 'Version', 'Ecosystem', 'Severity', 'Findings', 'Scanned'].map(h => (
+                    <th key={h} className="text-left py-2 px-3 font-mono text-xs uppercase" style={{ color: 'var(--color-muted)' }}>{h}</th>
+                  ))}
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {results.map((r, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }} className="hover:bg-white/[0.02]">
+                    <td className="py-2 px-3 font-mono" style={{ color: 'var(--fg)' }}>{r.package}</td>
+                    <td className="py-2 px-3 font-mono text-xs" style={{ color: 'var(--color-muted)' }}>{r.version}</td>
+                    <td className="py-2 px-3 text-xs uppercase" style={{ color: 'var(--color-muted)' }}>{r.ecosystem}</td>
+                    <td className="py-2 px-3"><SeverityBadge severity={r.severity} /></td>
+                    <td className="py-2 px-3 font-mono" style={{ color: sevColor[r.severity] ?? 'var(--fg)' }}>{r.findings_count}</td>
+                    <td className="py-2 px-3 text-xs" style={{ color: 'var(--color-muted)' }}>
+                      {new Date(r.scanned_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                    <td className="py-2 px-3">
+                      <button
+                        onClick={() => onRescan(r.ecosystem, r.package, r.version)}
+                        style={{
+                          fontSize: '0.68rem', fontFamily: 'var(--font-mono)',
+                          padding: '0.2rem 0.5rem', borderRadius: '0.25rem',
+                          background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)',
+                          color: 'var(--color-indigo)', cursor: 'pointer',
+                        }}
+                      >
+                        Rescan
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -194,6 +278,60 @@ export function ScanPage() {
     || (!!jobId && job?.status !== 'complete' && job?.status !== 'failed');
   const error = registryScan.error
     || (job?.status === 'failed' ? new Error(job.error || 'scan failed') : undefined);
+
+  // Auto-save scan results as sessions
+  const saveSession = useSessionStore(s => s.save);
+  const activeWorkspaceId = useWorkspaceStore(s => s.activeId);
+  const savedRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (result && jobId && !savedRef.current.has(jobId)) {
+      savedRef.current.add(jobId);
+      const emptySummary: ScanSummary = { critical: 0, high: 0, medium: 0, low: 0, informational: 0, total: 0, highest_sev: 'LOW' };
+      saveSession({
+        workspace_id: activeWorkspaceId,
+        scan_type: 'registry',
+        label: `${ecosystem}/${pkg}@${version || 'latest'}`,
+        ecosystem,
+        package_name: pkg,
+        version: version || undefined,
+        result,
+        project_result: null,
+        summary: result.summary || emptySummary,
+        findings: result.findings || [],
+      });
+    }
+  }, [result, jobId, ecosystem, pkg, version, saveSession, activeWorkspaceId]);
+
+  useEffect(() => {
+    if (uploadResult && uploadJobId && !savedRef.current.has(uploadJobId)) {
+      savedRef.current.add(uploadJobId);
+      saveSession({
+        workspace_id: activeWorkspaceId,
+        scan_type: 'upload',
+        label: uploadFile?.name || 'Uploaded archive',
+        result: null,
+        project_result: uploadResult,
+        summary: uploadResult.summary,
+        findings: uploadResult.results?.flatMap(r => r.findings || []) || [],
+      });
+    }
+  }, [uploadResult, uploadJobId, uploadFile, saveSession, activeWorkspaceId]);
+
+  useEffect(() => {
+    if (remoteResult && remoteJobId && !savedRef.current.has(remoteJobId)) {
+      savedRef.current.add(remoteJobId);
+      saveSession({
+        workspace_id: activeWorkspaceId,
+        scan_type: 'remote',
+        label: remoteTarget || 'Remote scan',
+        result: null,
+        project_result: remoteResult,
+        summary: remoteResult.summary,
+        findings: remoteResult.results?.flatMap(r => r.findings || []) || [],
+      });
+    }
+  }, [remoteResult, remoteJobId, remoteTarget, saveSession, activeWorkspaceId]);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -367,6 +505,37 @@ export function ScanPage() {
           {/* Upload scan results — grouped by manifest file, same shape as remote scan */}
           {uploadResult && (
             <div className="space-y-4">
+              <div className="rounded-lg p-4" style={{ background: 'var(--bg-base)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <FolderOpen size={14} style={{ color: 'var(--color-safe)' }} />
+                  <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--color-muted)', textTransform: 'uppercase' }}>
+                    Scan Target
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+                  <div>
+                    <span style={{ fontSize: '0.6rem', fontFamily: 'var(--font-mono)', color: 'var(--color-muted)', textTransform: 'uppercase' }}>Source</span>
+                    <p style={{ fontSize: '0.85rem', fontFamily: 'var(--font-mono)', color: 'var(--fg)', fontWeight: 600, marginTop: 2 }}>
+                      {uploadFile?.name ?? 'Uploaded archive'}
+                    </p>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.6rem', fontFamily: 'var(--font-mono)', color: 'var(--color-muted)', textTransform: 'uppercase' }}>Scan Type</span>
+                    <p style={{ fontSize: '0.85rem', fontFamily: 'var(--font-mono)', color: 'var(--fg)', marginTop: 2 }}>Upload / Project Scan</p>
+                  </div>
+                  {uploadResult.root_dir && (
+                    <div>
+                      <span style={{ fontSize: '0.6rem', fontFamily: 'var(--font-mono)', color: 'var(--color-muted)', textTransform: 'uppercase' }}>Scanned Directory</span>
+                      <p style={{ fontSize: '0.85rem', fontFamily: 'var(--font-mono)', color: 'var(--fg)', marginTop: 2 }}>{uploadResult.root_dir}</p>
+                    </div>
+                  )}
+                  <div>
+                    <span style={{ fontSize: '0.6rem', fontFamily: 'var(--font-mono)', color: 'var(--color-muted)', textTransform: 'uppercase' }}>Manifests Found</span>
+                    <p style={{ fontSize: '0.85rem', fontFamily: 'var(--font-mono)', color: 'var(--fg)', marginTop: 2 }}>{uploadResult.manifests.length}</p>
+                  </div>
+                </div>
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.75rem' }}>
                 {[
                   { label: 'Critical', val: uploadResult.summary.critical, color: 'var(--color-critical)' },
@@ -519,6 +688,39 @@ export function ScanPage() {
           {/* Remote scan results — grouped by manifest file */}
           {remoteResult && (
             <div className="space-y-4">
+              <div className="rounded-lg p-4" style={{ background: 'var(--bg-base)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <Server size={14} style={{ color: 'var(--color-safe)' }} />
+                  <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--color-muted)', textTransform: 'uppercase' }}>
+                    Scan Target
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+                  <div>
+                    <span style={{ fontSize: '0.6rem', fontFamily: 'var(--font-mono)', color: 'var(--color-muted)', textTransform: 'uppercase' }}>Remote Host</span>
+                    <p style={{ fontSize: '0.85rem', fontFamily: 'var(--font-mono)', color: 'var(--fg)', fontWeight: 600, marginTop: 2 }}>{remoteTarget}</p>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.6rem', fontFamily: 'var(--font-mono)', color: 'var(--color-muted)', textTransform: 'uppercase' }}>Remote Path</span>
+                    <p style={{ fontSize: '0.85rem', fontFamily: 'var(--font-mono)', color: 'var(--fg)', marginTop: 2 }}>{remotePath || '~ (home)'}</p>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.6rem', fontFamily: 'var(--font-mono)', color: 'var(--color-muted)', textTransform: 'uppercase' }}>Scan Type</span>
+                    <p style={{ fontSize: '0.85rem', fontFamily: 'var(--font-mono)', color: 'var(--fg)', marginTop: 2 }}>Remote SSH Scan</p>
+                  </div>
+                  {remoteResult.root_dir && (
+                    <div>
+                      <span style={{ fontSize: '0.6rem', fontFamily: 'var(--font-mono)', color: 'var(--color-muted)', textTransform: 'uppercase' }}>Scanned Directory</span>
+                      <p style={{ fontSize: '0.85rem', fontFamily: 'var(--font-mono)', color: 'var(--fg)', marginTop: 2 }}>{remoteResult.root_dir}</p>
+                    </div>
+                  )}
+                  <div>
+                    <span style={{ fontSize: '0.6rem', fontFamily: 'var(--font-mono)', color: 'var(--color-muted)', textTransform: 'uppercase' }}>Manifests Found</span>
+                    <p style={{ fontSize: '0.85rem', fontFamily: 'var(--font-mono)', color: 'var(--fg)', marginTop: 2 }}>{remoteResult.manifests.length}</p>
+                  </div>
+                </div>
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.75rem' }}>
                 {[
                   { label: 'Critical', val: remoteResult.summary.critical, color: 'var(--color-critical)' },
@@ -575,25 +777,52 @@ export function ScanPage() {
         </div>
       )}
 
-      {/* Empty state */}
+      {/* Empty state + scan history */}
       {!result && !isPending && !error && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4rem 0', gap: '1rem', textAlign: 'center' }}>
-          <ShieldCheck size={40} style={{ color: 'var(--color-muted)' }} />
-          <div>
-            <p style={{ fontSize: '0.9rem', color: 'var(--fg)', fontWeight: 600 }}>No scan results yet</p>
-            <p style={{ fontSize: '0.78rem', color: 'var(--color-muted)', marginTop: 4 }}>
-              Pick a registry package above, or upload an archive — then hit Run Full Scan.
-            </p>
-          </div>
-          <code style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem', borderRadius: '0.25rem', background: 'rgba(255,255,255,0.06)', color: 'var(--color-safe)' }}>
-            fgctl scan npm/lodash@4.17.20
-          </code>
-        </div>
+        <ScanHistory onRescan={(eco, name, ver) => { setEcosystem(eco); setPkg(name); setVersion(ver); setTab('registry'); }} />
       )}
 
       {/* Results */}
       {result && (
         <div className="space-y-4">
+
+          {/* Scan target info */}
+          <div className="rounded-lg p-4" style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <Package size={14} style={{ color: 'var(--color-safe)' }} />
+              <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--color-muted)', textTransform: 'uppercase' }}>
+                Scan Target
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+              <div>
+                <span style={{ fontSize: '0.6rem', fontFamily: 'var(--font-mono)', color: 'var(--color-muted)', textTransform: 'uppercase' }}>Package</span>
+                <p style={{ fontSize: '0.85rem', fontFamily: 'var(--font-mono)', color: 'var(--fg)', fontWeight: 600, marginTop: 2 }}>
+                  {result.package}
+                </p>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.6rem', fontFamily: 'var(--font-mono)', color: 'var(--color-muted)', textTransform: 'uppercase' }}>Ecosystem</span>
+                <p style={{ fontSize: '0.85rem', fontFamily: 'var(--font-mono)', color: 'var(--fg)', marginTop: 2 }}>{ecosystem}</p>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.6rem', fontFamily: 'var(--font-mono)', color: 'var(--color-muted)', textTransform: 'uppercase' }}>Scan Type</span>
+                <p style={{ fontSize: '0.85rem', fontFamily: 'var(--font-mono)', color: 'var(--fg)', marginTop: 2 }}>Registry Package</p>
+              </div>
+              {result.sha256 && (
+                <div>
+                  <span style={{ fontSize: '0.6rem', fontFamily: 'var(--font-mono)', color: 'var(--color-muted)', textTransform: 'uppercase' }}>SHA-256</span>
+                  <p style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', color: 'var(--fg)', marginTop: 2, wordBreak: 'break-all' }}>{result.sha256}</p>
+                </div>
+              )}
+              <div>
+                <span style={{ fontSize: '0.6rem', fontFamily: 'var(--font-mono)', color: 'var(--color-muted)', textTransform: 'uppercase' }}>Status</span>
+                <p style={{ fontSize: '0.85rem', fontFamily: 'var(--font-mono)', color: result.downloaded ? 'var(--color-safe)' : 'var(--color-warn)', marginTop: 2 }}>
+                  {result.downloaded ? 'Artifact downloaded' : 'Download failed — partial scan'}
+                </p>
+              </div>
+            </div>
+          </div>
 
           {/* Engine status bar */}
           {result.engines && result.engines.length > 0 && (
@@ -625,6 +854,75 @@ export function ScanPage() {
               </div>
             ))}
           </div>
+
+          {/* Severity donut + Engine bar chart */}
+          {(result.summary.total > 0 || (result.engines && result.engines.length > 0)) && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              {/* Severity distribution donut */}
+              {result.summary.total > 0 && (() => {
+                const sevData = [
+                  { name: 'Critical', value: result.summary.critical, color: 'var(--color-critical)' },
+                  { name: 'High',     value: result.summary.high,     color: 'var(--color-high)' },
+                  { name: 'Medium',   value: result.summary.medium,   color: 'var(--color-medium)' },
+                  { name: 'Low',      value: result.summary.low,      color: '#60A5FA' },
+                ].filter(d => d.value > 0);
+                return (
+                  <div className="rounded-lg p-4" style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--color-muted)' }}>
+                      SEVERITY DISTRIBUTION
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
+                      <ResponsiveContainer width="50%" height={140}>
+                        <PieChart>
+                          <Pie data={sevData} dataKey="value" cx="50%" cy="50%" innerRadius={35} outerRadius={55} paddingAngle={2} strokeWidth={0}>
+                            {sevData.map((d, i) => <Cell key={i} fill={d.color} />)}
+                          </Pie>
+                          <RechartsTooltip
+                            contentStyle={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: '0.75rem', color: 'var(--fg)' }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+                        {sevData.map(d => (
+                          <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem' }}>
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: d.color, flexShrink: 0 }} />
+                            <span style={{ color: 'var(--color-muted)', flex: 1 }}>{d.name}</span>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--fg)' }}>{d.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Findings by engine */}
+              {result.engines && result.engines.length > 0 && (() => {
+                const engineData = result.engines
+                  .filter(e => e.status === 'ok')
+                  .map(e => ({ name: e.engine, findings: e.findings }))
+                  .sort((a, b) => b.findings - a.findings);
+                if (engineData.length === 0) return null;
+                return (
+                  <div className="rounded-lg p-4" style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--color-muted)' }}>
+                      FINDINGS BY ENGINE
+                    </span>
+                    <ResponsiveContainer width="100%" height={140} style={{ marginTop: '0.5rem' }}>
+                      <BarChart data={engineData} layout="vertical" margin={{ left: 0, right: 8, top: 4, bottom: 4 }}>
+                        <XAxis type="number" hide />
+                        <YAxis type="category" dataKey="name" width={70} tick={{ fontSize: 11, fill: 'var(--color-muted)', fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} />
+                        <RechartsTooltip
+                          contentStyle={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: '0.75rem', color: 'var(--fg)' }}
+                        />
+                        <Bar dataKey="findings" fill="rgba(99,102,241,0.6)" radius={[0, 4, 4, 0]} barSize={16} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
 
           {/* Highest-severity informational banner — mirrors what --fail-on would act on */}
           {result.summary.highest_sev && (

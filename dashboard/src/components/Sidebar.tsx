@@ -3,12 +3,13 @@ import {
   FolderOpen, Package, FileText, ListFilter, KeyRound, Download, Webhook,
   GitMerge, LayoutDashboard, ChevronLeft, ChevronRight, FileCheck, PenTool,
   BookOpen, LogOut, Network, Puzzle, Server, Globe2, Building2, Sparkles, Cpu,
-  Settings,
+  Settings, ClipboardList, Terminal,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useUIStore } from '../store/ui';
 import { getAuthStatus } from '../lib/api';
 import { cn } from './ui/utils';
+import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 
 export interface NavItem {
   label: string;
@@ -28,6 +29,7 @@ export const NAV_SECTIONS: NavSection[] = [
     section: 'ANALYZE',
     items: [
       { label: 'Scan Now',            icon: Search,       path: '/scan' },
+      { label: 'Scan Sessions',       icon: ClipboardList, path: '/sessions' },
       { label: 'Recursive Scanning',  icon: RefreshCw,    path: '/recursive' },
       { label: 'System Audit',        icon: HardDrive,    path: '/audit' },
       { label: 'AI Security',         icon: Bot,          path: '/ai-security' },
@@ -39,6 +41,7 @@ export const NAV_SECTIONS: NavSection[] = [
     section: 'MONITOR',
     items: [
       { label: 'Live Monitoring',     icon: Activity,     path: '/monitor' },
+      { label: 'Log Monitor',         icon: Terminal,     path: '/logs' },
       { label: 'Attack Surface',      icon: Network,      path: '/attack-surface' },
       { label: 'Dependency Drift',    icon: GitBranch,    path: '/drift' },
       { label: 'Alerts',             icon: Bell,          path: '/alerts' },
@@ -120,34 +123,26 @@ export function Sidebar({ current, onNavigate, onLogout }: SidebarProps) {
       {/* Logo */}
       <div
         className={cn(
-          'flex items-center gap-2 border-b border-border-color cursor-pointer',
-          sidebarOpen ? 'px-3.5 pt-3.5 pb-3 justify-start' : 'px-0 py-3 justify-center'
+          'flex items-center border-b border-border-color cursor-pointer',
+          sidebarOpen ? 'px-3 pt-3 pb-2.5 justify-center' : 'px-0 py-3 justify-center'
         )}
         onClick={() => onNavigate('/')}
       >
-        {/* Logo image — collapsed: icon only, expanded: full logo */}
         <img
           src="/logo.png"
           alt="ForgeGuardian"
-          className="shrink-0 transition-[height,width] duration-200"
+          className="shrink-0 transition-all duration-200"
           style={{
-            height: sidebarOpen ? 32 : 30,
-            width: sidebarOpen ? 'auto' : 30,
+            height: sidebarOpen ? 56 : 36,
+            maxWidth: sidebarOpen ? 210 : 36,
             objectFit: sidebarOpen ? 'contain' : 'cover',
             objectPosition: 'left center',
           }}
         />
-        {sidebarOpen && (
-          <div>
-            <div className="font-bold text-[0.85rem] text-text-primary font-mono leading-tight">
-              ForgeGuardian
-            </div>
-            <div className="text-[0.6rem] text-text-muted leading-tight mt-0.5">
-              AI-Native Supply Chain Security
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Workspace switcher */}
+      <WorkspaceSwitcher collapsed={!sidebarOpen} />
 
       {/* Nav */}
       <nav className={cn('flex-1 overflow-y-auto', sidebarOpen ? 'p-2' : 'py-2 px-1')}>

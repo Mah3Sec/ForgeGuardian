@@ -138,6 +138,8 @@ export interface DashboardStats {
   total_findings: number;
   critical_findings: number;
   high_findings: number;
+  medium_findings: number;
+  low_findings: number;
   scanned_today: number;
   ecosystems_covered: string[];
   last_updated: string;

@@ -4,8 +4,10 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"io"
 	"log/slog"
 	"net/http"
@@ -64,29 +66,40 @@ func (s *ServerConfig) GetCookieSecure() bool                 { return s.CookieS
 // cachedScanResult holds an in-memory record of a completed scan so that the
 // dashboard can display stats, graphs, and activity without PostgreSQL.
 type cachedScanResult struct {
-	Ecosystem       string
-	Name            string
-	Version         string
-	SHA256          string
-	Summary         scanner.ScanSummary
-	HighestSeverity string
-	ScannedAt       time.Time
+	Ecosystem       string             `json:"ecosystem"`
+	Name            string             `json:"name"`
+	Version         string             `json:"version"`
+	SHA256          string             `json:"sha256"`
+	Summary         scanner.ScanSummary `json:"summary"`
+	HighestSeverity string             `json:"highest_severity"`
+	ScannedAt       time.Time          `json:"scanned_at"`
+	TotalFindings   int                `json:"total_findings"`
 }
 
 // scanCache is a bounded in-memory store of recent scan results. It serves as
 // the data source for all dashboard endpoints when no database is configured.
+// When a persist path is set, the cache auto-saves to disk on every add so
+// data survives container restarts without PostgreSQL.
 type scanCache struct {
-	mu      sync.RWMutex
-	results []cachedScanResult
+	mu          sync.RWMutex
+	results     []cachedScanResult
+	persistPath string
+}
+
+func newScanCache(persistPath string) *scanCache {
+	sc := &scanCache{persistPath: persistPath}
+	sc.load()
+	return sc
 }
 
 func (sc *scanCache) add(r cachedScanResult) {
 	sc.mu.Lock()
 	defer sc.mu.Unlock()
 	sc.results = append(sc.results, r)
-	if len(sc.results) > 200 {
-		sc.results = sc.results[len(sc.results)-200:]
+	if len(sc.results) > 500 {
+		sc.results = sc.results[len(sc.results)-500:]
 	}
+	sc.saveLocked()
 }
 
 func (sc *scanCache) list() []cachedScanResult {
@@ -97,23 +110,162 @@ func (sc *scanCache) list() []cachedScanResult {
 	return cp
 }
 
+// latest returns deduplicated results keeping only the most recent scan per
+// ecosystem/name@version key, which prevents re-scanning from inflating stats.
+func (sc *scanCache) latest() []cachedScanResult {
+	sc.mu.RLock()
+	defer sc.mu.RUnlock()
+	seen := map[string]int{}
+	var out []cachedScanResult
+	for i := len(sc.results) - 1; i >= 0; i-- {
+		key := sc.results[i].Ecosystem + "/" + sc.results[i].Name + "@" + sc.results[i].Version
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = i
+		out = append(out, sc.results[i])
+	}
+	return out
+}
+
+func (sc *scanCache) load() {
+	if sc.persistPath == "" {
+		return
+	}
+	data, err := os.ReadFile(sc.persistPath)
+	if err != nil {
+		return
+	}
+	var results []cachedScanResult
+	if err := json.Unmarshal(data, &results); err != nil {
+		return
+	}
+	sc.mu.Lock()
+	sc.results = results
+	sc.mu.Unlock()
+}
+
+func (sc *scanCache) saveLocked() {
+	if sc.persistPath == "" {
+		return
+	}
+	data, err := json.Marshal(sc.results)
+	if err != nil {
+		return
+	}
+	dir := filepath.Dir(sc.persistPath)
+	os.MkdirAll(dir, 0o755)
+	os.WriteFile(sc.persistPath, data, 0o644)
+}
+
 // Handler holds all dependencies for API handlers.
+// logEntry is a single log line captured from the structured logger.
+type logEntry struct {
+	Time    string `json:"time"`
+	Level   string `json:"level"`
+	Msg     string `json:"msg"`
+	Fields  map[string]any `json:"fields,omitempty"`
+}
+
+// logRing is a fixed-size circular buffer that captures recent log entries
+// so the dashboard can display server-side logs.
+type logRing struct {
+	mu      sync.RWMutex
+	entries []logEntry
+	max     int
+}
+
+func newLogRing(max int) *logRing {
+	return &logRing{entries: make([]logEntry, 0, max), max: max}
+}
+
+func (lr *logRing) add(e logEntry) {
+	lr.mu.Lock()
+	defer lr.mu.Unlock()
+	lr.entries = append(lr.entries, e)
+	if len(lr.entries) > lr.max {
+		lr.entries = lr.entries[len(lr.entries)-lr.max:]
+	}
+}
+
+func (lr *logRing) list(limit int) []logEntry {
+	lr.mu.RLock()
+	defer lr.mu.RUnlock()
+	if limit <= 0 || limit > len(lr.entries) {
+		limit = len(lr.entries)
+	}
+	start := len(lr.entries) - limit
+	cp := make([]logEntry, limit)
+	copy(cp, lr.entries[start:])
+	return cp
+}
+
+// logCaptureHandler is an slog.Handler that tees log records into the ring buffer.
+type logCaptureHandler struct {
+	inner slog.Handler
+	ring  *logRing
+}
+
+func (h *logCaptureHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	return h.inner.Enabled(ctx, level)
+}
+
+func (h *logCaptureHandler) Handle(ctx context.Context, r slog.Record) error {
+	fields := map[string]any{}
+	r.Attrs(func(a slog.Attr) bool {
+		fields[a.Key] = a.Value.Any()
+		return true
+	})
+	var f map[string]any
+	if len(fields) > 0 {
+		f = fields
+	}
+	h.ring.add(logEntry{
+		Time:   r.Time.Format(time.RFC3339),
+		Level:  r.Level.String(),
+		Msg:    r.Message,
+		Fields: f,
+	})
+	return h.inner.Handle(ctx, r)
+}
+
+func (h *logCaptureHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &logCaptureHandler{inner: h.inner.WithAttrs(attrs), ring: h.ring}
+}
+
+func (h *logCaptureHandler) WithGroup(name string) slog.Handler {
+	return &logCaptureHandler{inner: h.inner.WithGroup(name), ring: h.ring}
+}
+
 type Handler struct {
 	cfg   Config
 	log   *slog.Logger
 	db    *dbsqlc.Queries // nil when DATABASE_URL is not set
 	jobs  *jobRegistry
 	cache *scanCache
+	logs  *logRing
 }
 
 // New creates a handler suite. pool may be nil; DB-backed endpoints will return
 // 503 gracefully when the database is unavailable.
 func New(cfg Config, log *slog.Logger, pool *pgxpool.Pool) *Handler {
-	h := &Handler{cfg: cfg, log: log, jobs: newJobRegistry(), cache: &scanCache{}}
+	cachePath := os.Getenv("FG_CACHE_PATH")
+	if cachePath == "" {
+		cachePath = filepath.Join(os.Getenv("HOME"), "scan-cache.json")
+	}
+	h := &Handler{cfg: cfg, log: log, jobs: newJobRegistry(), cache: newScanCache(cachePath), logs: newLogRing(500)}
 	if pool != nil {
 		h.db = dbsqlc.New(pool)
 	}
 	return h
+}
+
+// LogRing returns the log ring buffer so main.go can wire it into the slog handler.
+func (h *Handler) LogRing() *logRing { return h.logs }
+
+// NewLogCaptureHandler wraps an slog.Handler to tee records into the ring buffer.
+func NewLogCaptureHandler(inner slog.Handler, ring *logRing) slog.Handler {
+	return &logCaptureHandler{inner: inner, ring: ring}
 }
 
 // dbAvailable returns false and writes a 503 when no DB connection is present.
@@ -145,13 +297,13 @@ func (h *Handler) ListPackages(c *gin.Context) {
 		packages, err := h.db.ListPackages(c.Request.Context(), eco, int32(size), offset)
 		if err != nil {
 			h.log.Error("ListPackages query failed", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			internalError(c, h.log, "operation failed", err)
 			return
 		}
 		total, err := h.db.CountPackages(c.Request.Context(), eco)
 		if err != nil {
 			h.log.Error("CountPackages query failed", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			internalError(c, h.log, "operation failed", err)
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{
@@ -169,7 +321,7 @@ func (h *Handler) ListPackages(c *gin.Context) {
 		Versions  int    `json:"version_count"`
 		Findings  int    `json:"total_findings"`
 	}
-	cached := h.cache.list()
+	cached := h.cache.latest()
 	pkgMap := map[string]*cachedPkg{}
 	versionMap := map[string]map[string]bool{}
 	for _, r := range cached {
@@ -211,37 +363,57 @@ func (h *Handler) ListPackages(c *gin.Context) {
 // GetPackage returns detail for a single package.
 // GET /api/v1/packages/:ecosystem/:name
 func (h *Handler) GetPackage(c *gin.Context) {
-	if !h.dbAvailable(c) {
-		return
-	}
 	eco := c.Param("ecosystem")
 	name := c.Param("name")
-	pkg, err := h.db.GetPackage(c.Request.Context(), eco, name)
-	if err != nil {
-		if errNoRows(err) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "package not found"})
+	if h.db != nil {
+		pkg, err := h.db.GetPackage(c.Request.Context(), eco, name)
+		if err != nil {
+			if errNoRows(err) {
+				c.JSON(http.StatusNotFound, gin.H{"error": "package not found"})
+				return
+			}
+			internalError(c, h.log, "operation failed", err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusOK, pkg)
 		return
 	}
-	c.JSON(http.StatusOK, pkg)
+	for _, r := range h.cache.latest() {
+		if strings.EqualFold(r.Ecosystem, eco) && strings.EqualFold(r.Name, name) {
+			c.JSON(http.StatusOK, gin.H{
+				"ecosystem":  r.Ecosystem,
+				"name":       r.Name,
+				"latest":     r.Version,
+				"risk_score": riskScore(r.Summary.Critical, r.Summary.High, r.Summary.Medium, r.Summary.Low),
+				"scanned_at": r.ScannedAt,
+			})
+			return
+		}
+	}
+	c.JSON(http.StatusNotFound, gin.H{"error": "package not found"})
 }
 
 // ListVersions returns all known versions of a package.
 // GET /api/v1/packages/:ecosystem/:name/versions
 func (h *Handler) ListVersions(c *gin.Context) {
-	if !h.dbAvailable(c) {
-		return
-	}
 	eco := c.Param("ecosystem")
 	name := c.Param("name")
-	versions, err := h.db.ListVersions(c.Request.Context(), eco, name)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if h.db != nil {
+		versions, err := h.db.ListVersions(c.Request.Context(), eco, name)
+		if err != nil {
+			internalError(c, h.log, "operation failed", err)
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"ecosystem": eco, "name": name, "versions": versions})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"ecosystem": eco, "name": name, "versions": versions})
+	var vers []gin.H
+	for _, r := range h.cache.latest() {
+		if strings.EqualFold(r.Ecosystem, eco) && strings.EqualFold(r.Name, name) {
+			vers = append(vers, gin.H{"version": r.Version, "scanned_at": r.ScannedAt})
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"ecosystem": eco, "name": name, "versions": vers})
 }
 
 // ─── Scan endpoints ───────────────────────────────────────────────────────────
@@ -260,6 +432,10 @@ func (h *Handler) TriggerScan(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if !isValidPackageInput(req.Ecosystem, req.Package, req.Version) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid ecosystem, package name, or version"})
 		return
 	}
 
@@ -387,7 +563,7 @@ func (h *Handler) ScanUpload(c *gin.Context) {
 	dir, err := os.MkdirTemp("", "fg-upload-ext-*")
 	if err != nil {
 		os.Remove(tmpPath)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		internalError(c, h.log, "operation failed", err)
 		return
 	}
 
@@ -435,7 +611,7 @@ func (h *Handler) GetScanResults(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "no scan results found — trigger a scan first"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		internalError(c, h.log, "operation failed", err)
 		return
 	}
 
@@ -500,7 +676,7 @@ func (h *Handler) GenerateAdvisory(c *gin.Context) {
 	advisory, err := eng.Triage(ctx, artifact, req.Findings)
 	if err != nil {
 		h.log.Error("advisory generation failed", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		internalError(c, h.log, "operation failed", err)
 		return
 	}
 	c.JSON(http.StatusOK, advisory)
@@ -528,7 +704,7 @@ func (h *Handler) GetSBOM(c *gin.Context) {
 
 	var buf bytes.Buffer
 	if err := sbom.Generate(artifact, format, &buf); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		internalError(c, h.log, "operation failed", err)
 		return
 	}
 
@@ -573,7 +749,7 @@ func (h *Handler) SignArtifact(c *gin.Context) {
 	prov := signer.NewProvenance(artifact)
 	att, err := s.Sign(ctx, artifact, prov)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		internalError(c, h.log, "operation failed", err)
 		return
 	}
 
@@ -650,7 +826,7 @@ func (h *Handler) DashboardStats(c *gin.Context) {
 		stats, err := h.db.DashboardStats(c.Request.Context())
 		if err != nil {
 			h.log.Error("DashboardStats query failed", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			internalError(c, h.log, "operation failed", err)
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{
@@ -659,6 +835,8 @@ func (h *Handler) DashboardStats(c *gin.Context) {
 			"total_findings":     stats.TotalFindings,
 			"critical_findings":  stats.CriticalFindings,
 			"high_findings":      stats.HighFindings,
+			"medium_findings":    stats.MediumFindings,
+			"low_findings":       stats.LowFindings,
 			"scanned_today":      stats.ScannedToday,
 			"ecosystems_covered": []string{"npm", "pypi", "go", "rubygems", "crates", "maven", "huggingface", "mcp"},
 			"last_updated":       time.Now().UTC(),
@@ -666,10 +844,10 @@ func (h *Handler) DashboardStats(c *gin.Context) {
 		return
 	}
 
-	cached := h.cache.list()
+	cached := h.cache.latest()
 	pkgs := map[string]bool{}
 	versions := map[string]bool{}
-	var total, crit, high int64
+	var total, crit, high, medium, low int64
 	today := time.Now().Format("2006-01-02")
 	var scannedToday int64
 	for _, r := range cached {
@@ -678,6 +856,8 @@ func (h *Handler) DashboardStats(c *gin.Context) {
 		total += int64(r.Summary.Total)
 		crit += int64(r.Summary.Critical)
 		high += int64(r.Summary.High)
+		medium += int64(r.Summary.Medium)
+		low += int64(r.Summary.Low)
 		if r.ScannedAt.Format("2006-01-02") == today {
 			scannedToday++
 		}
@@ -688,6 +868,8 @@ func (h *Handler) DashboardStats(c *gin.Context) {
 		"total_findings":     total,
 		"critical_findings":  crit,
 		"high_findings":      high,
+		"medium_findings":    medium,
+		"low_findings":       low,
 		"scanned_today":      scannedToday,
 		"ecosystems_covered": []string{"npm", "pypi", "go", "rubygems", "crates", "maven", "huggingface", "mcp"},
 		"last_updated":       time.Now().UTC(),
@@ -706,7 +888,7 @@ func (h *Handler) DashboardRecent(c *gin.Context) {
 		results, err := h.db.ListRecentScans(c.Request.Context(), int32(limit))
 		if err != nil {
 			h.log.Error("ListRecentScans query failed", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			internalError(c, h.log, "operation failed", err)
 			return
 		}
 		if results == nil {
@@ -778,7 +960,7 @@ func (h *Handler) DashboardGraph(c *gin.Context) {
 		rows, err := h.db.ListRecentScans(c.Request.Context(), int32(limit))
 		if err != nil {
 			h.log.Error("ListRecentScans query failed", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			internalError(c, h.log, "operation failed", err)
 			return
 		}
 		for _, r := range rows {
@@ -792,7 +974,7 @@ func (h *Handler) DashboardGraph(c *gin.Context) {
 			links = append(links, graphLink{Source: "root", Target: id})
 		}
 	} else {
-		cached := h.cache.list()
+		cached := h.cache.latest()
 		seen := map[string]bool{}
 		start := len(cached) - limit
 		if start < 0 {
@@ -854,7 +1036,7 @@ func (h *Handler) DashboardTimeline(c *gin.Context) {
 			}
 		}
 	} else {
-		cached := h.cache.list()
+		cached := h.cache.latest()
 		byDay := map[string]*timelinePoint{}
 		cutoff := time.Now().AddDate(0, 0, -days)
 		for _, r := range cached {
@@ -891,7 +1073,7 @@ func (h *Handler) ListSignatures(c *gin.Context) {
 
 	store, err := intelligence.LoadStoreWithLocalFallback(h.cfg.GetIntelStorePath())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		internalError(c, h.log, "operation failed", err)
 		return
 	}
 
@@ -1035,6 +1217,129 @@ func (h *Handler) DashboardActivity(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"events": events})
 }
 
+// ServerLogs returns recent structured log entries from the ring buffer.
+// GET /api/v1/logs?limit=100&level=ERROR
+func (h *Handler) ServerLogs(c *gin.Context) {
+	limit := 200
+	if l, err := strconv.Atoi(c.Query("limit")); err == nil && l > 0 && l <= 500 {
+		limit = l
+	}
+	levelFilter := strings.ToUpper(c.Query("level"))
+
+	entries := h.logs.list(limit)
+
+	if levelFilter != "" {
+		filtered := make([]logEntry, 0, len(entries))
+		for _, e := range entries {
+			if e.Level == levelFilter {
+				filtered = append(filtered, e)
+			}
+		}
+		entries = filtered
+	}
+
+	c.JSON(http.StatusOK, gin.H{"logs": entries, "total": len(entries)})
+}
+
+// CLISync accepts scan results pushed from the fgctl CLI so they appear
+// on the dashboard. Supports both single-package results (registry scan)
+// and project results (local/remote scan).
+// POST /api/v1/cli/sync
+func (h *Handler) CLISync(c *gin.Context) {
+	var req struct {
+		ScanType  string              `json:"scan_type"`
+		Label     string              `json:"label"`
+		Ecosystem string              `json:"ecosystem,omitempty"`
+		Package   string              `json:"package,omitempty"`
+		Version   string              `json:"version,omitempty"`
+		RootDir   string              `json:"root_dir,omitempty"`
+		Summary   scanner.ScanSummary `json:"summary"`
+		Findings  []core.Finding      `json:"findings"`
+		Results   []struct {
+			Entry struct {
+				Ecosystem string `json:"ecosystem"`
+				Name      string `json:"name"`
+				Version   string `json:"version"`
+				FilePath  string `json:"file_path"`
+			} `json:"entry"`
+			Findings []core.Finding `json:"findings"`
+			Skipped  bool           `json:"skipped"`
+		} `json:"results,omitempty"`
+		Manifests []struct {
+			Path      string `json:"path"`
+			Ecosystem string `json:"ecosystem"`
+		} `json:"manifests,omitempty"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	h.log.Info("CLI sync received",
+		"scan_type", req.ScanType,
+		"label", req.Label,
+		"findings", len(req.Findings),
+		"total", req.Summary.Total)
+
+	// For single-package scans, add to the scan cache so dashboard stats pick it up.
+	if req.ScanType == "registry" || req.ScanType == "single" {
+		eco := req.Ecosystem
+		name := req.Package
+		ver := req.Version
+		if eco != "" && name != "" {
+			h.cache.add(cachedScanResult{
+				Ecosystem:       eco,
+				Name:            name,
+				Version:         ver,
+				Summary:         req.Summary,
+				HighestSeverity: string(req.Summary.HighestSev),
+				ScannedAt:       time.Now(),
+				TotalFindings:   req.Summary.Total,
+			})
+			if h.db != nil {
+				if err := h.persistScanResult(c.Request.Context(), eco, name, ver, "", req.Findings, req.Summary, ""); err != nil {
+					h.log.Warn("CLI sync DB persist failed", "error", err)
+				}
+			}
+		}
+	}
+
+	// For project scans (local, upload, remote), persist each dependency
+	// separately so they show up in dashboard stats and risks.
+	if req.ScanType == "project" || req.ScanType == "local" || req.ScanType == "remote" {
+		for _, r := range req.Results {
+			if r.Skipped || len(r.Findings) == 0 {
+				continue
+			}
+			eco := r.Entry.Ecosystem
+			name := r.Entry.Name
+			ver := r.Entry.Version
+			sum := scanner.Summarize(r.Findings)
+			h.cache.add(cachedScanResult{
+				Ecosystem:       eco,
+				Name:            name,
+				Version:         ver,
+				Summary:         sum,
+				HighestSeverity: string(sum.HighestSev),
+				ScannedAt:       time.Now(),
+				TotalFindings:   sum.Total,
+			})
+			if h.db != nil {
+				if err := h.persistScanResult(c.Request.Context(), eco, name, ver, "", r.Findings, sum, ""); err != nil {
+					h.log.Warn("CLI sync DB persist failed", "error", err, "package", name)
+				}
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "synced",
+		"label":   req.Label,
+		"total":   req.Summary.Total,
+		"message": fmt.Sprintf("Synced %d findings from CLI scan", req.Summary.Total),
+	})
+}
+
 // ActiveRisks returns a prioritized list of packages with findings.
 // GET /api/v1/risks
 func (h *Handler) ActiveRisks(c *gin.Context) {
@@ -1058,10 +1363,7 @@ func (h *Handler) ActiveRisks(c *gin.Context) {
 				if r.TotalFindings == 0 {
 					continue
 				}
-				score := int(r.CriticalFindings)*40 + int(r.HighFindings)*20
-				if score > 100 {
-					score = 100
-				}
+				score := riskScore(int(r.CriticalFindings), int(r.HighFindings), int(r.MediumFindings), int(r.LowFindings))
 				grade := riskGrade(score)
 				risks = append(risks, riskItem{
 					PackageName:  r.Name,
@@ -1076,7 +1378,7 @@ func (h *Handler) ActiveRisks(c *gin.Context) {
 			}
 		}
 	} else {
-		cached := h.cache.list()
+		cached := h.cache.latest()
 		seen := map[string]bool{}
 		for i := len(cached) - 1; i >= 0; i-- {
 			r := cached[i]
@@ -1088,10 +1390,7 @@ func (h *Handler) ActiveRisks(c *gin.Context) {
 				continue
 			}
 			seen[key] = true
-			score := r.Summary.Critical*40 + r.Summary.High*20
-			if score > 100 {
-				score = 100
-			}
+			score := riskScore(r.Summary.Critical, r.Summary.High, r.Summary.Medium, r.Summary.Low)
 			grade := riskGrade(score)
 			risks = append(risks, riskItem{
 				PackageName:  r.Name,
@@ -1117,7 +1416,7 @@ func (h *Handler) ActiveRisks(c *gin.Context) {
 func (h *Handler) PolicyStatus(c *gin.Context) {
 	pol, err := policy.Load()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		internalError(c, h.log, "operation failed", err)
 		return
 	}
 
@@ -1166,7 +1465,7 @@ func (h *Handler) SavePolicy(c *gin.Context) {
 	}
 
 	if err := policy.Save(&p); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		internalError(c, h.log, "operation failed", err)
 		return
 	}
 
@@ -1256,6 +1555,14 @@ func loadNotifyConfig() (notify.Config, error) {
 	return wrapper.Notify, nil
 }
 
+func riskScore(critical, high, medium, low int) int {
+	s := critical*40 + high*20 + medium*5 + low*1
+	if s > 100 {
+		return 100
+	}
+	return s
+}
+
 func riskGrade(score int) string {
 	switch {
 	case score <= 20:
@@ -1269,6 +1576,47 @@ func riskGrade(score int) string {
 	default:
 		return "F"
 	}
+}
+
+// csvSafe prefixes cell values that could trigger formula injection in
+// spreadsheet applications (=, +, -, @, tab, carriage return).
+var validEcosystems = map[string]bool{
+	"npm": true, "pypi": true, "go": true, "rubygems": true,
+	"crates": true, "maven": true, "huggingface": true, "mcp": true,
+}
+
+var safeNameRe = regexp.MustCompile(`^[a-zA-Z0-9@/_:.\-]+$`)
+
+func isValidPackageInput(ecosystem, name, version string) bool {
+	if !validEcosystems[ecosystem] {
+		return false
+	}
+	if len(name) > 256 || len(version) > 128 {
+		return false
+	}
+	if !safeNameRe.MatchString(name) || !safeNameRe.MatchString(version) {
+		return false
+	}
+	if strings.Contains(name, "..") || strings.Contains(version, "..") {
+		return false
+	}
+	return true
+}
+
+func internalError(c *gin.Context, log *slog.Logger, msg string, err error) {
+	log.Error(msg, "error", err, "path", c.Request.URL.Path)
+	c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+}
+
+func csvSafe(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	switch s[0] {
+	case '=', '+', '-', '@', '\t', '\r':
+		return "'" + s
+	}
+	return s
 }
 
 // ─── persistence helpers ──────────────────────────────────────────────────────
@@ -1344,6 +1692,101 @@ func (h *Handler) persistAttestation(
 		AttestationJson:  attJSON,
 	})
 	return err
+}
+
+// ExportReport exports scan results as JSON or CSV.
+// GET /api/v1/export/report?format=json|csv
+func (h *Handler) ExportReport(c *gin.Context) {
+	format := c.DefaultQuery("format", "json")
+	now := time.Now().Format("2006-01-02")
+
+	type exportRow struct {
+		Package     string `json:"package"`
+		Version     string `json:"version"`
+		Ecosystem   string `json:"ecosystem"`
+		RiskScore   int    `json:"risk_score"`
+		RiskGrade   string `json:"risk_grade"`
+		Critical    int    `json:"critical"`
+		High        int    `json:"high"`
+		Medium      int    `json:"medium"`
+		Low         int    `json:"low"`
+		Total       int    `json:"total"`
+		TopSeverity string `json:"top_severity"`
+		ScannedAt   string `json:"scanned_at"`
+	}
+
+	var rows []exportRow
+
+	if h.db != nil {
+		results, err := h.db.ListRecentScans(c.Request.Context(), 500)
+		if err == nil {
+			for _, r := range results {
+				score := riskScore(int(r.CriticalFindings), int(r.HighFindings), int(r.MediumFindings), int(r.LowFindings))
+				rows = append(rows, exportRow{
+					Package:     r.Name,
+					Version:     r.Version,
+					Ecosystem:   r.Ecosystem,
+					RiskScore:   score,
+					RiskGrade:   riskGrade(score),
+					Critical:    int(r.CriticalFindings),
+					High:        int(r.HighFindings),
+					Medium:      int(r.MediumFindings),
+					Low:         int(r.LowFindings),
+					Total:       int(r.TotalFindings),
+					TopSeverity: r.HighestSeverity,
+					ScannedAt:   r.ScannedAt.Time.Format(time.RFC3339),
+				})
+			}
+		}
+	} else {
+		for _, r := range h.cache.latest() {
+			score := riskScore(r.Summary.Critical, r.Summary.High, r.Summary.Medium, r.Summary.Low)
+			rows = append(rows, exportRow{
+				Package:     r.Name,
+				Version:     r.Version,
+				Ecosystem:   r.Ecosystem,
+				RiskScore:   score,
+				RiskGrade:   riskGrade(score),
+				Critical:    r.Summary.Critical,
+				High:        r.Summary.High,
+				Medium:      r.Summary.Medium,
+				Low:         r.Summary.Low,
+				Total:       r.Summary.Total,
+				TopSeverity: r.HighestSeverity,
+				ScannedAt:   r.ScannedAt.Format(time.RFC3339),
+			})
+		}
+	}
+
+	if rows == nil {
+		rows = []exportRow{}
+	}
+
+	switch format {
+	case "csv":
+		c.Header("Content-Type", "text/csv")
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=forgeguardian-report-%s.csv", now))
+		var buf bytes.Buffer
+		w := csv.NewWriter(&buf)
+		w.Write([]string{"package", "version", "ecosystem", "risk_score", "risk_grade", "critical", "high", "medium", "low", "total", "top_severity", "scanned_at"})
+		for _, r := range rows {
+			w.Write([]string{
+				csvSafe(r.Package), csvSafe(r.Version), csvSafe(r.Ecosystem),
+				fmt.Sprint(r.RiskScore), csvSafe(r.RiskGrade),
+				fmt.Sprint(r.Critical), fmt.Sprint(r.High), fmt.Sprint(r.Medium), fmt.Sprint(r.Low), fmt.Sprint(r.Total),
+				csvSafe(r.TopSeverity), r.ScannedAt,
+			})
+		}
+		w.Flush()
+		c.Data(http.StatusOK, "text/csv", buf.Bytes())
+	default:
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=forgeguardian-report-%s.json", now))
+		c.JSON(http.StatusOK, gin.H{
+			"report_date":    now,
+			"total_packages": len(rows),
+			"results":        rows,
+		})
+	}
 }
 
 // errNoRows returns true for pgx "no rows" errors.

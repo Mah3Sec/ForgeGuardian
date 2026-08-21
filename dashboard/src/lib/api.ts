@@ -9,9 +9,10 @@ function authHeaders(): Record<string, string> {
   return API_KEY ? { 'X-Api-Key': API_KEY } : {};
 }
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
+async function request<T>(path: string, options?: RequestInit & { timeout?: number }): Promise<T> {
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 30_000)
+  const timeoutMs = options?.timeout ?? 30_000
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
   try {
     const res = await fetch(`${BASE}${path}`, {
       headers: { 'Content-Type': 'application/json', ...authHeaders(), ...options?.headers },
@@ -46,7 +47,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   } catch (err) {
     clearTimeout(timeoutId)
     if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error('API request timed out after 30s', { cause: err })
+      throw new Error(`API request timed out`, { cause: err })
     }
     if (err instanceof TypeError && (err.message.includes('fetch') || err.message.includes('network'))) {
       throw new Error('Cannot connect to ForgeGuardian API. Start it with: make api')
@@ -274,7 +275,7 @@ export const getSBOM = async (ecosystem: string, pkg: string, version: string, f
   } catch (err) {
     clearTimeout(timeoutId)
     if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error('API request timed out after 30s', { cause: err })
+      throw new Error(`API request timed out`, { cause: err })
     }
     throw err
   }
@@ -345,6 +346,18 @@ export const getDashboardActivity = (limit = 20) =>
 
 export const getActiveRisks = () =>
   request<{ risks: import('../types/api').RiskItem[] }>('/api/v1/risks');
+
+export interface LogEntry {
+  time: string;
+  level: string;
+  msg: string;
+  fields?: Record<string, unknown>;
+}
+
+export const getServerLogs = (limit = 200, level?: string) =>
+  request<{ logs: LogEntry[]; total: number }>(
+    `/api/v1/logs?limit=${limit}${level ? `&level=${level}` : ''}`
+  );
 
 export interface DependencyGraphData {
   nodes: Array<{ id: string; name: string; version: string; severity: string }>
@@ -435,7 +448,7 @@ export const dismissAlert = (id: number) =>
 // Auth — session cookie is httpOnly and set/cleared server-side; the client
 // only ever inspects response status/body, never stores a token itself.
 export const login = (email: string, password: string) =>
-  request<{ ok: boolean }>('/api/v1/auth/login', {
+  request<{ ok: boolean; password_must_change?: boolean }>('/api/v1/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
@@ -450,7 +463,7 @@ export const changePassword = (currentPassword: string, newPassword: string) =>
   });
 
 export const getAuthStatus = () =>
-  request<{ auth_enabled: boolean; authenticated: boolean; email?: string }>('/api/v1/auth/me');
+  request<{ auth_enabled: boolean; authenticated: boolean; email?: string; password_must_change?: boolean }>('/api/v1/auth/me', { timeout: 5000 });
 
 // Webhooks — POST /api/v1/webhooks/test. Real endpoint; actual delivery is
 // configured locally via fgctl config (notify.slack_webhook_url etc.), this
@@ -459,3 +472,21 @@ export const testWebhook = () =>
   request<{ message?: string; status: 'ok' | 'failed' | 'not_configured'; attempted?: string[]; errors?: string[] }>(
     '/api/v1/webhooks/test', { method: 'POST' },
   );
+
+// CLI sync — push CLI scan results to the dashboard
+export interface CLISyncPayload {
+  scan_type: 'registry' | 'single' | 'project' | 'local' | 'remote';
+  label: string;
+  ecosystem?: string;
+  package?: string;
+  version?: string;
+  root_dir?: string;
+  summary: import('../types/api').ScanSummary;
+  findings: import('../types/api').Finding[];
+}
+
+export const syncCLIResults = (payload: CLISyncPayload) =>
+  request<{ status: string; label: string; total: number; message: string }>('/api/v1/cli/sync', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });

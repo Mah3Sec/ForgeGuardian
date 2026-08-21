@@ -74,12 +74,14 @@ type BIGSERIAL = int64
 
 // DashboardStatsRow is the result of the DashboardStats aggregate query.
 type DashboardStatsRow struct {
-	TotalPackages    int64 `db:"total_packages"   json:"total_packages"`
-	TotalVersions    int64 `db:"total_versions"   json:"total_versions"`
-	TotalFindings    int64 `db:"total_findings"   json:"total_findings"`
+	TotalPackages    int64 `db:"total_packages"    json:"total_packages"`
+	TotalVersions    int64 `db:"total_versions"    json:"total_versions"`
+	TotalFindings    int64 `db:"total_findings"    json:"total_findings"`
 	CriticalFindings int64 `db:"critical_findings" json:"critical_findings"`
-	HighFindings     int64 `db:"high_findings"    json:"high_findings"`
-	ScannedToday     int64 `db:"scanned_today"    json:"scanned_today"`
+	HighFindings     int64 `db:"high_findings"     json:"high_findings"`
+	MediumFindings   int64 `db:"medium_findings"   json:"medium_findings"`
+	LowFindings      int64 `db:"low_findings"      json:"low_findings"`
+	ScannedToday     int64 `db:"scanned_today"     json:"scanned_today"`
 }
 
 // DashboardTimelineRow is one day of aggregate finding counts.
@@ -93,14 +95,16 @@ type DashboardTimelineRow struct {
 
 // RecentScanRow is the result of the ListRecentScans query.
 type RecentScanRow struct {
-	Ecosystem        string             `db:"ecosystem"        json:"ecosystem"`
-	Name             string             `db:"name"             json:"name"`
-	Version          string             `db:"version"          json:"version"`
-	HighestSeverity  string             `db:"highest_severity" json:"highest_severity"`
-	TotalFindings    int32              `db:"total_findings"   json:"total_findings"`
+	Ecosystem        string             `db:"ecosystem"         json:"ecosystem"`
+	Name             string             `db:"name"              json:"name"`
+	Version          string             `db:"version"           json:"version"`
+	HighestSeverity  string             `db:"highest_severity"  json:"highest_severity"`
+	TotalFindings    int32              `db:"total_findings"    json:"total_findings"`
 	CriticalFindings int32              `db:"critical_findings" json:"critical_findings"`
-	HighFindings     int32              `db:"high_findings"    json:"high_findings"`
-	ScannedAt        pgtype.Timestamptz `db:"scanned_at"       json:"scanned_at"`
+	HighFindings     int32              `db:"high_findings"     json:"high_findings"`
+	MediumFindings   int32              `db:"medium_findings"   json:"medium_findings"`
+	LowFindings      int32              `db:"low_findings"      json:"low_findings"`
+	ScannedAt        pgtype.Timestamptz `db:"scanned_at"        json:"scanned_at"`
 }
 
 // PackageWithVersionCount is the result of ListPackages / GetPackage.

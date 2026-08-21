@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import * as Dialog from '@radix-ui/react-dialog'
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts'
 import { AlertTriangle, X, ArrowRight } from 'lucide-react'
 import { getActiveRisks } from '../lib/api'
 import type { RiskItem } from '../types/api'
@@ -104,29 +105,37 @@ function RiskDetailDrawer({ item, onClose }: { item: RiskItem | null; onClose: (
                   </span>
                 </div>
 
+                {/* Risk score gauge */}
+                <div className="rounded-lg border border-border-color p-4" style={{ textAlign: 'center' }}>
+                  <svg viewBox="0 0 120 70" width="160" style={{ margin: '0 auto', display: 'block' }}>
+                    <path d="M 10 60 A 50 50 0 0 1 110 60" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="8" strokeLinecap="round" />
+                    <path
+                      d="M 10 60 A 50 50 0 0 1 110 60"
+                      fill="none"
+                      stroke={item.risk_score >= 70 ? 'var(--critical)' : item.risk_score >= 40 ? '#EA580C' : item.risk_score >= 20 ? 'var(--warning)' : 'var(--cyan)'}
+                      strokeWidth="8"
+                      strokeLinecap="round"
+                      strokeDasharray={`${(item.risk_score / 100) * 157} 157`}
+                    />
+                    <text x="60" y="52" textAnchor="middle" fill="var(--fg)" fontSize="22" fontWeight="bold" fontFamily="var(--font-mono)">{item.risk_score}</text>
+                    <text x="60" y="65" textAnchor="middle" fill="var(--color-muted)" fontSize="9" fontFamily="var(--font-mono)">/100</text>
+                  </svg>
+                  <p className="mt-1 font-mono text-sm text-text-secondary">
+                    Grade: <span className="text-lg font-bold text-text-primary">{item.risk_grade}</span>
+                  </p>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-lg border border-border-color p-3">
-                    <p className="text-xs text-text-secondary">Risk score</p>
-                    <p className="mt-1 font-mono text-2xl font-bold text-text-primary">{item.risk_score}<span className="text-sm text-text-muted">/100</span></p>
+                    <p className="text-xs text-text-secondary">Top severity</p>
+                    <div className="mt-1.5">
+                      <StatusBadge status={severityToStatus(item.top_severity)} label={item.top_severity} />
+                    </div>
                   </div>
                   <div className="rounded-lg border border-border-color p-3">
-                    <p className="text-xs text-text-secondary">Risk grade</p>
-                    <p className="mt-1 font-mono text-2xl font-bold text-text-primary">{item.risk_grade}</p>
+                    <p className="text-xs text-text-secondary">Findings</p>
+                    <p className="mt-1 font-mono text-2xl font-bold text-text-primary">{item.finding_count}</p>
                   </div>
-                </div>
-
-                <div>
-                  <p className="text-xs text-text-secondary">Top severity</p>
-                  <div className="mt-1.5">
-                    <StatusBadge status={severityToStatus(item.top_severity)} label={item.top_severity} />
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-xs text-text-secondary">Findings detected</p>
-                  <p className="mt-1 text-sm text-text-primary">
-                    {item.finding_count} finding{item.finding_count !== 1 ? 's' : ''} contributing to this package's aggregate risk score
-                  </p>
                 </div>
 
                 <div>
@@ -135,8 +144,7 @@ function RiskDetailDrawer({ item, onClose }: { item: RiskItem | null; onClose: (
                 </div>
 
                 <p className="text-xs text-text-muted">
-                  This is a package-level risk summary, not an individual-finding
-                  breakdown. Run a full scan to see per-finding detail (CVE IDs,
+                  Run a full scan to see per-finding detail (CVE IDs,
                   descriptions, fix versions) for {item.package_name}.
                 </p>
               </div>
@@ -202,6 +210,69 @@ export default function RisksPage() {
           </div>
         ))}
       </div>
+
+      {/* Severity distribution + risk grade distribution */}
+      {allRisks.length > 0 && (() => {
+        const sevCounts = [
+          { name: 'Critical', value: countBySev('CRITICAL'), color: 'var(--critical)' },
+          { name: 'High', value: countBySev('HIGH'), color: '#EA580C' },
+          { name: 'Medium', value: countBySev('MEDIUM'), color: 'var(--warning)' },
+          { name: 'Low', value: countBySev('LOW'), color: 'var(--cyan)' },
+        ].filter(d => d.value > 0);
+        const gradeCounts = ['A', 'B', 'C', 'D', 'F'].map(g => ({
+          name: g,
+          value: allRisks.filter(r => r.risk_grade === g).length,
+        })).filter(d => d.value > 0);
+        const GRADE_COLORS: Record<string, string> = { A: '#22c55e', B: '#60A5FA', C: '#F59E0B', D: '#EA580C', F: '#FF3D3D' };
+        return (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl border border-border-color bg-surface p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase text-text-secondary" style={{ letterSpacing: '0.05em' }}>Severity Distribution</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: 8 }}>
+                <ResponsiveContainer width="50%" height={120}>
+                  <PieChart>
+                    <Pie data={sevCounts} dataKey="value" cx="50%" cy="50%" innerRadius={30} outerRadius={48} paddingAngle={2} strokeWidth={0}>
+                      {sevCounts.map((d, i) => <Cell key={i} fill={d.color} />)}
+                    </Pie>
+                    <RechartsTooltip contentStyle={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: '0.75rem', color: 'var(--fg)' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+                  {sevCounts.map(d => (
+                    <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem' }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: d.color, flexShrink: 0 }} />
+                      <span className="text-text-secondary" style={{ flex: 1 }}>{d.name}</span>
+                      <span className="font-mono font-semibold text-text-primary">{d.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="rounded-xl border border-border-color bg-surface p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase text-text-secondary" style={{ letterSpacing: '0.05em' }}>Risk Grade Distribution</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: 8 }}>
+                <ResponsiveContainer width="50%" height={120}>
+                  <PieChart>
+                    <Pie data={gradeCounts} dataKey="value" cx="50%" cy="50%" innerRadius={30} outerRadius={48} paddingAngle={2} strokeWidth={0}>
+                      {gradeCounts.map((d, i) => <Cell key={i} fill={GRADE_COLORS[d.name] ?? '#666'} />)}
+                    </Pie>
+                    <RechartsTooltip contentStyle={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: '0.75rem', color: 'var(--fg)' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+                  {gradeCounts.map(d => (
+                    <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem' }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: GRADE_COLORS[d.name] ?? '#666', flexShrink: 0 }} />
+                      <span className="text-text-secondary" style={{ flex: 1 }}>Grade {d.name}</span>
+                      <span className="font-mono font-semibold text-text-primary">{d.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Filters + table */}
       <div className="overflow-hidden rounded-xl border border-border-color bg-surface shadow-sm">

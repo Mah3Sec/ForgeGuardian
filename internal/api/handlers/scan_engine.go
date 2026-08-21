@@ -230,10 +230,13 @@ func untar(tr *tar.Reader, dest string) error {
 			return err
 		}
 		clean := filepath.Clean(hdr.Name)
-		if strings.HasPrefix(clean, "..") {
-			continue // path traversal guard
-		}
 		target := filepath.Join(dest, clean)
+		if !strings.HasPrefix(filepath.Clean(target), filepath.Clean(dest)+string(os.PathSeparator)) {
+			continue
+		}
+		if hdr.Typeflag == tar.TypeSymlink || hdr.Typeflag == tar.TypeLink {
+			continue
+		}
 		switch hdr.Typeflag {
 		case tar.TypeDir:
 			os.MkdirAll(target, 0o755)
@@ -253,10 +256,10 @@ func untar(tr *tar.Reader, dest string) error {
 func unzip(zr *zip.Reader, dest string) error {
 	for _, f := range zr.File {
 		clean := filepath.Clean(f.Name)
-		if strings.HasPrefix(clean, "..") {
+		target := filepath.Join(dest, clean)
+		if !strings.HasPrefix(filepath.Clean(target), filepath.Clean(dest)+string(os.PathSeparator)) {
 			continue
 		}
-		target := filepath.Join(dest, clean)
 		if f.FileInfo().IsDir() {
 			os.MkdirAll(target, 0o755)
 			continue

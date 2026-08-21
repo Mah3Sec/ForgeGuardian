@@ -53,7 +53,21 @@ func newJobRegistry() *jobRegistry {
 	for i := 0; i < scanJobWorkers; i++ {
 		go r.runWorker()
 	}
+	go r.evictLoop()
 	return r
+}
+
+func (r *jobRegistry) evictLoop() {
+	for range time.Tick(5 * time.Minute) {
+		r.mu.Lock()
+		cutoff := time.Now().Add(-1 * time.Hour)
+		for id, job := range r.jobs {
+			if (job.Status == ScanJobComplete || job.Status == ScanJobFailed) && job.UpdatedAt.Before(cutoff) {
+				delete(r.jobs, id)
+			}
+		}
+		r.mu.Unlock()
+	}
 }
 
 func (r *jobRegistry) runWorker() {

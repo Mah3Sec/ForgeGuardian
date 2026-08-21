@@ -168,9 +168,8 @@ export function PitchPage({ onLoggedIn, onNavigateEnterprise }: PitchPageProps) 
           (scrolled ? 'border-border-color' : 'border-transparent')
         }
       >
-        <div className="flex items-center gap-2 min-w-0 shrink">
-          <img src="/logo.png" alt="ForgeGuardian" className="h-7 shrink-0" />
-          <span className="font-mono text-[0.95rem] font-bold truncate">ForgeGuardian</span>
+        <div className="flex items-center min-w-0 shrink">
+          <img src="/logo.png" alt="ForgeGuardian" className="shrink-0" style={{ height: 44, maxWidth: 220, objectFit: 'contain' }} />
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <a

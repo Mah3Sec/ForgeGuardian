@@ -137,6 +137,21 @@ func APIKeyAuth(validKey string) gin.HandlerFunc {
 	}
 }
 
+// SecurityHeaders sets standard security headers on every response.
+func SecurityHeaders() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("X-Content-Type-Options", "nosniff")
+		c.Header("X-Frame-Options", "DENY")
+		c.Header("X-XSS-Protection", "0")
+		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
+		c.Header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+			c.Header("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+		}
+		c.Next()
+	}
+}
+
 // CORS adds CORS headers for the dashboard. If dashboardOrigin is non-empty,
 // that specific origin is echoed back with Access-Control-Allow-Credentials
 // set (required for cookies to work cross-origin). Otherwise falls back to
@@ -148,7 +163,11 @@ func CORS(dashboardOrigin string) gin.HandlerFunc {
 			c.Header("Access-Control-Allow-Origin", dashboardOrigin)
 			c.Header("Access-Control-Allow-Credentials", "true")
 		} else {
-			c.Header("Access-Control-Allow-Origin", "*")
+			origin := c.GetHeader("Origin")
+			if origin != "" {
+				c.Header("Access-Control-Allow-Origin", origin)
+				c.Header("Access-Control-Allow-Credentials", "true")
+			}
 		}
 		c.Header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Api-Key")
