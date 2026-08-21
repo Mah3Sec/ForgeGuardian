@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
-  ArrowLeft, Download, FileJson, FileSpreadsheet, FileText,
-  Shield, AlertTriangle, Clock, Target, Layers, GitBranch,
+  ArrowLeft, FileJson, FileSpreadsheet, FileText,
+  Shield, Clock, Target, Layers, GitBranch,
   ChevronRight, ChevronDown, Eye,
 } from 'lucide-react';
 import {
@@ -139,7 +139,7 @@ function CategoryTreemap({ findings }: { findings: Finding[] }) {
           dataKey="size"
           nameKey="name"
           stroke="var(--border-color)"
-          content={({ x, y, width, height, name, index }) => {
+          content={(({ x, y, width, height, name, index }: { x: number; y: number; width: number; height: number; name: string; index: number }) => {
             const w = Number(width) || 0;
             const h = Number(height) || 0;
             if (w < 30 || h < 20) return <g />;
@@ -162,7 +162,7 @@ function CategoryTreemap({ findings }: { findings: Finding[] }) {
                 )}
               </g>
             );
-          }}
+          }) as any}
         />
       </ResponsiveContainer>
     </div>

@@ -1,12 +1,11 @@
 import { useState, useMemo } from 'react';
 import {
   ClipboardList, Search, Trash2, Eye, Download, Filter, ArrowUpDown,
-  ArrowUp, ArrowDown, Shield, AlertTriangle, Info, ChevronRight,
+  ArrowUp, ArrowDown, Shield, AlertTriangle, Info,
 } from 'lucide-react';
 import { useSessionStore, type ScanSession } from '../store/sessions';
 import { useWorkspaceStore } from '../store/workspace';
 import { useUIStore } from '../store/ui';
-import { SeverityBadge } from '../components/SeverityBadge';
 import { Input } from '../components/ui/input';
 
 const SEV_COLORS: Record<string, string> = {

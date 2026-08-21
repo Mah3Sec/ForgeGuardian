@@ -1,12 +1,11 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Terminal, Search, Filter, Download, Pause, Play, Trash2,
+  Terminal, Search, Filter, Download, Pause, Play,
   AlertTriangle, Info, AlertCircle, Bug, ChevronDown,
 } from 'lucide-react';
-import { getServerLogs, getDashboardActivity, type LogEntry } from '../lib/api';
+import { getServerLogs, getDashboardActivity } from '../lib/api';
 import { Input } from '../components/ui/input';
-import type { ActivityEvent } from '../types/api';
 
 const LEVEL_COLORS: Record<string, string> = {
   DEBUG: '#06B6D4',
@@ -29,12 +28,6 @@ function formatTime(iso: string): string {
   } catch { return iso; }
 }
 
-function formatDate(iso: string): string {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  } catch { return ''; }
-}
 
 type CombinedEntry = {
   id: string;
