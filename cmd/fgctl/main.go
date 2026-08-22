@@ -136,7 +136,7 @@ func main() {
 	bannerSkip := map[string]bool{
 		"help": true, "--help": true, "-h": true, "version": true,
 		"license": true, "config": true, "stats": true, "debug": true,
-		"policy": true, "sig": true,
+		"policy": true, "sig": true, "serve": true,
 	}
 	if !suppressHuman && !bannerSkip[cmd] {
 		p.Banner()
@@ -188,6 +188,8 @@ func main() {
 		err = runSig(args, logger)
 	case "policy":
 		err = runPolicy(args, logger, p)
+	case "serve":
+		err = runServe(args, logger, p)
 	case "setup":
 		err = runSetup(args, logger)
 	case "doctor":
@@ -1434,7 +1436,8 @@ REMEDIATION & MONITORING
   patch       Autonomous AI-powered dependency patching  (requires ANTHROPIC_API_KEY)
   monitor     Watch manifest files for new vulnerabilities
 
-PLATFORM MANAGEMENT
+PLATFORM
+  serve       Start the API server + dashboard  (fgctl serve --port=8080)
   setup       Interactive setup — configure dashboard credentials + .env
   policy      Manage security policy  (~/.forgeguardian/policy.yaml)
   config      Manage platform configuration  (~/.forgeguardian/config.yaml)
@@ -1485,6 +1488,8 @@ Remote scan flags  (scan --remote user@host):
   --keep-temp                           keep the local temp dir the pulled manifests were scanned in
 
 Examples:
+  fgctl serve                                           # start API + dashboard on :8080
+  fgctl serve --port=3000                               # start on custom port
   fgctl setup                                           # configure credentials + .env
   fgctl doctor --fix                                    # validate + auto-repair
   fgctl scan .                                          # scan current project

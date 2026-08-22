@@ -1,0 +1,205 @@
+package server
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mah3sec/forgeguardian/internal/api/db"
+	"github.com/mah3sec/forgeguardian/internal/api/handlers"
+	"github.com/mah3sec/forgeguardian/internal/api/middleware"
+	"github.com/mah3sec/forgeguardian/internal/auth"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+)
+
+// Run starts the ForgeGuardian API server with the given config.
+// It blocks until SIGINT/SIGTERM is received, then gracefully shuts down.
+func Run(cfg *Config) error {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	slog.SetDefault(logger)
+
+	isDefaultCreds := cfg.AdminPassword == "changeme123"
+	adminIdentity, err := auth.LoadOrBootstrapAdmin(cfg.AdminEmail, cfg.AdminPassword, isDefaultCreds)
+	if err != nil {
+		return fmt.Errorf("admin bootstrap failed: %w", err)
+	}
+	authEnabled := adminIdentity != nil
+	if authEnabled && cfg.SessionSecret == "" {
+		return fmt.Errorf("FG_ADMIN_EMAIL/FG_ADMIN_PASSWORD are set but FG_SESSION_SECRET is not — refusing to start with weak/no session signing secret")
+	}
+	if authEnabled {
+		logger.Info("dashboard login enabled", "email", adminIdentity.Email)
+		if adminIdentity.PasswordMustChange {
+			logger.Warn("running with default credentials — password change required on first login")
+		}
+	} else {
+		logger.Warn("FG_ADMIN_EMAIL/FG_ADMIN_PASSWORD not set — dashboard login disabled (open access, dev mode)")
+	}
+
+	if os.Getenv("GIN_MODE") == "" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
+	var pool *pgxpool.Pool
+	if cfg.DatabaseURL != "" {
+		var err error
+		dbCtx, dbCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		pool, err = db.Connect(dbCtx, cfg.DatabaseURL)
+		dbCancel()
+		if err != nil {
+			logger.Warn("database unavailable — DB-backed endpoints will return 503", "error", err)
+		} else {
+			logger.Info("database connected")
+			defer pool.Close()
+			migrCtx, migrCancel := context.WithTimeout(context.Background(), 30*time.Second)
+			if migrErr := db.Migrate(migrCtx, pool); migrErr != nil {
+				migrCancel()
+				return fmt.Errorf("migration failed — check schema: %w", migrErr)
+			}
+			migrCancel()
+			logger.Info("database migrations applied")
+		}
+	} else {
+		logger.Warn("DATABASE_URL not set — DB-backed endpoints will return 503")
+	}
+
+	r := gin.New()
+	r.Use(middleware.SecurityHeaders())
+	r.Use(middleware.Logger(logger))
+	r.Use(middleware.Recovery(logger))
+	r.Use(middleware.CORS(cfg.DashboardOrigin))
+	r.Use(middleware.DualAuth(cfg.APIKey, []byte(cfg.SessionSecret), authEnabled))
+	r.Use(middleware.RateLimiter(60, 20))
+
+	if cfg.APIKey == "" {
+		logger.Warn("FG_API_KEY not set — API auth disabled (dev mode)")
+	} else {
+		logger.Info("API key auth enabled")
+	}
+
+	r.GET("/healthz", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "ok"}) })
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+
+	hcfg := &handlers.ServerConfig{
+		AnthropicAPIKey: cfg.AnthropicAPIKey,
+		RekorURL:        cfg.RekorURL,
+		IntelStorePath:  cfg.IntelStorePath,
+		AdminIdentity:   adminIdentity,
+		SessionSecret:   []byte(cfg.SessionSecret),
+		CookieSecure:    cfg.CookieSecure,
+	}
+	h := handlers.New(hcfg, logger, pool)
+
+	captureLogger := slog.New(handlers.NewLogCaptureHandler(
+		slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}),
+		h.LogRing(),
+	))
+	slog.SetDefault(captureLogger)
+
+	v1 := r.Group("/api/v1")
+	{
+		v1.GET("/packages", h.ListPackages)
+		v1.GET("/packages/:ecosystem/:name", h.GetPackage)
+		v1.GET("/packages/:ecosystem/:name/versions", h.ListVersions)
+		v1.POST("/scan", h.TriggerScan)
+		v1.POST("/scan/upload", h.ScanUpload)
+		v1.POST("/scan/remote", h.TriggerRemoteScan)
+		v1.GET("/scan/:ecosystem/:name/:version", h.GetScanResults)
+		v1.GET("/jobs/:id", h.GetJobStatus)
+		v1.POST("/advisory", h.GenerateAdvisory)
+		v1.GET("/sbom/:ecosystem/:name/:version", h.GetSBOM)
+		v1.POST("/sign", h.SignArtifact)
+		v1.POST("/verify", h.VerifyAttestation)
+		v1.POST("/provenance", h.GenerateProvenance)
+		v1.GET("/dashboard/stats", h.DashboardStats)
+		v1.GET("/dashboard/recent", h.DashboardRecent)
+		v1.GET("/dashboard/timeline", h.DashboardTimeline)
+		v1.GET("/dashboard/graph", h.DashboardGraph)
+		v1.GET("/intelligence/signatures", h.ListSignatures)
+		v1.POST("/intelligence/refresh", h.RefreshIntelligence)
+		v1.GET("/dashboard/activity", h.DashboardActivity)
+		v1.GET("/logs", h.ServerLogs)
+		v1.GET("/risks", h.ActiveRisks)
+		v1.GET("/policy/status", h.PolicyStatus)
+		v1.PUT("/policy", h.SavePolicy)
+		v1.POST("/intelligence/signatures", h.GenerateSignature)
+		v1.POST("/intelligence/validate", h.ValidateSignatureYAML)
+		v1.POST("/intelligence/test", h.TestSignature)
+		v1.GET("/audit/stats", h.AuditStats)
+		v1.POST("/audit/trigger", h.TriggerAudit)
+		v1.POST("/webhooks/test", h.WebhookTest)
+		v1.GET("/agent/stream", h.AgentStream)
+		v1.POST("/agent/events", h.PublishAgentEvent)
+		v1.GET("/allowlist", h.ListAllowlist)
+		v1.POST("/allowlist", h.AddAllowlist)
+		v1.DELETE("/allowlist/:id", h.DeleteAllowlist)
+		v1.GET("/allowlist/check", h.CheckAllowlist)
+		v1.GET("/alerts", h.ListAlerts)
+		v1.POST("/alerts", h.CreateAlert)
+		v1.POST("/alerts/:id/dismiss", h.DismissAlert)
+		v1.GET("/export/report", h.ExportReport)
+		v1.POST("/cli/sync", h.CLISync)
+		v1.POST("/auth/login", middleware.LoginRateLimiter(), h.Login)
+		v1.POST("/auth/logout", h.Logout)
+		v1.POST("/auth/password", h.ChangePassword)
+		v1.GET("/auth/me", h.AuthMe)
+	}
+
+	if cfg.DashboardDir != "" {
+		if _, err := os.Stat(filepath.Join(cfg.DashboardDir, "index.html")); err == nil {
+			fs := http.Dir(cfg.DashboardDir)
+			r.NoRoute(func(c *gin.Context) {
+				p := c.Request.URL.Path
+				if strings.HasPrefix(p, "/api/") {
+					c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+					return
+				}
+				if f, err := fs.Open(p); err == nil {
+					stat, _ := f.Stat()
+					f.Close()
+					if stat != nil && !stat.IsDir() {
+						http.FileServer(fs).ServeHTTP(c.Writer, c.Request)
+						return
+					}
+				}
+				c.File(filepath.Join(cfg.DashboardDir, "index.html"))
+			})
+			logger.Info("embedded dashboard enabled", "dir", cfg.DashboardDir)
+		} else {
+			logger.Warn("DASHBOARD_DIR set but index.html not found", "dir", cfg.DashboardDir)
+		}
+	}
+
+	srv := &http.Server{
+		Addr:         fmt.Sprintf(":%s", cfg.Port),
+		Handler:      r,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 120 * time.Second,
+	}
+
+	go func() {
+		logger.Info("api server listening", "port", cfg.Port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("server error", "error", err)
+			os.Exit(1)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	logger.Info("shutting down")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return srv.Shutdown(ctx)
+}

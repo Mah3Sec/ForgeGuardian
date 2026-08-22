@@ -1,4 +1,4 @@
-package main
+package server
 
 import "os"
 
@@ -14,16 +14,17 @@ type Config struct {
 	DepTrackURL     string
 	DepTrackAPIKey  string
 	IntelStorePath  string
-	APIKey          string // FG_API_KEY — empty means auth disabled (dev mode)
-	AdminEmail      string // FG_ADMIN_EMAIL — dashboard admin bootstrap email
-	AdminPassword   string // FG_ADMIN_PASSWORD — dashboard admin bootstrap plaintext password (only used once, on first bootstrap)
-	SessionSecret   string // FG_SESSION_SECRET — HMAC signing secret for dashboard session JWTs
-	CookieSecure    bool   // FG_COOKIE_SECURE — whether the session cookie requires HTTPS
-	DashboardOrigin string // FG_DASHBOARD_ORIGIN — CORS origin allowed to send credentialed requests
-	DashboardDir    string // DASHBOARD_DIR — path to pre-built dashboard files (enables embedded SPA serving)
+	APIKey          string
+	AdminEmail      string
+	AdminPassword   string
+	SessionSecret   string
+	CookieSecure    bool
+	DashboardOrigin string
+	DashboardDir    string
 }
 
-func loadConfig() *Config {
+// LoadConfig reads configuration from environment variables.
+func LoadConfig() *Config {
 	return &Config{
 		Port:            getEnv("PORT", "8080"),
 		DatabaseURL:     os.Getenv("DATABASE_URL"),

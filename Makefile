@@ -24,7 +24,7 @@ CGO_ENABLED  := 0
 .PHONY: all build build-fgctl build-agent build-intel clean install uninstall \
         test test-race lint fmt vet \
         docker docker-minimal docker-down docker-logs \
-        api up down logs health \
+        serve api up down logs health \
         release \
         help
 
@@ -118,7 +118,12 @@ vet:
 
 # ─── Developer Workflow ────────────────────────────────────────────────────
 
-## api: Build and run the ForgeGuardian API server locally (DB optional — degrades gracefully)
+## serve: Build fgctl and start the API + dashboard via `fgctl serve`
+serve: build-fgctl
+	@echo "  Starting ForgeGuardian ..."
+	./$(FGCTL) serve
+
+## api: Build and run the API server directly (advanced / development)
 api: build-fgctl
 	@echo "  Starting API server on :8080 ..."
 	@echo "  Tip: run 'fgctl setup' to configure credentials, 'make up' for postgres+redis"

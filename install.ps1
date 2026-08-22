@@ -81,5 +81,6 @@ Write-Host ''
 Write-Host '  Quick start:' -ForegroundColor Cyan
 Write-Host "    fgctl scan .                          # scan your project" -ForegroundColor Gray
 Write-Host "    fgctl scan npm/lodash@4.17.21         # scan a package" -ForegroundColor Gray
+Write-Host "    fgctl serve                           # start API + dashboard" -ForegroundColor Gray
 Write-Host "    fgctl doctor                          # check your setup" -ForegroundColor Gray
 Write-Host ''

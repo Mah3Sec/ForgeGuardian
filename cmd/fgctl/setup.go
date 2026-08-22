@@ -159,11 +159,11 @@ func writeEnvFile(email, password, secret, anthropicKey, envPath string) error {
 	fmt.Printf("  ✓  Configuration saved to %s\n", absPath)
 	fmt.Println()
 	fmt.Println("  Next steps:")
-	fmt.Println("    docker compose up -d          # start full stack")
-	fmt.Println("    open http://localhost:3000     # open dashboard")
+	fmt.Println("    fgctl serve                   # start API + dashboard")
+	fmt.Println("    open http://localhost:8080     # open dashboard")
 	fmt.Println()
-	fmt.Println("  Or run the API directly:")
-	fmt.Println("    source .env && go run ./internal/api/")
+	fmt.Println("  Or use Docker:")
+	fmt.Println("    docker compose up -d           # start full stack")
 	fmt.Println()
 
 	return nil

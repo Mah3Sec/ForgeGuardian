@@ -36,6 +36,7 @@ fi
 # ── All-in-one defaults ──────────────────────────────────────────────────────
 export DASHBOARD_DIR="${DASHBOARD_DIR:-/app/dashboard}"
 export FG_COOKIE_SECURE="${FG_COOKIE_SECURE:-false}"
+export FG_CACHE_PATH="${FG_CACHE_PATH:-/data/scan-cache.json}"
 export PORT="${PORT:-3000}"
 
 # ── Database status ──────────────────────────────────────────────────────────

@@ -55,6 +55,7 @@ jobs:
           CGO_ENABLED=0 go build -ldflags="-s -w" -o /dev/null ./cmd/fgctl/
           CGO_ENABLED=0 go build -ldflags="-s -w" -o /dev/null ./cmd/fg-agent/
           CGO_ENABLED=0 go build -ldflags="-s -w" -o /dev/null ./cmd/intel-agent/
+          CGO_ENABLED=0 go build -ldflags="-s -w" -o /dev/null ./internal/api/
 
   # ── TypeScript: lint + type-check + test + build ──────────────────────────
   ts-ci:

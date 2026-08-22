@@ -251,7 +251,11 @@ type Handler struct {
 func New(cfg Config, log *slog.Logger, pool *pgxpool.Pool) *Handler {
 	cachePath := os.Getenv("FG_CACHE_PATH")
 	if cachePath == "" {
-		cachePath = filepath.Join(os.Getenv("HOME"), "scan-cache.json")
+		home, err := os.UserHomeDir()
+		if err != nil {
+			home = "."
+		}
+		cachePath = filepath.Join(home, ".forgeguardian", "scan-cache.json")
 	}
 	h := &Handler{cfg: cfg, log: log, jobs: newJobRegistry(), cache: newScanCache(cachePath), logs: newLogRing(500)}
 	if pool != nil {
