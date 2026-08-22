@@ -222,7 +222,7 @@ func redact(s string) string {
 
 func notInstalled() core.Finding {
 	return core.Finding{
-		ID:          "TRIVY-NOT-INSTALLED",
+		ID:          "TOOL-NOT-INSTALLED",
 		Severity:    core.SeverityInformational,
 		Type:        "configuration",
 		Title:       "trivy not installed — scan skipped",

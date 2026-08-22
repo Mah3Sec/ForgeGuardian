@@ -96,7 +96,11 @@ git clone https://github.com/Mah3Sec/ForgeGuardian.git
 cd ForgeGuardian && make build
 ```
 
-**Windows:** Download the `.zip` from [Releases](https://github.com/Mah3Sec/ForgeGuardian/releases), extract, and add to PATH.
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/Mah3Sec/ForgeGuardian/main/install.ps1 | iex
+```
+Or manually: download the `.zip` from [Releases](https://github.com/Mah3Sec/ForgeGuardian/releases), extract, and add to PATH.
 </details>
 
 ### Sample Output

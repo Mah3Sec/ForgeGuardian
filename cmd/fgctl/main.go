@@ -133,7 +133,12 @@ func main() {
 		}
 	}
 
-	if !suppressHuman && cmd != "help" && cmd != "--help" && cmd != "-h" && cmd != "version" {
+	bannerSkip := map[string]bool{
+		"help": true, "--help": true, "-h": true, "version": true,
+		"license": true, "config": true, "stats": true, "debug": true,
+		"policy": true, "sig": true,
+	}
+	if !suppressHuman && !bannerSkip[cmd] {
 		p.Banner()
 	}
 
@@ -1086,11 +1091,19 @@ type localScanOpts struct {
 	syncURL     string
 }
 
-// isLocalPath returns true for ".", "..", paths starting with "./" "../" "/" or "~".
+// isLocalPath returns true for ".", "..", paths starting with "./" "../" "/" "~",
+// or Windows absolute paths like "C:\..." or "D:/...".
 func isLocalPath(s string) bool {
-	return s == "." || s == ".." ||
+	if s == "." || s == ".." ||
 		strings.HasPrefix(s, "./") || strings.HasPrefix(s, "../") ||
-		strings.HasPrefix(s, "/") || strings.HasPrefix(s, "~")
+		strings.HasPrefix(s, "/") || strings.HasPrefix(s, "~") {
+		return true
+	}
+	if len(s) >= 3 && s[1] == ':' && (s[2] == '/' || s[2] == '\\') &&
+		((s[0] >= 'A' && s[0] <= 'Z') || (s[0] >= 'a' && s[0] <= 'z')) {
+		return true
+	}
+	return false
 }
 
 // isDotNotation returns true for "npm/lodash@4.17.20" style arguments.
