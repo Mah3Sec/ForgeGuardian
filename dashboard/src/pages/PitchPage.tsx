@@ -504,7 +504,7 @@ export function PitchPage({ onLoggedIn, onNavigateEnterprise }: PitchPageProps) 
             <a href="https://github.com/mah3sec/forgeguardian" target="_blank" rel="noreferrer" className="hover:text-text-primary">
               GitHub
             </a>
-            <a href="https://github.com/mah3sec/forgeguardian#readme" target="_blank" rel="noreferrer" className="hover:text-text-primary">
+            <a href="/docs" className="hover:text-text-primary">
               Docs
             </a>
             <a href="https://github.com/mah3sec/forgeguardian/blob/main/LICENSE" target="_blank" rel="noreferrer" className="hover:text-text-primary">

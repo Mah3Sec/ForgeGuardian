@@ -73,6 +73,7 @@ const GraphPage             = lazy(() => import('./pages/GraphPage').then(m => (
 const ScanSessionsPage      = lazy(() => import('./pages/ScanSessionsPage'));
 const SessionDetailPage     = lazy(() => import('./pages/SessionDetailPage'));
 const LogMonitorPage        = lazy(() => import('./pages/LogMonitorPage').then(m => ({ default: m.LogMonitorPage })));
+const PublicDocsPage        = lazy(() => import('./pages/PublicDocsPage').then(m => ({ default: m.PublicDocsPage })));
 
 function RouteFallback() {
   return <div style={{ minHeight: '60vh' }} />;
@@ -152,6 +153,14 @@ function AppShell({ path, setPath }: { path: string; setPath: (p: string) => voi
     return (
       <Suspense fallback={<RouteFallback />}>
         <EnterprisePage onNavigateHome={() => setPath('/')} />
+      </Suspense>
+    );
+  }
+
+  if (path === '/docs') {
+    return (
+      <Suspense fallback={<RouteFallback />}>
+        <PublicDocsPage onNavigateHome={() => setPath('/')} />
       </Suspense>
     );
   }
