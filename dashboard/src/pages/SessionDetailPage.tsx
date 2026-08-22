@@ -55,7 +55,7 @@ function FindingsMindmap({ findings }: { findings: Finding[] }) {
   const toggle = (type: string) => {
     setExpanded(prev => {
       const next = new Set(prev);
-      next.has(type) ? next.delete(type) : next.add(type);
+      if (next.has(type)) next.delete(type); else next.add(type);
       return next;
     });
   };
@@ -139,6 +139,7 @@ function CategoryTreemap({ findings }: { findings: Finding[] }) {
           dataKey="size"
           nameKey="name"
           stroke="var(--border-color)"
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           content={(({ x, y, width, height, name, index }: { x: number; y: number; width: number; height: number; name: string; index: number }) => {
             const w = Number(width) || 0;
             const h = Number(height) || 0;
@@ -162,6 +163,7 @@ function CategoryTreemap({ findings }: { findings: Finding[] }) {
                 )}
               </g>
             );
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
           }) as any}
         />
       </ResponsiveContainer>
@@ -328,29 +330,8 @@ export default function SessionDetailPage({ sessionId }: { sessionId: string }) 
     );
   }, [allSessions, session]);
 
-  if (!session) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-text-muted">
-        <Shield size={32} className="mb-3 opacity-40" />
-        <p className="text-sm font-medium">Session not found</p>
-        <button
-          onClick={() => navigate('/sessions')}
-          className="mt-2 text-xs text-primary-blue underline bg-transparent border-none cursor-pointer [font-family:inherit]"
-        >
-          Back to sessions
-        </button>
-      </div>
-    );
-  }
-
-  const { summary, findings } = session;
-
-  const sevPieData = [
-    { name: 'Critical', value: summary.critical, fill: SEV_COLORS.CRITICAL },
-    { name: 'High', value: summary.high, fill: SEV_COLORS.HIGH },
-    { name: 'Medium', value: summary.medium, fill: SEV_COLORS.MEDIUM },
-    { name: 'Low', value: summary.low, fill: SEV_COLORS.LOW },
-  ].filter(d => d.value > 0);
+  const findings = session?.findings ?? [];
+  const summary = session?.summary ?? { critical: 0, high: 0, medium: 0, low: 0, informational: 0, total: 0 };
 
   const engineData = useMemo(() => {
     const byEngine: Record<string, number> = {};
@@ -374,6 +355,28 @@ export default function SessionDetailPage({ sessionId }: { sessionId: string }) 
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
   }, [findings]);
+
+  if (!session) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-text-muted">
+        <Shield size={32} className="mb-3 opacity-40" />
+        <p className="text-sm font-medium">Session not found</p>
+        <button
+          onClick={() => navigate('/sessions')}
+          className="mt-2 text-xs text-primary-blue underline bg-transparent border-none cursor-pointer [font-family:inherit]"
+        >
+          Back to sessions
+        </button>
+      </div>
+    );
+  }
+
+  const sevPieData = [
+    { name: 'Critical', value: summary.critical, fill: SEV_COLORS.CRITICAL },
+    { name: 'High', value: summary.high, fill: SEV_COLORS.HIGH },
+    { name: 'Medium', value: summary.medium, fill: SEV_COLORS.MEDIUM },
+    { name: 'Low', value: summary.low, fill: SEV_COLORS.LOW },
+  ].filter(d => d.value > 0);
 
   const fixableCount = findings.filter(f => f.fixed_version).length;
   const uniqueSources = new Set(findings.map(f => f.source)).size;
