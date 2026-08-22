@@ -126,21 +126,29 @@ release:
     name: forgeguardian
   draft: false
   prerelease: auto
+  extra_files:
+    - glob: dashboard-dist.tar.gz
   name_template: "ForgeGuardian {{.Version}}"
   header: |
     ## ForgeGuardian {{.Version}}
 
-    ### Quick Start (CLI + API + Dashboard)
+    ### Install (one command — includes CLI, API server, and dashboard)
     ```bash
     curl -sSfL https://raw.githubusercontent.com/Mah3Sec/ForgeGuardian/main/install.sh | bash
-    fgctl serve
-    # Open http://localhost:8080
+    ```
+    Then start:
+    ```bash
+    fgctl serve    # → http://localhost:8080
     ```
 
-    ### Docker (Full Platform)
+    **Windows:**
+    ```powershell
+    irm https://raw.githubusercontent.com/Mah3Sec/ForgeGuardian/main/install.ps1 | iex
+    ```
+
+    ### Docker
     ```bash
     docker run -d --name forgeguardian -p 3000:3000 ghcr.io/mah3sec/forgeguardian:{{.Tag}}
-    # Open http://localhost:3000 — login: admin@forgeguardian.local / changeme123
     ```
 
     Or download a prebuilt binary below.

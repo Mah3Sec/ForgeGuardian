@@ -27,12 +27,26 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
       - name: Verify license secret is configured
         run: |
           if [ -z "${{ secrets.FG_LICENSE_SECRET }}" ]; then
             echo "::error::FG_LICENSE_SECRET repo secret is not set — refusing to cut a release with the public dev-build license secret baked in. Set it under Settings > Secrets and variables > Actions."
             exit 1
           fi
+
+      - name: Build dashboard
+        run: |
+          cd dashboard
+          npm ci
+          npm run build
+          cd ..
+          tar -czf dashboard-dist.tar.gz -C dashboard/dist .
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6

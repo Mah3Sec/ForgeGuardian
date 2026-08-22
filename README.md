@@ -40,49 +40,33 @@ One tool. 9 ecosystems. AI triage. Community signatures. SLSA Level 3 provenance
 
 ## Get Started
 
-Pick one:
+### Install (one command)
 
-### Option A — Full Platform (API + Web Dashboard)
+**Linux / macOS:**
+```bash
+curl -sSfL https://raw.githubusercontent.com/Mah3Sec/ForgeGuardian/main/install.sh | bash
+```
 
-Requires: [Docker](https://docs.docker.com/get-docker/)
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/Mah3Sec/ForgeGuardian/main/install.ps1 | iex
+```
+
+This installs the CLI, dashboard, and threat signatures. Then start:
+
+```bash
+fgctl serve
+```
+
+Open **http://localhost:8080** — that's it. Full platform: CLI + API + web dashboard.
+
+### Or use Docker
 
 ```bash
 docker run -d --name forgeguardian -p 3000:3000 ghcr.io/mah3sec/forgeguardian
 ```
 
-Open **http://localhost:3000** and log in:
-
-| | |
-|---|---|
-| **Email** | `admin@forgeguardian.local` |
-| **Password** | `changeme123` |
-
-That's it. Scan packages, view results, generate SBOMs, browse alerts — all from the browser.
-
-To set your own credentials:
-```bash
-docker run -d --name forgeguardian -p 3000:3000 \
-  -e FG_ADMIN_EMAIL=you@example.com \
-  -e FG_ADMIN_PASSWORD=YourSecurePass \
-  ghcr.io/mah3sec/forgeguardian
-```
-
-### Option B — CLI Only
-
-No Docker needed. One command installs `fgctl` to `~/.local/bin`:
-
-```bash
-curl -sSfL https://raw.githubusercontent.com/Mah3Sec/ForgeGuardian/main/install.sh | bash
-```
-
-Then scan:
-```bash
-fgctl scan .                             # scan your current project
-fgctl scan npm/lodash@4.17.20            # scan a specific package
-fgctl advisory npm/lodash@4.17.20        # AI security advisory (needs ANTHROPIC_API_KEY)
-```
-
-No config file. No account. No API keys for scanning.
+Open **http://localhost:3000** — login: `admin@forgeguardian.local` / `changeme123`
 
 <details>
 <summary>Other install methods</summary>
@@ -94,13 +78,13 @@ go install github.com/mah3sec/forgeguardian/cmd/fgctl@latest
 # Build from source
 git clone https://github.com/Mah3Sec/ForgeGuardian.git
 cd ForgeGuardian && make build
-```
 
-**Windows (PowerShell):**
-```powershell
-irm https://raw.githubusercontent.com/Mah3Sec/ForgeGuardian/main/install.ps1 | iex
+# Custom credentials (Docker)
+docker run -d --name forgeguardian -p 3000:3000 \
+  -e FG_ADMIN_EMAIL=you@example.com \
+  -e FG_ADMIN_PASSWORD=YourSecurePass \
+  ghcr.io/mah3sec/forgeguardian
 ```
-Or manually: download the `.zip` from [Releases](https://github.com/Mah3Sec/ForgeGuardian/releases), extract, and add to PATH.
 </details>
 
 ### Sample Output
