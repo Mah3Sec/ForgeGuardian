@@ -20,7 +20,7 @@ We pledge to make participation in this community a harassment-free experience f
 
 ## Enforcement
 
-Report violations to: mahendrapurbia19@gmail.com;bug.jaimin@gmail.com 
+Report violations to: mahendrapurbia19@gmail.com,bug.jaimin@gmail.com 
 
 Maintainers will investigate and respond within 72 hours.
 
