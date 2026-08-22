@@ -406,6 +406,14 @@ export const testSignature = (yaml: string, ecosystem: string, pkg: string, vers
 export const getAuditStats = () =>
   request<import('../types/api').AuditStats>('/api/v1/audit/stats');
 
+export const triggerAudit = () =>
+  request<{ job_id: string; status: string }>('/api/v1/audit/trigger', { method: 'POST' });
+
+export const getAuditJobStatus = (jobId: string) =>
+  request<{ job_id: string; status: string; result?: { output: string; lines: number; completed: boolean }; error?: string }>(
+    `/api/v1/jobs/${jobId}`
+  );
+
 // Allowlist
 export const listAllowlist = () =>
   request<{ allowlist: import('../types/api').AllowlistEntry[]; total: number }>('/api/v1/allowlist');

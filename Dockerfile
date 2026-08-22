@@ -49,7 +49,7 @@ RUN npm run build
 FROM debian:bookworm-slim
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates && \
+    apt-get install -y --no-install-recommends ca-certificates openssh-client && \
     rm -rf /var/lib/apt/lists/* && \
     groupadd -r fg && useradd -r -g fg -d /data -s /bin/false fg && \
     mkdir -p /data && chown fg:fg /data

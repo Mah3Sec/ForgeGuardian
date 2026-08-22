@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
   Tooltip as RechartsTooltip, ResponsiveContainer,
@@ -150,6 +150,7 @@ function ScanHistory({ onRescan }: { onRescan: (eco: string, name: string, ver: 
 }
 
 export function ScanPage() {
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<'registry' | 'upload' | 'remote'>('registry');
 
   // Registry scan state
@@ -195,13 +196,18 @@ export function ScanPage() {
   });
 
   const remoteScan = useMutation({
-    mutationFn: () => triggerRemoteScan({
-      target: remoteTarget,
-      privateKey: remotePrivateKey,
-      port: remotePort ? Number(remotePort) : undefined,
-      remotePath: remotePath || undefined,
-      acceptNewHostKey,
-    }),
+    mutationFn: () => {
+      if (!remoteTarget.includes('@')) {
+        throw new Error('Target must be in user@host format (e.g. deploy@10.0.4.12)');
+      }
+      return triggerRemoteScan({
+        target: remoteTarget,
+        privateKey: remotePrivateKey,
+        port: remotePort ? Number(remotePort) : undefined,
+        remotePath: remotePath || undefined,
+        acceptNewHostKey,
+      });
+    },
     onSuccess: (job) => setRemoteJobId(job.job_id),
   });
 
@@ -284,6 +290,14 @@ export function ScanPage() {
   const activeWorkspaceId = useWorkspaceStore(s => s.activeId);
   const savedRef = useRef<Set<string>>(new Set());
 
+  const invalidateDashboard = () => {
+    queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard-timeline'] });
+    queryClient.invalidateQueries({ queryKey: ['monitor-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['risks'] });
+    queryClient.invalidateQueries({ queryKey: ['recent-results'] });
+  };
+
   useEffect(() => {
     if (result && jobId && !savedRef.current.has(jobId)) {
       savedRef.current.add(jobId);
@@ -300,6 +314,7 @@ export function ScanPage() {
         summary: result.summary || emptySummary,
         findings: result.findings || [],
       });
+      invalidateDashboard();
     }
   }, [result, jobId, ecosystem, pkg, version, saveSession, activeWorkspaceId]);
 
@@ -315,6 +330,7 @@ export function ScanPage() {
         summary: uploadResult.summary,
         findings: uploadResult.results?.flatMap(r => r.findings || []) || [],
       });
+      invalidateDashboard();
     }
   }, [uploadResult, uploadJobId, uploadFile, saveSession, activeWorkspaceId]);
 
@@ -330,6 +346,7 @@ export function ScanPage() {
         summary: remoteResult.summary,
         findings: remoteResult.results?.flatMap(r => r.findings || []) || [],
       });
+      invalidateDashboard();
     }
   }, [remoteResult, remoteJobId, remoteTarget, saveSession, activeWorkspaceId]);
 

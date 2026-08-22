@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
-import { Terminal, Package, FileCode, Beer, Gem, Container, Binary, AlertCircle, Activity, ShieldAlert, Clock } from 'lucide-react';
-import { getAuditStats, getDashboardStats, getHealth } from '../lib/api';
+import { useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { Terminal, Package, FileCode, Beer, Gem, Container, Binary, AlertCircle, Activity, ShieldAlert, Clock, Play, Loader, CheckCircle } from 'lucide-react';
+import { getAuditStats, getDashboardStats, getHealth, triggerAudit, getAuditJobStatus } from '../lib/api';
 import { StatCard } from '../components/StatCard';
 import { Skeleton } from '../components/ui/skeleton';
 import { MetricCard } from '../components/MetricCard';
@@ -17,9 +18,6 @@ const ECOSYSTEMS = [
   { label: 'Docker images',  icon: Container, hint: 'docker images' },
 ];
 
-// Continuous monitoring status — hits /healthz (always-on liveness probe,
-// independent of DATABASE_URL) so "Monitoring active" reflects real API
-// reachability rather than misreporting "offline" whenever no DB is configured.
 function MonitoringStatusHeader() {
   const health = useQuery({
     queryKey: ['api-health', 'audit-monitor'],
@@ -56,9 +54,6 @@ function MonitoringStatusHeader() {
   );
 }
 
-// Stats row — every number here maps to a real backend field. "events/min"
-// from the design spec implies a live event stream ForgeGuardian doesn't
-// have, so it is omitted entirely rather than fabricated.
 function MonitoringStatsRow() {
   const stats = useQuery({
     queryKey: ['dashboard-stats', 'audit-monitor'],
@@ -91,6 +86,99 @@ function MonitoringStatsRow() {
   );
 }
 
+function AuditRunner() {
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [auditOutput, setAuditOutput] = useState<string | null>(null);
+
+  const trigger = useMutation({
+    mutationFn: triggerAudit,
+    onSuccess: (data) => {
+      setJobId(data.job_id);
+      setAuditOutput(null);
+    },
+  });
+
+  const jobPoll = useQuery({
+    queryKey: ['audit-job', jobId],
+    queryFn: () => getAuditJobStatus(jobId!),
+    enabled: !!jobId,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      if (status === 'complete' || status === 'failed') {
+        if (status === 'complete' && query.state.data?.result?.output) {
+          setAuditOutput(query.state.data.result.output);
+        }
+        return false;
+      }
+      return 2_000;
+    },
+  });
+
+  const isRunning = trigger.isPending || (!!jobId && jobPoll.data?.status !== 'complete' && jobPoll.data?.status !== 'failed');
+  const jobError = trigger.error || (jobPoll.data?.status === 'failed' ? new Error(jobPoll.data.error || 'Audit failed') : undefined);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-mono flex items-center gap-2" style={{ color: 'var(--color-muted)' }}>
+          <Terminal size={14} />
+          RUN SYSTEM AUDIT
+        </h2>
+        <button
+          onClick={() => trigger.mutate()}
+          disabled={isRunning}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '0.5rem 1.25rem', borderRadius: '0.375rem',
+            background: isRunning ? 'rgba(0,255,135,0.4)' : 'var(--color-safe)',
+            color: '#0A0B0D', border: 'none', cursor: isRunning ? 'not-allowed' : 'pointer',
+            fontSize: '0.8rem', fontFamily: 'var(--font-mono)', fontWeight: 700,
+          }}
+        >
+          {isRunning ? <Loader size={14} className="animate-spin" /> : <Play size={14} />}
+          {isRunning ? 'Running Audit…' : 'Run System Audit'}
+        </button>
+      </div>
+
+      <p className="text-xs" style={{ color: 'var(--color-muted)' }}>
+        Scans globally installed packages across npm, pip, cargo, go, brew, gem, and Docker for known vulnerabilities and malicious patterns.
+      </p>
+
+      {jobError && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0.75rem 1rem', borderRadius: '0.375rem', background: 'rgba(255,61,61,0.1)', color: 'var(--color-critical)', border: '1px solid rgba(255,61,61,0.2)', fontSize: '0.8rem' }}>
+          <AlertCircle size={14} />
+          {(jobError as Error).message}
+        </div>
+      )}
+
+      {auditOutput && (
+        <div className="rounded-lg" style={{ background: '#0D0D0D', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ padding: '0.625rem 0.875rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <CheckCircle size={13} style={{ color: 'var(--color-safe)' }} />
+            <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--color-safe)' }}>
+              AUDIT COMPLETE
+            </span>
+          </div>
+          <pre style={{
+            padding: '1rem',
+            fontSize: '0.75rem',
+            fontFamily: 'var(--font-mono)',
+            color: 'var(--fg)',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            lineHeight: 1.6,
+            maxHeight: '500px',
+            overflowY: 'auto',
+            margin: 0,
+          }}>
+            {auditOutput}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SystemAuditPage() {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['audit-stats'],
@@ -107,7 +195,10 @@ export function SystemAuditPage() {
         Audit globally installed packages across all package managers for known vulnerabilities.
       </p>
 
-      {/* Continuous monitoring — real API-reachability status + real stats */}
+      {/* Run Audit button + results */}
+      <AuditRunner />
+
+      {/* Continuous monitoring */}
       <div className="space-y-3">
         <h2 className="text-sm font-mono flex items-center gap-2" style={{ color: 'var(--color-muted)' }}>
           <Activity size={14} />
@@ -160,7 +251,7 @@ export function SystemAuditPage() {
         </div>
       ) : null}
 
-      {/* CLI hint */}
+      {/* CLI hints */}
       <div
         className="rounded-lg p-4 flex items-start gap-3"
         style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)' }}
@@ -168,23 +259,39 @@ export function SystemAuditPage() {
         <Terminal size={16} style={{ color: 'var(--color-safe)', marginTop: 2 }} />
         <div>
           <p className="text-sm font-mono font-bold" style={{ color: 'var(--fg)' }}>
-            Run from the CLI to refresh the signature store stats above:
+            CLI Commands
           </p>
-          <code
-            className="text-xs mt-1 block"
-            style={{ color: 'var(--color-safe)' }}
-          >
-            fgctl intel update
-          </code>
-          <p className="text-xs mt-2" style={{ color: 'var(--color-muted)' }}>
-            For a full local audit of installed packages on this machine (npm/pip/brew/gem/cargo/go/docker), run:
-          </p>
-          <code
-            className="text-xs mt-0.5 block"
-            style={{ color: 'var(--color-safe)' }}
-          >
-            fgctl audit system
-          </code>
+          <div className="mt-2 space-y-2">
+            <div>
+              <p className="text-xs" style={{ color: 'var(--color-muted)' }}>Update the signature store:</p>
+              <code className="text-xs mt-0.5 block" style={{ color: 'var(--color-safe)' }}>
+                fgctl intel update
+              </code>
+            </div>
+            <div>
+              <p className="text-xs" style={{ color: 'var(--color-muted)' }}>Full system audit from CLI:</p>
+              <code className="text-xs mt-0.5 block" style={{ color: 'var(--color-safe)' }}>
+                fgctl audit system
+              </code>
+            </div>
+            <div>
+              <p className="text-xs mt-2 font-mono font-bold" style={{ color: 'var(--fg)' }}>
+                Using Docker?
+              </p>
+              <p className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>
+                If you installed ForgeGuardian via Docker, use <code style={{ color: 'var(--fg)' }}>docker exec</code> to run CLI commands:
+              </p>
+              <code className="text-xs mt-1 block" style={{ color: 'var(--color-safe)' }}>
+                docker exec forgeguardian fgctl audit system
+              </code>
+              <code className="text-xs mt-0.5 block" style={{ color: 'var(--color-safe)' }}>
+                docker exec forgeguardian fgctl scan npm/lodash@4.17.21
+              </code>
+              <code className="text-xs mt-0.5 block" style={{ color: 'var(--color-safe)' }}>
+                docker exec -it forgeguardian fgctl doctor
+              </code>
+            </div>
+          </div>
         </div>
       </div>
 

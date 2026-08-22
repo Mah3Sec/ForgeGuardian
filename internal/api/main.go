@@ -177,6 +177,7 @@ func main() {
 		v1.POST("/intelligence/validate", h.ValidateSignatureYAML)
 		v1.POST("/intelligence/test", h.TestSignature)
 		v1.GET("/audit/stats", h.AuditStats)
+		v1.POST("/audit/trigger", h.TriggerAudit)
 		v1.POST("/webhooks/test", h.WebhookTest)
 		v1.GET("/agent/stream", h.AgentStream)
 		v1.POST("/agent/events", h.PublishAgentEvent)
