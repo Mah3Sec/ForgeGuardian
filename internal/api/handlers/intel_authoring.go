@@ -90,12 +90,29 @@ func (h *Handler) GenerateSignature(c *gin.Context) {
 		return
 	}
 
+	// Persist the new signature to the intel store so scanner engines pick it up.
+	storePath := h.cfg.GetIntelStorePath()
+	if storePath != "" {
+		store, loadErr := intelligence.LoadStore(storePath)
+		if loadErr != nil {
+			store = &intelligence.SignatureStore{Version: 1}
+		}
+		det := intelligence.ToDetectionSignature(sig)
+		added := intelligence.MergeSignatures(store, []intelligence.DetectionSignature{det})
+		if added > 0 {
+			if saveErr := intelligence.SaveStore(storePath, store); saveErr != nil {
+				h.log.Warn("failed to persist authored signature", "error", saveErr, "id", sigID)
+			}
+		}
+	}
+
 	filename := sigID + ".yaml"
 	c.JSON(http.StatusOK, gin.H{
 		"id":             sigID,
 		"yaml":           string(yamlBytes),
 		"filename":       filename,
 		"suggested_path": "signatures/" + intelligence.SigTypeDir(sigType) + "/" + req.Ecosystem + "/" + filename,
+		"persisted":      storePath != "",
 	})
 }
 

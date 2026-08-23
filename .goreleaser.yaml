@@ -132,18 +132,18 @@ release:
   header: |
     ## ForgeGuardian {{.Version}}
 
-    ### Install (one command — includes CLI, API server, and dashboard)
+    ### Install (one script — auto-detects OS, installs everything)
+    **Linux / macOS / Git Bash:**
     ```bash
     curl -sSfL https://raw.githubusercontent.com/Mah3Sec/ForgeGuardian/main/install.sh | bash
+    ```
+    **Windows PowerShell:**
+    ```powershell
+    irm https://raw.githubusercontent.com/Mah3Sec/ForgeGuardian/main/install.ps1 | iex
     ```
     Then start:
     ```bash
     fgctl serve    # → http://localhost:8080
-    ```
-
-    **Windows:**
-    ```powershell
-    irm https://raw.githubusercontent.com/Mah3Sec/ForgeGuardian/main/install.ps1 | iex
     ```
 
     ### Docker

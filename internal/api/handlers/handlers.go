@@ -468,8 +468,33 @@ func (h *Handler) TriggerScan(c *gin.Context) {
 		}
 		defer cleanup()
 
+		agentBus.publish(AgentEvent{
+			Type:    "start",
+			Message: fmt.Sprintf("Scanning %s@%s (%s)", req.Package, req.Version, req.Ecosystem),
+			Package: req.Package,
+			Version: req.Version,
+		})
+
 		results := scanner.NewWithIntelligence(h.cfg.GetIntelStorePath()).Scan(ctx, artifact)
-		findings := scanner.MergeFindings(results)
+
+		agentBus.publish(AgentEvent{
+			Type:    "step",
+			Message: fmt.Sprintf("Merging findings from %d engines", len(results)),
+			Package: req.Package,
+			Version: req.Version,
+		})
+
+		var checker scanner.AllowlistChecker
+		if h.db != nil {
+			checker = h.db
+		}
+		findings := scanner.MergeFindingsFiltered(results, checker, ctx, req.Package, req.Ecosystem)
+
+		pol, _ := policy.Load()
+		if pol != nil {
+			findings = pol.Enforce(req.Package, req.Version, findings)
+		}
+
 		summary := scanner.Summarize(findings)
 
 		h.cache.add(cachedScanResult{
@@ -505,14 +530,25 @@ func (h *Handler) TriggerScan(c *gin.Context) {
 			})
 		}
 
+		policyPass := pol == nil || !pol.ShouldFail(findings)
+
 		downloaded := dlErr == nil
+
+		agentBus.publish(AgentEvent{
+			Type:    "done",
+			Message: fmt.Sprintf("Scan complete: %d findings for %s@%s", summary.Total, req.Package, req.Version),
+			Package: req.Package,
+			Version: req.Version,
+		})
+
 		return gin.H{
-			"package":    fmt.Sprintf("%s@%s", req.Package, req.Version),
-			"sha256":     artifact.SHA256,
-			"downloaded": downloaded,
-			"engines":    engineStatus,
-			"summary":    summary,
-			"findings":   findings,
+			"package":     fmt.Sprintf("%s@%s", req.Package, req.Version),
+			"sha256":      artifact.SHA256,
+			"downloaded":  downloaded,
+			"engines":     engineStatus,
+			"summary":     summary,
+			"findings":    findings,
+			"policy_pass": policyPass,
 		}, nil
 	})
 
@@ -580,18 +616,27 @@ func (h *Handler) ScanUpload(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
 
-		// Walk the extracted archive with the same manifest-aware scanner used
-		// by `fgctl scan .` and remote (SSH) scan — parses whatever real
-		// ecosystem manifests (package.json, go.mod, etc.) are actually inside,
-		// instead of the previous behavior of scanning the raw bytes under a
-		// fake "local" ecosystem, which meant OSV/Grype/Trivy/Semgrep could
-		// never produce a real CVE match for an uploaded project archive.
+		agentBus.publish(AgentEvent{
+			Type:    "start",
+			Message: fmt.Sprintf("Scanning uploaded archive: %s", label),
+		})
+
 		ls := localscanner.New(h.cfg.GetIntelStorePath())
 		result, err := ls.Scan(ctx, dir, nil)
 		if err != nil {
+			agentBus.publish(AgentEvent{
+				Type:    "error",
+				Message: fmt.Sprintf("Upload scan failed: %s", err.Error()),
+			})
 			return nil, err
 		}
 		result.RootDir = label
+
+		agentBus.publish(AgentEvent{
+			Type:    "done",
+			Message: fmt.Sprintf("Upload scan complete: %s", label),
+		})
+
 		return result, nil
 	})
 
@@ -1336,6 +1381,43 @@ func (h *Handler) CLISync(c *gin.Context) {
 		}
 	}
 
+	// Auto-create alerts for Critical and High findings so they surface on the Alerts page.
+	if h.db != nil {
+		alertCount := 0
+		allFindings := req.Findings
+		for _, r := range req.Results {
+			allFindings = append(allFindings, r.Findings...)
+		}
+		for _, f := range allFindings {
+			if f.Severity != core.SeverityCritical && f.Severity != core.SeverityHigh {
+				continue
+			}
+			pkg := req.Package
+			eco := req.Ecosystem
+			ver := req.Version
+			if pkg == "" {
+				pkg = f.Source
+			}
+			alertType := "finding_" + strings.ToLower(string(f.Severity))
+			msg := fmt.Sprintf("[CLI] %s: %s", f.ID, f.Title)
+			_, err := h.db.InsertAlert(c.Request.Context(), alertType, msg, string(f.Severity), strPtr(pkg), strPtr(eco), strPtr(ver), nil)
+			if err != nil {
+				h.log.Warn("CLI sync alert creation failed", "error", err, "finding", f.ID)
+				continue
+			}
+			agentBus.publish(AgentEvent{
+				Type:    "step",
+				Message: msg,
+				Package: pkg,
+				Version: ver,
+			})
+			alertCount++
+		}
+		if alertCount > 0 {
+			h.log.Info("CLI sync created alerts", "count", alertCount)
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "synced",
 		"label":   req.Label,
@@ -1429,14 +1511,55 @@ func (h *Handler) PolicyStatus(c *gin.Context) {
 		pol = policy.DefaultPolicy()
 	}
 
-	// violations is not yet computed here — doing so would mean evaluating
-	// every scanned package's findings against this policy on every status
-	// check, which needs a DB-backed aggregation query that doesn't exist
-	// yet. Sending null (not 0) so the dashboard shows an honest "not
-	// evaluated" state instead of a fabricated "no violations" all-clear.
+	// Evaluate policy against recent scan findings from cache.
+	var violations []gin.H
+	cached := h.cache.latest()
+	for _, entry := range cached {
+		if entry.Summary.Total == 0 {
+			continue
+		}
+		if pol.ShouldFail(nil) {
+			continue
+		}
+		// Check deny_packages
+		for _, denied := range pol.DenyPackages {
+			if strings.EqualFold(entry.Name, denied) {
+				violations = append(violations, gin.H{
+					"type":    "denied_package",
+					"package": entry.Name,
+					"version": entry.Version,
+					"message": fmt.Sprintf("Package %q is denied by policy", entry.Name),
+				})
+			}
+		}
+		// Check severity threshold
+		if pol.FailOn != "" {
+			threshold := strings.ToUpper(pol.FailOn)
+			breached := false
+			switch threshold {
+			case "CRITICAL":
+				breached = entry.Summary.Critical > 0
+			case "HIGH":
+				breached = entry.Summary.Critical > 0 || entry.Summary.High > 0
+			case "MEDIUM":
+				breached = entry.Summary.Critical > 0 || entry.Summary.High > 0 || entry.Summary.Medium > 0
+			case "LOW":
+				breached = entry.Summary.Total > 0
+			}
+			if breached {
+				violations = append(violations, gin.H{
+					"type":    "severity_threshold",
+					"package": entry.Name,
+					"version": entry.Version,
+					"message": fmt.Sprintf("%s@%s has findings at or above %s threshold", entry.Name, entry.Version, threshold),
+				})
+			}
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"configured":     configured,
-		"violations":     nil,
+		"violations":     violations,
 		"last_evaluated": time.Now().UTC().Format(time.RFC3339),
 		"policy": gin.H{
 			"version":              pol.Version,
@@ -1610,6 +1733,13 @@ func isValidPackageInput(ecosystem, name, version string) bool {
 func internalError(c *gin.Context, log *slog.Logger, msg string, err error) {
 	log.Error(msg, "error", err, "path", c.Request.URL.Path)
 	c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+}
+
+func strPtr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 func csvSafe(s string) string {

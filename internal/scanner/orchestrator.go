@@ -95,11 +95,30 @@ func (o *Orchestrator) Scan(ctx context.Context, artifact core.BuiltArtifact) []
 	return results
 }
 
+// AllowlistChecker tests whether a package is allowlisted.
+type AllowlistChecker interface {
+	IsAllowlisted(ctx context.Context, pkg, ecosystem string) (bool, error)
+}
+
 // MergeFindings flattens all ScanResult findings into a single deduplicated,
 // severity-sorted slice. Scanner errors are surfaced as informational findings.
 func MergeFindings(results []ScanResult) []core.Finding {
+	return MergeFindingsFiltered(results, nil, nil, "", "")
+}
+
+// MergeFindingsFiltered merges findings like MergeFindings, but also filters
+// out findings for allowlisted packages and appends policy violation findings.
+func MergeFindingsFiltered(results []ScanResult, allowlist AllowlistChecker, ctx context.Context, pkgName, ecosystem string) []core.Finding {
 	seen := make(map[string]bool)
 	var merged []core.Finding
+
+	isAllowed := false
+	if allowlist != nil && ctx != nil && pkgName != "" {
+		ok, err := allowlist.IsAllowlisted(ctx, pkgName, ecosystem)
+		if err == nil && ok {
+			isAllowed = true
+		}
+	}
 
 	for _, r := range results {
 		if r.Err != nil {
@@ -121,6 +140,14 @@ func MergeFindings(results []ScanResult) []core.Finding {
 				continue
 			}
 			seen[key] = true
+
+			if isAllowed {
+				f.Metadata = cloneMetadata(f.Metadata)
+				f.Metadata["suppressed"] = true
+				f.Metadata["suppressed_reason"] = "allowlisted"
+				continue
+			}
+
 			merged = append(merged, f)
 		}
 	}
@@ -136,6 +163,14 @@ func MergeFindings(results []ScanResult) []core.Finding {
 	})
 
 	return merged
+}
+
+func cloneMetadata(m map[string]any) map[string]any {
+	out := make(map[string]any, len(m)+2)
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
 }
 
 // scannerErrorMessage returns a user-friendly title and description for a scanner error.

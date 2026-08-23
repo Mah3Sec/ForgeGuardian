@@ -40,9 +40,11 @@ One tool. 9 ecosystems. AI triage. Community signatures. SLSA Level 3 provenance
 
 ## Get Started
 
-### Install (one command)
+### Install (one command — one script handles everything)
 
-**Linux / macOS:**
+The universal installer auto-detects your OS (Ubuntu, Debian, Kali, Fedora, RHEL, macOS, Windows, etc.), installs the right binaries, scanner engines, dashboard, and signatures.
+
+**Linux / macOS / Windows (Git Bash / WSL):**
 ```bash
 curl -sSfL https://raw.githubusercontent.com/Mah3Sec/ForgeGuardian/main/install.sh | bash
 ```
@@ -52,7 +54,9 @@ curl -sSfL https://raw.githubusercontent.com/Mah3Sec/ForgeGuardian/main/install.
 irm https://raw.githubusercontent.com/Mah3Sec/ForgeGuardian/main/install.ps1 | iex
 ```
 
-This installs the CLI, dashboard, and threat signatures. Then start:
+> Both commands use the same `install.sh` as the single source of truth. The PowerShell bootstrapper extracts and runs the embedded Windows installer from it.
+
+This installs the CLI, dashboard, scanner engines (grype, trivy, semgrep), and threat signatures. Then start:
 
 ```bash
 fgctl serve

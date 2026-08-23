@@ -65,8 +65,17 @@ func (h *Handler) TriggerRemoteScan(c *gin.Context) {
 	storePath := h.cfg.GetIntelStorePath()
 
 	job := h.jobs.submit(func() (any, error) {
+		agentBus.publish(AgentEvent{
+			Type:    "start",
+			Message: fmt.Sprintf("Connecting to remote host: %s", req.Target),
+		})
+
 		client, err := remotescan.Connect(cfg)
 		if err != nil {
+			agentBus.publish(AgentEvent{
+				Type:    "error",
+				Message: fmt.Sprintf("Remote connection failed: %s", err.Error()),
+			})
 			return nil, err
 		}
 		defer client.Close()
@@ -80,6 +89,11 @@ func (h *Handler) TriggerRemoteScan(c *gin.Context) {
 			searchRoot = home
 		}
 
+		agentBus.publish(AgentEvent{
+			Type:    "step",
+			Message: fmt.Sprintf("Discovering manifests on %s under %s", req.Target, searchRoot),
+		})
+
 		files, err := client.Discover(searchRoot, cfg.MaxDepth)
 		if err != nil {
 			return nil, err
@@ -87,6 +101,11 @@ func (h *Handler) TriggerRemoteScan(c *gin.Context) {
 		if len(files) == 0 {
 			return nil, errNoManifestsFound(req.Target, searchRoot)
 		}
+
+		agentBus.publish(AgentEvent{
+			Type:    "step",
+			Message: fmt.Sprintf("Found %d manifests, pulling files", len(files)),
+		})
 
 		tmpDir, err := remotescan.NewTempDir()
 		if err != nil {
@@ -112,11 +131,26 @@ func (h *Handler) TriggerRemoteScan(c *gin.Context) {
 				"target", req.Target, "failed_count", len(failedPaths))
 		}
 
+		agentBus.publish(AgentEvent{
+			Type:    "step",
+			Message: fmt.Sprintf("Scanning pulled manifests from %s", req.Target),
+		})
+
 		ls := localscanner.New(storePath)
 		result, err := ls.Scan(c.Request.Context(), tmpDir, nil)
 		if err != nil {
+			agentBus.publish(AgentEvent{
+				Type:    "error",
+				Message: fmt.Sprintf("Remote scan failed: %s", err.Error()),
+			})
 			return nil, err
 		}
+
+		agentBus.publish(AgentEvent{
+			Type:    "done",
+			Message: fmt.Sprintf("Remote scan complete: %s", req.Target),
+		})
+
 		return result, nil
 	})
 
