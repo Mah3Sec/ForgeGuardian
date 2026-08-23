@@ -154,8 +154,10 @@ func (sc *scanCache) saveLocked() {
 		return
 	}
 	dir := filepath.Dir(sc.persistPath)
-	os.MkdirAll(dir, 0o755)
-	os.WriteFile(sc.persistPath, data, 0o644)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return
+	}
+	_ = os.WriteFile(sc.persistPath, data, 0o644)
 }
 
 // Handler holds all dependencies for API handlers.
@@ -607,7 +609,13 @@ func (h *Handler) ScanUpload(c *gin.Context) {
 		return
 	}
 
-	_ = extractArchive(tmpPath, dir)
+	if extErr := extractArchive(tmpPath, dir); extErr != nil {
+		os.Remove(tmpPath)
+		os.RemoveAll(dir)
+		h.log.Warn("failed to extract uploaded archive", "error", extErr)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to extract archive — ensure the file is a valid tar.gz or zip"})
+		return
+	}
 	os.Remove(tmpPath)
 
 	job := h.jobs.submit(func() (any, error) {
@@ -665,7 +673,9 @@ func (h *Handler) GetScanResults(c *gin.Context) {
 	}
 
 	var findings []core.Finding
-	_ = json.Unmarshal(sr.FindingsJson, &findings)
+	if err := json.Unmarshal(sr.FindingsJson, &findings); err != nil {
+		h.log.Warn("corrupt findings JSON in stored scan result", "error", err, "package", name)
+	}
 	if findings == nil {
 		findings = []core.Finding{}
 	}

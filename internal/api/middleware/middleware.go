@@ -164,7 +164,7 @@ func CORS(dashboardOrigin string) gin.HandlerFunc {
 			c.Header("Access-Control-Allow-Credentials", "true")
 		} else {
 			origin := c.GetHeader("Origin")
-			if origin != "" {
+			if origin != "" && isLocalhostOrigin(origin) {
 				c.Header("Access-Control-Allow-Origin", origin)
 				c.Header("Access-Control-Allow-Credentials", "true")
 			}
@@ -177,6 +177,21 @@ func CORS(dashboardOrigin string) gin.HandlerFunc {
 		}
 		c.Next()
 	}
+}
+
+func isLocalhostOrigin(origin string) bool {
+	lower := strings.ToLower(origin)
+	for _, prefix := range []string{
+		"http://localhost", "https://localhost",
+		"http://127.0.0.1", "https://127.0.0.1",
+		"http://[::1]", "https://[::1]",
+		"http://0.0.0.0", "https://0.0.0.0",
+	} {
+		if strings.HasPrefix(lower, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // LoginRateLimiter returns a per-IP token-bucket rate limiter tuned tightly

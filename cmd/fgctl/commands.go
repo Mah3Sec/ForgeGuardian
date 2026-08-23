@@ -779,7 +779,9 @@ func loadConfig() FGConfig {
 	if err != nil {
 		return cfg
 	}
-	_ = yaml.Unmarshal(data, &cfg)
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to parse config %s: %v\n", configPath(), err)
+	}
 	return cfg
 }
 

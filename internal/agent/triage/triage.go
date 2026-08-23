@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -15,7 +16,14 @@ import (
 	"github.com/mah3sec/forgeguardian/internal/core"
 )
 
-const model anthropic.Model = "claude-sonnet-4-20250514"
+const defaultModel = "claude-sonnet-4-20250514"
+
+func triageModel() anthropic.Model {
+	if m := os.Getenv("FG_AI_MODEL"); m != "" {
+		return anthropic.Model(m)
+	}
+	return anthropic.Model(defaultModel)
+}
 
 const (
 	maxTokens    = 2048
@@ -54,7 +62,7 @@ func (e *Engine) Triage(ctx context.Context, artifact core.BuiltArtifact, findin
 	prompt := buildPrompt(artifact, findings)
 
 	msg, err := e.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     model,
+		Model:     triageModel(),
 		MaxTokens: maxTokens,
 		System: []anthropic.TextBlockParam{
 			{Text: systemPrompt},
