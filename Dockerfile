@@ -45,17 +45,31 @@ RUN npm ci --ignore-scripts
 COPY dashboard/ .
 RUN npm run build
 
-# ── Stage 3: Runtime ─────────────────────────────────────────────────────────
+# ── Stage 3: Scanner engines ─────────────────────────────────────────────────
+FROM debian:bookworm-slim AS engine-builder
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /engines
+RUN curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /engines
+
+# ── Stage 4: Runtime ─────────────────────────────────────────────────────────
 FROM debian:bookworm-slim
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates openssh-client && \
+    apt-get install -y --no-install-recommends \
+        ca-certificates openssh-client python3-pip && \
+    pip3 install --no-cache-dir --break-system-packages semgrep && \
     rm -rf /var/lib/apt/lists/* && \
     groupadd -r fg && useradd -r -g fg -d /data -s /bin/false fg && \
     mkdir -p /data && chown fg:fg /data
 
 COPY --from=api-builder /forgeguardian-api /app/forgeguardian-api
 COPY --from=api-builder /fgctl /usr/local/bin/fgctl
+COPY --from=engine-builder /engines/grype /usr/local/bin/grype
+COPY --from=engine-builder /engines/trivy /usr/local/bin/trivy
 COPY --from=dashboard-builder /app/dist /app/dashboard
 COPY docker/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
