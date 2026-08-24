@@ -153,11 +153,15 @@ func runDoctor(args []string, log *slog.Logger) error {
 func attemptFix(name string) string {
 	switch name {
 	case "grype":
-		return fixTool("grype", "brew install anchore/grype/grype", "pip install grype")
+		return fixGrype()
 	case "semgrep":
-		return fixTool("semgrep", "pip install semgrep", "pip3 install semgrep")
+		return fixSemgrep()
 	case "trivy":
-		return fixTool("trivy", "brew install trivy", "apt-get install -y trivy")
+		return fixTrivy()
+	case "signatures", "signatures freshness":
+		return fixSignatures()
+	case "config.yaml":
+		return ensureForgeDir()
 	case "ANTHROPIC_API_KEY":
 		return "set ANTHROPIC_API_KEY in your shell profile to enable AI features"
 	default:
@@ -165,38 +169,155 @@ func attemptFix(name string) string {
 	}
 }
 
-// fixTool attempts to install a tool using the first installer available.
-func fixTool(toolName, macCmd, linuxCmd string) string {
-	// Try brew (macOS)
-	if _, err := exec.LookPath("brew"); err == nil {
-		parts := strings.Fields(macCmd)
-		fmt.Printf("  Running: %s\n", macCmd)
-		out, err := exec.Command(parts[0], parts[1:]...).CombinedOutput()
-		if err == nil {
-			return fmt.Sprintf("%s installed via brew", toolName)
-		}
-		return fmt.Sprintf("brew install failed: %s — install manually: %s", strings.TrimSpace(string(out)), macCmd)
+func installDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "/usr/local/bin"
 	}
-	// Try pip
-	if strings.HasPrefix(macCmd, "pip") {
-		if _, err := exec.LookPath("pip3"); err == nil {
-			fixCmd := "pip3 install " + toolName
-			fmt.Printf("  Running: %s\n", fixCmd)
-			parts := strings.Fields(fixCmd)
-			if err := exec.Command(parts[0], parts[1:]...).Run(); err == nil {
-				return fmt.Sprintf("%s installed via pip3", toolName)
+	dir := filepath.Join(home, ".local", "bin")
+	os.MkdirAll(dir, 0o755)
+	return dir
+}
+
+func runShell(script string) (string, error) {
+	cmd := exec.Command("sh", "-c", script)
+	out, err := cmd.CombinedOutput()
+	return strings.TrimSpace(string(out)), err
+}
+
+func tryInstallViaScript(name, scriptURL string) bool {
+	dir := installDir()
+	fmt.Printf("  Running: official install script -> %s\n", dir)
+	script := fmt.Sprintf("curl -sSfL %q | sh -s -- -b %q", scriptURL, dir)
+	if _, err := runShell(script); err == nil {
+		return true
+	}
+	return false
+}
+
+func tryBrew(formula string) bool {
+	if _, err := exec.LookPath("brew"); err != nil {
+		return false
+	}
+	fmt.Printf("  Running: brew install %s\n", formula)
+	if err := exec.Command("brew", "install", formula).Run(); err == nil {
+		return true
+	}
+	return false
+}
+
+func tryPip(pkg string) bool {
+	for _, pip := range []string{"pip3", "pip"} {
+		if _, err := exec.LookPath(pip); err != nil {
+			continue
+		}
+		fmt.Printf("  Running: %s install %s\n", pip, pkg)
+		if err := exec.Command(pip, "install", pkg, "--break-system-packages").Run(); err == nil {
+			return true
+		}
+		if err := exec.Command(pip, "install", pkg).Run(); err == nil {
+			return true
+		}
+		if err := exec.Command(pip, "install", pkg, "--user").Run(); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+func tryPkgManager(pkgNames ...string) bool {
+	type pm struct {
+		cmd  string
+		args func(string) []string
+	}
+	managers := []pm{
+		{"apt-get", func(p string) []string { return []string{"install", "-y", "-qq", p} }},
+		{"dnf", func(p string) []string { return []string{"install", "-y", "-q", p} }},
+		{"yum", func(p string) []string { return []string{"install", "-y", "-q", p} }},
+		{"pacman", func(p string) []string { return []string{"-S", "--noconfirm", "--needed", p} }},
+		{"apk", func(p string) []string { return []string{"add", "--quiet", p} }},
+		{"zypper", func(p string) []string { return []string{"install", "-y", p} }},
+	}
+	for _, m := range managers {
+		if _, err := exec.LookPath(m.cmd); err != nil {
+			continue
+		}
+		for _, pkg := range pkgNames {
+			sudo := ""
+			if os.Getuid() != 0 {
+				if s, err := exec.LookPath("sudo"); err == nil {
+					sudo = s
+				}
+			}
+			args := m.args(pkg)
+			fmt.Printf("  Running: %s %s %s\n", sudo, m.cmd, strings.Join(args, " "))
+			var cmd *exec.Cmd
+			if sudo != "" {
+				cmd = exec.Command(sudo, append([]string{m.cmd}, args...)...)
+			} else {
+				cmd = exec.Command(m.cmd, args...)
+			}
+			if err := cmd.Run(); err == nil {
+				return true
 			}
 		}
-		if _, err := exec.LookPath("pip"); err == nil {
-			fixCmd := "pip install " + toolName
-			fmt.Printf("  Running: %s\n", fixCmd)
-			parts := strings.Fields(fixCmd)
-			if err := exec.Command(parts[0], parts[1:]...).Run(); err == nil {
-				return fmt.Sprintf("%s installed via pip", toolName)
-			}
+		break
+	}
+	return false
+}
+
+func fixGrype() string {
+	if tryInstallViaScript("grype", "https://raw.githubusercontent.com/anchore/grype/main/install.sh") {
+		return "grype installed via official install script"
+	}
+	if tryBrew("anchore/grype/grype") {
+		return "grype installed via brew"
+	}
+	if tryPkgManager("grype") {
+		return "grype installed via package manager"
+	}
+	return "auto-install failed — install manually: https://github.com/anchore/grype#installation"
+}
+
+func fixTrivy() string {
+	if tryInstallViaScript("trivy", "https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh") {
+		return "trivy installed via official install script"
+	}
+	if tryBrew("trivy") {
+		return "trivy installed via brew"
+	}
+	if tryPkgManager("trivy") {
+		return "trivy installed via package manager"
+	}
+	return "auto-install failed — install manually: https://github.com/aquasecurity/trivy#installation"
+}
+
+func fixSemgrep() string {
+	if tryPip("semgrep") {
+		return "semgrep installed via pip"
+	}
+	if _, err := exec.LookPath("pipx"); err == nil {
+		fmt.Println("  Running: pipx install semgrep")
+		if err := exec.Command("pipx", "install", "semgrep").Run(); err == nil {
+			return "semgrep installed via pipx"
 		}
 	}
-	return fmt.Sprintf("auto-install unavailable — install manually: %s", linuxCmd)
+	if tryBrew("semgrep") {
+		return "semgrep installed via brew"
+	}
+	return "auto-install failed — install manually: pip3 install semgrep"
+}
+
+func fixSignatures() string {
+	fgctl, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	fmt.Println("  Running: fgctl update")
+	if err := exec.Command(fgctl, "update").Run(); err == nil {
+		return "community signatures downloaded"
+	}
+	return "signature download failed — check network and try: fgctl update"
 }
 
 // ensureForgeDir creates the ~/.forgeguardian directory and default files.

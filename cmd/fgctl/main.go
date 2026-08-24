@@ -381,6 +381,7 @@ func runScanCmd(args []string, log *slog.Logger, p *ui.Printer) error {
 	keepTempFlag := fs.Bool("keep-temp", false, "do not delete the local temp dir after a --remote scan (debugging)")
 	syncFlag := fs.Bool("sync", false, "push results to the ForgeGuardian dashboard API after scan")
 	syncURLFlag := fs.String("sync-url", "", "dashboard API base URL for --sync (default: FG_SYNC_URL env or http://localhost:8080)")
+	workspaceFlag := fs.String("workspace", "", "workspace name to associate with --sync results (default: Default)")
 	// Go's flag package stops at the first non-flag positional argument, so
 	// `scan . --format json` would leave "--format" and "json" unprocessed.
 	// Move any positional args (path or dot-notation) to the end so all flags
@@ -401,7 +402,7 @@ func runScanCmd(args []string, log *slog.Logger, p *ui.Printer) error {
 					"severity": true, "ecosystem": true, "format": true,
 					"remote": true, "remote-port": true, "identity": true,
 					"remote-path": true, "remote-max-depth": true,
-					"sync-url": true,
+					"sync-url": true, "workspace": true,
 				}
 				if knownValueFlags[name] && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
 					i++
@@ -463,6 +464,7 @@ func runScanCmd(args []string, log *slog.Logger, p *ui.Printer) error {
 		format:      *formatFlag,
 		sync:        *syncFlag,
 		syncURL:     *syncURLFlag,
+		workspace:   *workspaceFlag,
 	}
 
 	// Remote SSH scan: `fgctl scan --remote user@host`
@@ -564,6 +566,7 @@ func runScanCmd(args []string, log *slog.Logger, p *ui.Printer) error {
 			"ecosystem": *recipeFlag,
 			"package":   *pkgFlag,
 			"version":   *verFlag,
+			"workspace": *workspaceFlag,
 			"summary":   summary,
 			"findings":  findings,
 		}, log)
@@ -1091,6 +1094,7 @@ type localScanOpts struct {
 	format      string // "text" | "json" | "sarif"
 	sync        bool
 	syncURL     string
+	workspace   string
 }
 
 // isLocalPath returns true for ".", "..", paths starting with "./" "../" "/" "~",
@@ -1244,6 +1248,7 @@ func printLocalScanResult(result *localscanner.ProjectScanResult, opts localScan
 			"scan_type": "project",
 			"label":     displayLabel,
 			"root_dir":  result.RootDir,
+			"workspace": opts.workspace,
 			"summary":   filteredSummary,
 			"findings":  allFindings,
 			"results":   syncResults,
@@ -1477,6 +1482,7 @@ Scan flags:
 Dashboard sync flags:
   --sync                                push results to the dashboard API after scan
   --sync-url=<url>                      dashboard API URL (default: FG_SYNC_URL env or http://localhost:8080)
+  --workspace=<name>                    workspace to associate synced results with (default: Default)
 
 Remote scan flags  (scan --remote user@host):
   --remote=<user@host[:port]>           scan manifests on a remote host over SSH

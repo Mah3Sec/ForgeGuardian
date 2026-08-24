@@ -64,13 +64,21 @@ export const getHealth = () =>
   request<{ status: string }>('/healthz');
 
 // Dashboard
-export const getDashboardStats = () =>
-  request<import('../types/api').DashboardStats>('/api/v1/dashboard/stats');
-
-export const getRecentResults = (limit = 20) =>
-  request<{ limit: number; results: import('../types/api').RecentResult[] }>(
-    `/api/v1/dashboard/recent?limit=${limit}`
+export const getDashboardStats = (workspace?: string) =>
+  request<import('../types/api').DashboardStats>(
+    `/api/v1/dashboard/stats${workspace ? `?workspace=${encodeURIComponent(workspace)}` : ''}`
   );
+
+export const getRecentResults = (limit = 20, workspace?: string) => {
+  const q = new URLSearchParams({ limit: String(limit) });
+  if (workspace) q.set('workspace', workspace);
+  return request<{ limit: number; results: import('../types/api').RecentResult[] }>(
+    `/api/v1/dashboard/recent?${q}`
+  );
+};
+
+export const getWorkspaces = () =>
+  request<{ workspaces: string[] }>('/api/v1/workspaces');
 
 // Packages
 export const listPackages = (params?: { page?: number; page_size?: number; ecosystem?: string }) => {
@@ -364,8 +372,11 @@ export interface DependencyGraphData {
   links: Array<{ source: string; target: string }>
 }
 
-export const getDependencyGraph = (limit = 20) =>
-  request<DependencyGraphData>(`/api/v1/dashboard/graph?limit=${limit}`);
+export const getDependencyGraph = (limit = 20, workspace?: string) => {
+  const q = new URLSearchParams({ limit: String(limit) });
+  if (workspace) q.set('workspace', workspace);
+  return request<DependencyGraphData>(`/api/v1/dashboard/graph?${q}`);
+};
 
 export const getPolicyStatus = () =>
   request<import('../types/api').PolicyStatus>('/api/v1/policy/status');

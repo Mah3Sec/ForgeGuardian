@@ -1,8 +1,10 @@
-# ForgeGuardian v1.0.0 — All-in-one Docker image
+# ForgeGuardian — All-in-one Docker image
 #
-# Usage:
-#   docker build -t forgeguardian .
-#   docker run -d --name forgeguardian -p 3000:3000 forgeguardian
+# One-liner (from repo clone):
+#   docker compose up -d
+#
+# One-liner (pre-built image):
+#   docker run -d --name forgeguardian -p 3000:3000 ghcr.io/mah3sec/forgeguardian
 #
 # Then open http://localhost:3000
 #   Default login: admin@forgeguardian.local / changeme123
@@ -11,16 +13,15 @@
 #   docker run -d -p 3000:3000 \
 #     -e FG_ADMIN_EMAIL=you@example.com \
 #     -e FG_ADMIN_PASSWORD=YourSecurePass \
-#     forgeguardian
+#     ghcr.io/mah3sec/forgeguardian
 #
 # Using the CLI from Docker:
 #   docker exec forgeguardian fgctl version
 #   docker exec forgeguardian fgctl scan npm/lodash@4.17.21
-#   docker exec forgeguardian fgctl scan . --sync
-#   docker exec -it forgeguardian fgctl doctor
+#   docker exec forgeguardian fgctl doctor
 
-# ── Stage 1: Build Go API ────────────────────────────────────────────────────
-FROM golang:1.25-bookworm AS api-builder
+# ── Stage 1: Build Go binaries ───────────────────────────────────────────────
+FROM golang:1-bookworm AS go-builder
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -37,15 +38,15 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     -o /fgctl \
     ./cmd/fgctl/
 
-# ── Stage 2: Build Dashboard ─────────────────────────────────────────────────
-FROM node:24-slim AS dashboard-builder
+# ── Stage 2: Build Dashboard ────────────────────────────────────────────────
+FROM node:22-slim AS dashboard-builder
 WORKDIR /app
 COPY dashboard/package.json dashboard/package-lock.json ./
 RUN npm ci --ignore-scripts
 COPY dashboard/ .
 RUN npm run build
 
-# ── Stage 3: Scanner engines ─────────────────────────────────────────────────
+# ── Stage 3: Scanner engines ────────────────────────────────────────────────
 FROM debian:bookworm-slim AS engine-builder
 
 RUN apt-get update && \
@@ -55,7 +56,7 @@ RUN apt-get update && \
 RUN curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /engines
 RUN curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /engines
 
-# ── Stage 4: Runtime ─────────────────────────────────────────────────────────
+# ── Stage 4: Runtime ────────────────────────────────────────────────────────
 FROM debian:bookworm-slim
 
 RUN apt-get update && \
@@ -64,10 +65,10 @@ RUN apt-get update && \
     pip3 install --no-cache-dir --break-system-packages semgrep && \
     rm -rf /var/lib/apt/lists/* && \
     groupadd -r fg && useradd -r -g fg -d /data -s /bin/false fg && \
-    mkdir -p /data && chown fg:fg /data
+    mkdir -p /data/.forgeguardian && chown -R fg:fg /data
 
-COPY --from=api-builder /forgeguardian-api /app/forgeguardian-api
-COPY --from=api-builder /fgctl /usr/local/bin/fgctl
+COPY --from=go-builder /forgeguardian-api /app/forgeguardian-api
+COPY --from=go-builder /fgctl /usr/local/bin/fgctl
 COPY --from=engine-builder /engines/grype /usr/local/bin/grype
 COPY --from=engine-builder /engines/trivy /usr/local/bin/trivy
 COPY --from=dashboard-builder /app/dist /app/dashboard

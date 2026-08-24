@@ -74,6 +74,7 @@ type cachedScanResult struct {
 	HighestSeverity string             `json:"highest_severity"`
 	ScannedAt       time.Time          `json:"scanned_at"`
 	TotalFindings   int                `json:"total_findings"`
+	Workspace       string             `json:"workspace,omitempty"`
 }
 
 // scanCache is a bounded in-memory store of recent scan results. It serves as
@@ -124,6 +125,41 @@ func (sc *scanCache) latest() []cachedScanResult {
 		}
 		seen[key] = i
 		out = append(out, sc.results[i])
+	}
+	return out
+}
+
+// latestForWorkspace returns deduplicated results filtered by workspace name.
+// An empty workspace string returns all results (backward-compatible).
+func (sc *scanCache) latestForWorkspace(ws string) []cachedScanResult {
+	all := sc.latest()
+	if ws == "" {
+		return all
+	}
+	var out []cachedScanResult
+	for _, r := range all {
+		if strings.EqualFold(r.Workspace, ws) {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// workspaces returns a deduplicated list of workspace names seen in the cache.
+func (sc *scanCache) workspaces() []string {
+	sc.mu.RLock()
+	defer sc.mu.RUnlock()
+	seen := map[string]bool{}
+	var out []string
+	for _, r := range sc.results {
+		ws := r.Workspace
+		if ws == "" {
+			ws = "Default"
+		}
+		if !seen[ws] {
+			seen[ws] = true
+			out = append(out, ws)
+		}
 	}
 	return out
 }
@@ -881,6 +917,8 @@ func (h *Handler) VerifyAttestation(c *gin.Context) {
 // DashboardStats returns aggregate statistics for the dashboard.
 // GET /api/v1/dashboard/stats
 func (h *Handler) DashboardStats(c *gin.Context) {
+	wsFilter := c.Query("workspace")
+
 	if h.db != nil {
 		stats, err := h.db.DashboardStats(c.Request.Context())
 		if err != nil {
@@ -903,7 +941,7 @@ func (h *Handler) DashboardStats(c *gin.Context) {
 		return
 	}
 
-	cached := h.cache.latest()
+	cached := h.cache.latestForWorkspace(wsFilter)
 	pkgs := map[string]bool{}
 	versions := map[string]bool{}
 	var total, crit, high, medium, low int64
@@ -957,7 +995,18 @@ func (h *Handler) DashboardRecent(c *gin.Context) {
 		return
 	}
 
-	cached := h.cache.list()
+	wsFilter := c.Query("workspace")
+	allCached := h.cache.list()
+	var cached []cachedScanResult
+	if wsFilter != "" {
+		for _, r := range allCached {
+			if strings.EqualFold(r.Workspace, wsFilter) || (r.Workspace == "" && strings.EqualFold(wsFilter, "Default")) {
+				cached = append(cached, r)
+			}
+		}
+	} else {
+		cached = allCached
+	}
 	type recentRow struct {
 		Ecosystem       string `json:"ecosystem"`
 		Name            string `json:"name"`
@@ -1033,7 +1082,8 @@ func (h *Handler) DashboardGraph(c *gin.Context) {
 			links = append(links, graphLink{Source: "root", Target: id})
 		}
 	} else {
-		cached := h.cache.latest()
+		wsFilter := c.Query("workspace")
+		cached := h.cache.latestForWorkspace(wsFilter)
 		seen := map[string]bool{}
 		start := len(cached) - limit
 		if start < 0 {
@@ -1312,6 +1362,7 @@ func (h *Handler) CLISync(c *gin.Context) {
 		Package   string              `json:"package,omitempty"`
 		Version   string              `json:"version,omitempty"`
 		RootDir   string              `json:"root_dir,omitempty"`
+		Workspace string              `json:"workspace,omitempty"`
 		Summary   scanner.ScanSummary `json:"summary"`
 		Findings  []core.Finding      `json:"findings"`
 		Results   []struct {
@@ -1334,9 +1385,15 @@ func (h *Handler) CLISync(c *gin.Context) {
 		return
 	}
 
+	ws := req.Workspace
+	if ws == "" {
+		ws = "Default"
+	}
+
 	h.log.Info("CLI sync received",
 		"scan_type", req.ScanType,
 		"label", req.Label,
+		"workspace", ws,
 		"findings", len(req.Findings),
 		"total", req.Summary.Total)
 
@@ -1354,6 +1411,7 @@ func (h *Handler) CLISync(c *gin.Context) {
 				HighestSeverity: string(req.Summary.HighestSev),
 				ScannedAt:       time.Now(),
 				TotalFindings:   req.Summary.Total,
+				Workspace:       ws,
 			})
 			if h.db != nil {
 				if err := h.persistScanResult(c.Request.Context(), eco, name, ver, "", req.Findings, req.Summary, ""); err != nil {
@@ -1382,6 +1440,7 @@ func (h *Handler) CLISync(c *gin.Context) {
 				HighestSeverity: string(sum.HighestSev),
 				ScannedAt:       time.Now(),
 				TotalFindings:   sum.Total,
+				Workspace:       ws,
 			})
 			if h.db != nil {
 				if err := h.persistScanResult(c.Request.Context(), eco, name, ver, "", r.Findings, sum, ""); err != nil {
@@ -1429,11 +1488,22 @@ func (h *Handler) CLISync(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"status":  "synced",
-		"label":   req.Label,
-		"total":   req.Summary.Total,
-		"message": fmt.Sprintf("Synced %d findings from CLI scan", req.Summary.Total),
+		"status":    "synced",
+		"label":     req.Label,
+		"workspace": ws,
+		"total":     req.Summary.Total,
+		"message":   fmt.Sprintf("Synced %d findings from CLI scan to workspace %q", req.Summary.Total, ws),
 	})
+}
+
+// ListWorkspaces returns the list of workspace names seen in scan results.
+// GET /api/v1/workspaces
+func (h *Handler) ListWorkspaces(c *gin.Context) {
+	ws := h.cache.workspaces()
+	if len(ws) == 0 {
+		ws = []string{"Default"}
+	}
+	c.JSON(http.StatusOK, gin.H{"workspaces": ws})
 }
 
 // ActiveRisks returns a prioritized list of packages with findings.

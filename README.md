@@ -32,7 +32,7 @@ ForgeGuardian is a supply chain security platform that works at three levels:
 |---|---|
 | **CLI** (`fgctl`) | Scan any project in 2 commands. Works offline. No account needed. |
 | **Dashboard** | Web UI with full 8-engine scan, file upload, live agent feed, alerts, allowlist |
-| **API** | 42 REST endpoints — scan, SBOM, sign, advisory, allowlist, alerts, SSE stream |
+| **API** | 45+ REST endpoints — scan, SBOM, sign, advisory, allowlist, alerts, terminal, SSE stream |
 
 One tool. 9 ecosystems. AI triage. Community signatures. SLSA Level 3 provenance.
 
@@ -204,18 +204,21 @@ docker compose up -d
 ```
 </details>
 
-**28 routes. All connected to live backend when self-hosted.**
+**30 routes. All connected to live backend when self-hosted.**
 
 | Page | What it does |
 |---|---|
 | Dashboard | SOC-style overview — risk heatmap, activity feed, timeline chart |
 | Scan | **Tab 1**: registry package scan (downloads real artifact, runs all 8 engines) **Tab 2**: drag-drop project archive **Tab 3**: remote host scan over SSH |
+| Scan Sessions | Session history with per-scan detail, charts, and export (JSON/CSV/HTML) |
 | Inventory | Paginated package list with search + ecosystem filter |
 | Advisory | AI-generated security advisory per package |
 | SBOM | Generate and download CycloneDX / SPDX |
 | Sign / Verify | Sigstore keyless signing + attestation verification |
 | Provenance | SLSA provenance generation + inspection |
 | Monitor | Live SBOM monitoring with reconnect/backoff |
+| Log Monitor | Real-time server log viewer with level filtering |
+| Terminal | **Built-in web terminal** — run `fgctl` commands directly from the browser |
 | Intelligence | Detection signatures list + manual refresh |
 | Signature Authoring | Guided wizard to write + test a new detection signature |
 | Risks | Risk heatmap with letter grades |
@@ -233,7 +236,6 @@ docker compose up -d
 | Recursive Scan | Multi-package scan with per-package results |
 | Exports | SBOM format guide |
 | AI Security | AI supply chain threat explainer |
-| Docs / API Docs | In-app documentation + API reference |
 | Settings | Config management |
 
 ---
@@ -326,7 +328,7 @@ Findings appear in the GitHub Security tab with file + line annotations.
 
 ---
 
-## API — 42 Endpoints
+## API — 47 Endpoints
 
 ```
 GET  /healthz                               liveness probe
@@ -334,7 +336,7 @@ GET  /metrics                               Prometheus metrics
 
 POST /api/v1/scan                           scan registry package (downloads + all engines)
 POST /api/v1/scan/upload                    scan uploaded archive (multipart)
-POST /api/v1/scan/remote                    scan a remote host over SSH (manifests pulled, nothing installed remotely)
+POST /api/v1/scan/remote                    scan a remote host over SSH
 GET  /api/v1/scan/:eco/:name/:ver           get persisted scan results
 GET  /api/v1/jobs/:id                       poll async scan job status/result
 GET  /api/v1/packages                       list packages (paginated)
@@ -369,8 +371,14 @@ GET  /api/v1/allowlist/check               check if package is allowlisted
 GET  /api/v1/alerts                         list alerts (paginated, filtered)
 POST /api/v1/alerts                         create alert
 POST /api/v1/alerts/:id/dismiss            dismiss alert
+GET  /api/v1/export/report                  export scan report (JSON/CSV/HTML)
+POST /api/v1/cli/sync                       CLI-to-dashboard result sync
+GET  /api/v1/workspaces                     list workspaces
+POST /api/v1/terminal/exec                  web terminal command execution (SSE)
+GET  /api/v1/terminal/completions           available terminal commands
 POST /api/v1/auth/login                     dashboard login (session cookie)
 POST /api/v1/auth/logout                    dashboard logout
+POST /api/v1/auth/password                  change password
 GET  /api/v1/auth/me                        current session status
 ```
 
@@ -490,6 +498,19 @@ For code: fork → branch → PR. All PRs run Semgrep + unit tests.
 ---
 
 ## Changelog
+
+### v3.0.0 — 2026-08-24
+- **Web Terminal** — built-in terminal in the dashboard to run `fgctl` commands from the browser (SSE streaming, command allowlist, shell injection protection)
+- **Scan Sessions** — persistent scan history with detail pages, severity charts, and export (JSON/CSV/HTML report)
+- **Workspaces** — organize scans by workspace, switch from sidebar
+- **CLI-to-Dashboard sync** — `fgctl scan --sync` pushes results to the dashboard API
+- **Log Monitor** — real-time server log viewer with level filtering
+- **`fgctl doctor --fix`** — auto-installs missing scanner engines (grype, trivy, semgrep) using official install scripts with fallback to brew/pip/package manager
+- **Dashboard login** — session-based auth with forced password change on default credentials
+- **47 API endpoints** — added terminal exec, CLI sync, workspaces, export, password change
+- Docker one-liner: `docker compose up -d` from repo clone (postgres + redis + everything)
+- Security hardening: CSV injection protection, error message sanitization, job cleanup
+- Sortable findings table with fix version display and expandable detail rows
 
 ### v2.0.0 — 2026-06-13
 - Full 8-engine scan from dashboard (downloads real artifact, all engines run)

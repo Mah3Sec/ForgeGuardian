@@ -39,14 +39,15 @@ export FG_COOKIE_SECURE="${FG_COOKIE_SECURE:-false}"
 export FG_CACHE_PATH="${FG_CACHE_PATH:-/data/scan-cache.json}"
 export PORT="${PORT:-3000}"
 
+# ── Ensure fgctl config dir ──────────────────────────────────────────────────
+mkdir -p /data/.forgeguardian
+
 # ── Database status ──────────────────────────────────────────────────────────
 if [ -z "$DATABASE_URL" ]; then
     echo ""
-    echo "  ℹ  No DATABASE_URL set — using file-based cache (/data/scan-cache.json)"
-    echo "     Scan history persists across restarts via the /data volume."
-    echo "     For full PostgreSQL support, use docker compose:"
-    echo ""
-    echo "       docker compose up -d"
+    echo "  No DATABASE_URL — using file-based cache (/data/scan-cache.json)"
+    echo "  Scan history persists across restarts via the /data volume."
+    echo "  For PostgreSQL support: docker compose up -d"
     echo ""
 fi
 

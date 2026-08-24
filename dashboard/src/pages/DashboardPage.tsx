@@ -16,6 +16,7 @@ import { SecurityScore, computeSecurityScore } from '../components/SecurityScore
 import { ActivityFeed } from '../components/ActivityFeed';
 import { DashboardHeader } from '../components/TopBar';
 import { useUIStore } from '../store/ui';
+import { useWorkspaceStore } from '../store/workspace';
 import { cn } from '../components/ui/utils';
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -89,9 +90,10 @@ const ECO_COLORS: Record<string, string> = {
 import React from 'react';
 
 function DependencyGraphCard({ onNavigate }: { onNavigate: (p: string) => void }) {
+  const wsName = useWorkspaceStore(s => s.getActive()).name;
   const graph = useQuery({
-    queryKey: ['dependency-graph'],
-    queryFn: () => getDependencyGraph(20),
+    queryKey: ['dependency-graph', wsName],
+    queryFn: () => getDependencyGraph(20, wsName),
     retry: false,
     staleTime: 60_000,
   });
@@ -473,8 +475,9 @@ function LiveMonitoringCard({ onNavigate }: { onNavigate: (p: string) => void })
 
 export function DashboardPage() {
   const navigate = useUIStore(s => s.navigate);
+  const wsName = useWorkspaceStore(s => s.getActive()).name;
 
-  const stats    = useQuery({ queryKey: ['dashboard-stats'],    queryFn: getDashboardStats,           refetchInterval: 30_000 });
+  const stats    = useQuery({ queryKey: ['dashboard-stats', wsName],    queryFn: () => getDashboardStats(wsName),           refetchInterval: 30_000 });
   const timeline = useQuery({ queryKey: ['dashboard-timeline'], queryFn: () => getDashboardTimeline(30), refetchInterval: 60_000 });
   const tl7      = useQuery({ queryKey: ['dashboard-tl-7'],     queryFn: () => getDashboardTimeline(7),  refetchInterval: 60_000 });
   const risks    = useQuery({ queryKey: ['active-risks'],        queryFn: getActiveRisks,              refetchInterval: 60_000, retry: false });

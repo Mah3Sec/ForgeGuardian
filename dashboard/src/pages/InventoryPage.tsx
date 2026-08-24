@@ -12,7 +12,7 @@ export default function InventoryPage() {
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 50
 
-  const stats = useQuery({ queryKey: ['dashboard-stats'], queryFn: getDashboardStats, retry: false })
+  const stats = useQuery({ queryKey: ['dashboard-stats'], queryFn: () => getDashboardStats(), retry: false })
   const packages = useQuery({
     queryKey: ['packages', eco, page],
     queryFn: () => listPackages({ page, page_size: PAGE_SIZE, ecosystem: eco || undefined }),

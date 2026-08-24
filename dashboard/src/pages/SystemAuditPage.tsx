@@ -57,7 +57,7 @@ function MonitoringStatusHeader() {
 function MonitoringStatsRow() {
   const stats = useQuery({
     queryKey: ['dashboard-stats', 'audit-monitor'],
-    queryFn: getDashboardStats,
+    queryFn: () => getDashboardStats(),
     refetchInterval: 30_000,
     retry: false,
   });

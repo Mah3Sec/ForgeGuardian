@@ -73,6 +73,7 @@ const GraphPage             = lazy(() => import('./pages/GraphPage').then(m => (
 const ScanSessionsPage      = lazy(() => import('./pages/ScanSessionsPage'));
 const SessionDetailPage     = lazy(() => import('./pages/SessionDetailPage'));
 const LogMonitorPage        = lazy(() => import('./pages/LogMonitorPage').then(m => ({ default: m.LogMonitorPage })));
+const TerminalPage          = lazy(() => import('./pages/TerminalPage').then(m => ({ default: m.TerminalPage })));
 const PublicDocsPage        = lazy(() => import('./pages/PublicDocsPage').then(m => ({ default: m.PublicDocsPage })));
 
 function RouteFallback() {
@@ -100,6 +101,7 @@ function Router({ path }: { path: string }) {
     case '/intelligence':return <ErrorBoundary><IntelligencePage /></ErrorBoundary>;
     case '/monitor':     return <ErrorBoundary><MonitorPage /></ErrorBoundary>;
     case '/logs':        return <ErrorBoundary><LogMonitorPage /></ErrorBoundary>;
+    case '/terminal':    return <ErrorBoundary><TerminalPage /></ErrorBoundary>;
     case '/risks':       return <ErrorBoundary><RisksPage /></ErrorBoundary>;
     case '/inventory':
     case '/dependencies': return <ErrorBoundary><InventoryPage /></ErrorBoundary>;

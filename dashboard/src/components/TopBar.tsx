@@ -18,7 +18,7 @@ export function DashboardHeader() {
   const toggleTheme = useUIStore(s => s.toggleTheme);
   const { data } = useQuery({
     queryKey: ['dashboard-stats'],
-    queryFn: getDashboardStats,
+    queryFn: () => getDashboardStats(),
     refetchInterval: 30_000,
     retry: 3,
   });

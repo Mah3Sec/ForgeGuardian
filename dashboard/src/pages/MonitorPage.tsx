@@ -146,7 +146,7 @@ function RecentScansTable() {
 export default function MonitorPage() {
   const { data: stats, isError, isLoading, failureCount, dataUpdatedAt } = useQuery({
     queryKey: ['monitor-stats'],
-    queryFn: getDashboardStats,
+    queryFn: () => getDashboardStats(),
     refetchInterval: 10_000,
     retry: 3,
     retryDelay: (attempt: number) => Math.min(1000 * 2 ** attempt, 10_000),

@@ -3,7 +3,7 @@ import {
   FolderOpen, Package, FileText, ListFilter, KeyRound, Download, Webhook,
   GitMerge, LayoutDashboard, ChevronLeft, ChevronRight, FileCheck, PenTool,
   LogOut, Network, Puzzle, Globe2, Building2, Sparkles, Cpu,
-  Settings, ClipboardList, Terminal,
+  Settings, ClipboardList, Terminal, SquareTerminal,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useUIStore } from '../store/ui';
@@ -35,6 +35,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'AI Security',         icon: Bot,          path: '/ai-security' },
       { label: 'AI Advisory',         icon: Sparkles,     path: '/advisory' },
       { label: 'AI Patch Agent',      icon: Cpu,          path: '/agents' },
+      { label: 'Terminal',            icon: SquareTerminal, path: '/terminal' },
     ],
   },
   {
