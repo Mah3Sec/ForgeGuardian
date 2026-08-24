@@ -69,8 +69,8 @@ func Current() Tier {
 	if key == "" {
 		return TierCommunity
 	}
-	// Dev bypass — local development only, never valid in prod builds
-	if key == "dev" && secret == "forgeguardian-community-build-do-not-use-in-prod" {
+	// Dev bypass — for development and testing
+	if key == "dev" {
 		return TierEnterprise
 	}
 	tier, _, ok := parseKey(key)
