@@ -473,6 +473,22 @@ fi
 # ═══════════════════════════════════════════════════════════════════════════════
 step 7 "Setting up server"
 
+# Generate default credentials and session secret so login works out of the box
+SECRET_FILE="${DATA_DIR}/.session-secret"
+if [ -z "$FG_SESSION_SECRET" ]; then
+  if [ -f "$SECRET_FILE" ]; then
+    FG_SESSION_SECRET=$(cat "$SECRET_FILE")
+  else
+    FG_SESSION_SECRET=$(cat /dev/urandom | tr -dc 'a-f0-9' | head -c 64)
+    printf '%s' "$FG_SESSION_SECRET" > "$SECRET_FILE"
+    chmod 600 "$SECRET_FILE" 2>/dev/null || true
+  fi
+fi
+FG_ADMIN_EMAIL="${FG_ADMIN_EMAIL:-admin@forgeguardian.local}"
+FG_ADMIN_PASSWORD="${FG_ADMIN_PASSWORD:-changeme123}"
+FG_COOKIE_SECURE="${FG_COOKIE_SECURE:-false}"
+info "Default login: ${FG_ADMIN_EMAIL} / changeme123"
+
 if [ "$SKIP_SERVER" = "1" ]; then
   warn "Skipping (SKIP_SERVER=1)"
 elif $IS_WINDOWS; then
@@ -506,6 +522,14 @@ elif [ "$OS" = "darwin" ]; then
   <dict>
     <key>PATH</key>
     <string>${INSTALL_DIR}:/usr/local/bin:/usr/bin:/bin</string>
+    <key>FG_ADMIN_EMAIL</key>
+    <string>${FG_ADMIN_EMAIL}</string>
+    <key>FG_ADMIN_PASSWORD</key>
+    <string>${FG_ADMIN_PASSWORD}</string>
+    <key>FG_SESSION_SECRET</key>
+    <string>${FG_SESSION_SECRET}</string>
+    <key>FG_COOKIE_SECURE</key>
+    <string>${FG_COOKIE_SECURE}</string>
   </dict>
 </dict>
 </plist>
@@ -529,6 +553,10 @@ ExecStart=${INSTALL_DIR}/fgctl serve
 Restart=on-failure
 RestartSec=5
 Environment=PATH=${INSTALL_DIR}:/usr/local/bin:/usr/bin:/bin
+Environment=FG_ADMIN_EMAIL=${FG_ADMIN_EMAIL}
+Environment=FG_ADMIN_PASSWORD=${FG_ADMIN_PASSWORD}
+Environment=FG_SESSION_SECRET=${FG_SESSION_SECRET}
+Environment=FG_COOKIE_SECURE=${FG_COOKIE_SECURE}
 
 [Install]
 WantedBy=default.target
@@ -544,6 +572,10 @@ SVC
   info "Logs:   journalctl --user -u forgeguardian -f"
 else
   # No systemd — start in background
+  FG_ADMIN_EMAIL="$FG_ADMIN_EMAIL" \
+  FG_ADMIN_PASSWORD="$FG_ADMIN_PASSWORD" \
+  FG_SESSION_SECRET="$FG_SESSION_SECRET" \
+  FG_COOKIE_SECURE="$FG_COOKIE_SECURE" \
   nohup "${INSTALL_DIR}/fgctl" serve > "${DATA_DIR}/server.log" 2>&1 &
   SERVER_PID=$!
   sleep 1
@@ -595,6 +627,11 @@ if [ "$SKIP_SERVER" != "1" ] && ! $IS_WINDOWS; then
   printf "  ${BOLD}Dashboard:${NC}\n"
   printf "    ${GREEN}${BOLD}http://localhost:8080${NC}\n"
   printf "    ${DIM}Server is running — open the URL above in your browser${NC}\n"
+  printf "\n"
+  printf "  ${BOLD}Login:${NC}\n"
+  printf "    ${CYAN}Email:    ${NC}admin@forgeguardian.local\n"
+  printf "    ${CYAN}Password: ${NC}changeme123\n"
+  printf "    ${DIM}You will be prompted to change the password on first login${NC}\n"
 else
   printf "  ${BOLD}Start the platform:${NC}\n"
   printf "    ${GREEN}${BOLD}fgctl serve${NC}\n"
