@@ -563,6 +563,7 @@ WantedBy=default.target
 SVC
   systemctl --user daemon-reload 2>/dev/null || true
   systemctl --user enable forgeguardian.service 2>/dev/null || true
+  systemctl --user stop forgeguardian.service 2>/dev/null || true
   systemctl --user start forgeguardian.service 2>/dev/null \
     && info "Server started (systemd user service)" \
     || warn "Could not start systemd service — run 'fgctl serve' manually"
