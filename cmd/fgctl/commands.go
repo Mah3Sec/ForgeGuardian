@@ -103,6 +103,8 @@ func runMonitor(args []string, log *slog.Logger, p *ui.Printer) error {
 	timeoutFlag := fs.Duration("timeout", 5*time.Minute, "scan timeout per cycle")
 	actionFlag := fs.String("action", "notify", "auto-response for new threats: notify|quarantine|block")
 	autoApproveFlag := fs.Bool("auto-approve", false, "skip approval prompt for quarantine/block (CI/unattended use)")
+	syncFlag := fs.Bool("sync", true, "sync scan results to dashboard (default: on)")
+	syncURLFlag := fs.String("sync-url", "", "dashboard URL for sync (default: http://localhost:8080)")
 
 	// Go's flag package stops at the first non-flag positional arg. Reorder so
 	// flags are parsed regardless of where the user puts the directory path.
@@ -185,6 +187,55 @@ func runMonitor(args []string, log *slog.Logger, p *ui.Printer) error {
 		pkgLabel  string // "eco/name@ver"
 		ecosystem string
 	}
+	monitorSyncToDashboard := func(scanResult *localscanner.ProjectScanResult, label string) {
+		if !*syncFlag {
+			return
+		}
+		type entryShape struct {
+			Ecosystem string `json:"ecosystem"`
+			Name      string `json:"name"`
+			Version   string `json:"version"`
+			FilePath  string `json:"file_path"`
+		}
+		type resultShape struct {
+			Entry    entryShape     `json:"entry"`
+			Findings []core.Finding `json:"findings"`
+			Skipped  bool           `json:"skipped"`
+		}
+		var syncResults []resultShape
+		var allFindings []core.Finding
+		for _, r := range scanResult.Results {
+			syncResults = append(syncResults, resultShape{
+				Entry: entryShape{
+					Ecosystem: r.Entry.Ecosystem,
+					Name:      r.Entry.Name,
+					Version:   r.Entry.Version,
+					FilePath:  r.Entry.FilePath,
+				},
+				Findings: r.Findings,
+				Skipped:  r.Skipped,
+			})
+			allFindings = append(allFindings, r.Findings...)
+		}
+		type manifestShape struct {
+			Path      string `json:"path"`
+			Ecosystem string `json:"ecosystem"`
+		}
+		var manifests []manifestShape
+		for _, m := range scanResult.Manifests {
+			manifests = append(manifests, manifestShape{Path: m.Path, Ecosystem: m.Ecosystem})
+		}
+		syncToDashboard(*syncURLFlag, map[string]any{
+			"scan_type": "monitor",
+			"label":     label,
+			"root_dir":  scanResult.RootDir,
+			"summary":   scanResult.Summary,
+			"findings":  allFindings,
+			"results":   syncResults,
+			"manifests": manifests,
+		}, log)
+	}
+
 	prevFindings := map[string]findingWithPkg{}
 	ctx, cancel := context.WithTimeout(context.Background(), *timeoutFlag)
 	result, err := ls.Scan(ctx, dir, nil)
@@ -204,6 +255,7 @@ func runMonitor(args []string, log *slog.Logger, p *ui.Printer) error {
 			line += fmt.Sprintf(" (%d CRIT, %d HIGH)", crit, high)
 		}
 		fmt.Fprintln(p.Out, line)
+		monitorSyncToDashboard(result, "monitor: initial scan")
 	}
 
 	for {
@@ -246,6 +298,8 @@ func runMonitor(args []string, log *slog.Logger, p *ui.Printer) error {
 				newFindings[pkg+":"+f.ID] = findingWithPkg{finding: f, pkgLabel: pkg, ecosystem: r.Entry.Ecosystem}
 			}
 		}
+
+		monitorSyncToDashboard(newResult, "monitor: "+changed+" changed")
 
 		var addedFindings []notify.MonitorFinding
 		type quarantineTarget struct {
