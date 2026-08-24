@@ -479,7 +479,7 @@ if [ -z "${FG_SESSION_SECRET:-}" ]; then
   if [ -f "$SECRET_FILE" ]; then
     FG_SESSION_SECRET=$(cat "$SECRET_FILE")
   else
-    FG_SESSION_SECRET=$(cat /dev/urandom | tr -dc 'a-f0-9' | head -c 64)
+    FG_SESSION_SECRET=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' | head -c 64)
     printf '%s' "$FG_SESSION_SECRET" > "$SECRET_FILE"
     chmod 600 "$SECRET_FILE" 2>/dev/null || true
   fi
