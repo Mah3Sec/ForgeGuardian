@@ -475,7 +475,7 @@ step 7 "Setting up server"
 
 # Generate default credentials and session secret so login works out of the box
 SECRET_FILE="${DATA_DIR}/.session-secret"
-if [ -z "$FG_SESSION_SECRET" ]; then
+if [ -z "${FG_SESSION_SECRET:-}" ]; then
   if [ -f "$SECRET_FILE" ]; then
     FG_SESSION_SECRET=$(cat "$SECRET_FILE")
   else
