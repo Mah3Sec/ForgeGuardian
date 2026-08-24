@@ -21,6 +21,14 @@ type ManifestEntry struct {
 	IsDevDependency bool   // true for devDependencies (npm), dev-dependencies (cargo), etc.
 }
 
+// stripBOM removes a UTF-8 byte order mark from the start of data.
+func stripBOM(data []byte) []byte {
+	if len(data) >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF {
+		return data[3:]
+	}
+	return data
+}
+
 // ParseManifest parses a manifest file and returns all dependency entries.
 // Unknown file types return an empty slice without error.
 func ParseManifest(path string) ([]ManifestEntry, error) {
@@ -68,6 +76,7 @@ func parsePackageJSON(path string) ([]ManifestEntry, error) {
 	if err != nil {
 		return nil, err
 	}
+	data = stripBOM(data)
 	var pkg struct {
 		Dependencies    map[string]string `json:"dependencies"`
 		DevDependencies map[string]string `json:"devDependencies"`
@@ -275,6 +284,7 @@ func parsePomXML(path string) ([]ManifestEntry, error) {
 	if err != nil {
 		return nil, err
 	}
+	data = stripBOM(data)
 	var pom pomXML
 	if err := xml.Unmarshal(data, &pom); err != nil {
 		return nil, err

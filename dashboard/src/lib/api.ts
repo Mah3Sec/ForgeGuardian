@@ -509,3 +509,29 @@ export const syncCLIResults = (payload: CLISyncPayload) =>
     method: 'POST',
     body: JSON.stringify(payload),
   });
+
+// Policy enforcement — quarantine/block/unquarantine
+export const quarantinePackage = (pkg: string, reason?: string) =>
+  request<{ status: string; package: string; action?: string; message?: string; deny_packages?: string[] }>(
+    '/api/v1/policy/quarantine', { method: 'POST', body: JSON.stringify({ package: pkg, reason: reason ?? '' }) },
+  );
+
+export const blockPackage = (pkg: string, reason?: string) =>
+  request<{ status: string; package: string; action?: string; deny_packages?: string[]; fail_on?: string }>(
+    '/api/v1/policy/block', { method: 'POST', body: JSON.stringify({ package: pkg, reason: reason ?? '' }) },
+  );
+
+export const unquarantinePackage = (pkg: string) =>
+  request<{ status: string; package: string; message?: string; deny_packages?: string[] }>(
+    '/api/v1/policy/unquarantine', { method: 'POST', body: JSON.stringify({ package: pkg }) },
+  );
+
+export interface MonitorEvent {
+  timestamp: string;
+  action: string;
+  package: string;
+  reason?: string;
+}
+
+export const getMonitorEvents = () =>
+  request<{ events: MonitorEvent[]; total: number }>('/api/v1/monitor/events');

@@ -48,6 +48,7 @@ interface WorkspaceState {
   remove: (id: string) => void;
   setActive: (id: string) => void;
   getActive: () => Workspace;
+  syncFromServer: () => Promise<void>;
 }
 
 const initial = ensureDefault(loadWorkspaces());
@@ -94,6 +95,35 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   getActive: () => {
     const { workspaces, activeId } = get();
     return workspaces.find(w => w.id === activeId) ?? workspaces[0];
+  },
+
+  syncFromServer: async () => {
+    try {
+      const BASE = import.meta.env.VITE_API_URL ?? '';
+      const resp = await fetch(`${BASE}/api/v1/workspaces`, { credentials: 'include' });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const serverNames: string[] = data.workspaces ?? [];
+      const local = get().workspaces;
+      const localNames = new Set(local.map(w => w.name));
+      let added = false;
+      const merged = [...local];
+      for (const name of serverNames) {
+        if (!localNames.has(name)) {
+          merged.push({
+            id: generateId(),
+            name,
+            color: COLORS[merged.length % COLORS.length],
+            created_at: new Date().toISOString(),
+          });
+          added = true;
+        }
+      }
+      if (added) {
+        saveWorkspaces(merged);
+        set({ workspaces: merged });
+      }
+    } catch { /* ignore fetch errors */ }
   },
 }));
 

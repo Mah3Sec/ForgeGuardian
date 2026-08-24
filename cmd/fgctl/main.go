@@ -35,6 +35,8 @@ import (
 	"github.com/mah3sec/forgeguardian/internal/license"
 	"github.com/mah3sec/forgeguardian/internal/localscanner"
 	"github.com/mah3sec/forgeguardian/internal/sbom"
+	"github.com/mah3sec/forgeguardian/internal/notify"
+	"github.com/mah3sec/forgeguardian/internal/policy"
 	"github.com/mah3sec/forgeguardian/internal/scanner"
 	"github.com/mah3sec/forgeguardian/internal/signer"
 	"github.com/mah3sec/forgeguardian/internal/ui"
@@ -415,6 +417,13 @@ func runScanCmd(args []string, log *slog.Logger, p *ui.Printer) error {
 	}
 	fs.Parse(append(flagArgs, posArgs...))
 
+	// Fall back to policy fail_on when no --fail-on flag is set.
+	if *failOnFlag == "" {
+		if pol, err := policy.Load(); err == nil && pol != nil && pol.FailOn != "" {
+			*failOnFlag = pol.FailOn
+		}
+	}
+
 	// Apply composite modes before flag normalization.
 	if *ciFlag {
 		if *formatFlag == "text" {
@@ -499,10 +508,32 @@ func runScanCmd(args []string, log *slog.Logger, p *ui.Printer) error {
 	ctx, cancel := context.WithTimeout(context.Background(), *timeoutFlag)
 	defer cancel()
 
+	cfg := loadConfig()
+	notifyCfg := notify.Config{
+		SlackWebhookURL:   cfg.Notify.SlackWebhookURL,
+		DiscordWebhookURL: cfg.Notify.DiscordWebhookURL,
+		GenericWebhookURL: cfg.Notify.GenericWebhookURL,
+		OnSeverity:        cfg.Notify.OnSeverity,
+	}
+	pkgLabel := fmt.Sprintf("%s@%s", *pkgFlag, *verFlag)
+
+	notify.NotifyScanStart(notifyCfg, notify.ScanEvent{
+		Package:  pkgLabel,
+		ScanType: "registry",
+		Target:   fmt.Sprintf("%s/%s", *recipeFlag, pkgLabel),
+	})
+
+	scanStart := time.Now()
 	sp := p.Spinner("Fetching artifact...")
 	artifact, err := buildArtifact(ctx, *recipeFlag, *pkgFlag, *verFlag, log)
 	ui.StopSpinner(sp)
 	if err != nil {
+		notify.NotifyScanError(notifyCfg, notify.ScanEvent{
+			Package:  pkgLabel,
+			ScanType: "registry",
+			Target:   fmt.Sprintf("%s/%s", *recipeFlag, pkgLabel),
+			Error:    err.Error(),
+		})
 		return err
 	}
 	defer os.Remove(artifact.LocalPath)
@@ -558,6 +589,27 @@ func runScanCmd(args []string, log *slog.Logger, p *ui.Printer) error {
 	}
 
 	p.PrintFindings(fmt.Sprintf("%s@%s", *pkgFlag, *verFlag), findings, summary)
+
+	var engineNames []string
+	for _, r := range results {
+		engineNames = append(engineNames, r.Scanner)
+	}
+	notify.NotifyScanComplete(notifyCfg, notify.ScanEvent{
+		Package:  pkgLabel,
+		ScanType: "registry",
+		Target:   fmt.Sprintf("%s/%s", *recipeFlag, pkgLabel),
+		Engines:  engineNames,
+		Duration: time.Since(scanStart),
+		Findings: findings,
+		Summary: &notify.ScanSummaryInfo{
+			Total:      summary.Total,
+			Critical:   summary.Critical,
+			High:       summary.High,
+			Medium:     summary.Medium,
+			Low:        summary.Low,
+			HighestSev: string(summary.HighestSev),
+		},
+	})
 
 	if *syncFlag {
 		syncToDashboard(*syncURLFlag, map[string]any{
@@ -1132,6 +1184,20 @@ func runLocalScan(rootDir string, opts localScanOpts, log *slog.Logger, p *ui.Pr
 	ctx, cancel := context.WithTimeout(context.Background(), opts.timeout)
 	defer cancel()
 
+	cfg := loadConfig()
+	notifyCfg := notify.Config{
+		SlackWebhookURL:   cfg.Notify.SlackWebhookURL,
+		DiscordWebhookURL: cfg.Notify.DiscordWebhookURL,
+		GenericWebhookURL: cfg.Notify.GenericWebhookURL,
+		OnSeverity:        cfg.Notify.OnSeverity,
+	}
+
+	notify.NotifyScanStart(notifyCfg, notify.ScanEvent{
+		Package:  rootDir,
+		ScanType: "local",
+		Target:   rootDir,
+	})
+
 	storePath, _ := signaturesStorePath()
 	ls := localscanner.New(storePath)
 	ls.Workers = opts.workers
@@ -1146,6 +1212,12 @@ func runLocalScan(rootDir string, opts localScanOpts, log *slog.Logger, p *ui.Pr
 	})
 	ui.StopSpinner(sp)
 	if err != nil {
+		notify.NotifyScanError(notifyCfg, notify.ScanEvent{
+			Package:  rootDir,
+			ScanType: "local",
+			Target:   rootDir,
+			Error:    err.Error(),
+		})
 		return fmt.Errorf("local scan: %w", err)
 	}
 
@@ -1206,6 +1278,35 @@ func printLocalScanResult(result *localscanner.ProjectScanResult, opts localScan
 		fmt.Fprintf(os.Stdout, "  Run 'fgctl advisory %s/%s@<version>' for AI remediation.\n\n", eco, name)
 	} else {
 		p.Success("No findings across %d package(s).", countScanned(result.Results))
+	}
+
+	{
+		cfg := loadConfig()
+		notifyCfg := notify.Config{
+			SlackWebhookURL:   cfg.Notify.SlackWebhookURL,
+			DiscordWebhookURL: cfg.Notify.DiscordWebhookURL,
+			GenericWebhookURL: cfg.Notify.GenericWebhookURL,
+			OnSeverity:        cfg.Notify.OnSeverity,
+		}
+		var allNotifyFindings []core.Finding
+		for _, r := range filteredResults {
+			allNotifyFindings = append(allNotifyFindings, r.Findings...)
+		}
+		notify.NotifyScanComplete(notifyCfg, notify.ScanEvent{
+			Package:  displayLabel,
+			ScanType: "local",
+			Target:   displayLabel,
+			Duration: time.Since(scanStart),
+			Findings: allNotifyFindings,
+			Summary: &notify.ScanSummaryInfo{
+				Total:      filteredSummary.Total,
+				Critical:   filteredSummary.Critical,
+				High:       filteredSummary.High,
+				Medium:     filteredSummary.Medium,
+				Low:        filteredSummary.Low,
+				HighestSev: string(filteredSummary.HighestSev),
+			},
+		})
 	}
 
 	if opts.sync {
@@ -1439,7 +1540,7 @@ SUPPLY CHAIN INTEGRITY
 
 REMEDIATION & MONITORING
   patch       Autonomous AI-powered dependency patching  (requires ANTHROPIC_API_KEY)
-  monitor     Watch manifest files for new vulnerabilities
+  monitor     Continuous monitoring — detect, notify, quarantine, or block threats
 
 PLATFORM
   serve       Start the API server + dashboard  (fgctl serve --port=8080)
@@ -1505,7 +1606,9 @@ Examples:
   fgctl scan . --sync                                        # scan and push results to dashboard
   fgctl advisory npm/lodash@4.17.20                     # AI advisory
   fgctl patch .                                         # autonomous patching
-  fgctl monitor --watch .                               # continuous monitoring
+  fgctl monitor --watch .                               # continuous monitoring (notify)
+  fgctl monitor --watch . --action=quarantine            # auto-quarantine new threats
+  fgctl monitor --watch . --action=block                 # auto-block + deny new threats
   fgctl policy init && fgctl policy set fail_on=high    # configure policy
   fgctl audit system                                    # audit global packages
   fgctl sbom .                                          # project SBOM (all manifests)

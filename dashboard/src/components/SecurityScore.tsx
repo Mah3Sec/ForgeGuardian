@@ -11,26 +11,31 @@ interface SeveritySummary {
 }
 
 /**
- * Deterministic security score formula.
+ * Deterministic security score formula with diminishing returns.
  *
- * Starts at 100 (perfect) and subtracts a weighted penalty per finding,
- * floored at 0. Weights reflect roughly how much each severity level should
- * move the needle on an overall "is this safe to ship" score:
- *   - critical: -15 each (a single critical is a real blocker)
- *   - high:     -8 each
- *   - medium:   -3 each
- *   - low:      -1 each
+ * Uses sqrt-based scaling so each additional finding contributes less than the
+ * previous one. This keeps the score informative across both small projects
+ * (a single critical drops from 100 to ~85) and large dependency trees (hundreds
+ * of medium findings don't immediately floor the score to 0).
  *
- * This is intentionally simple and linear rather than logarithmic/curved —
- * it's easy to explain to a user ("you have 2 criticals, that's -30 points")
- * and easy to keep stable as scan coverage grows. Revisit if in practice
- * large dependency trees with many low-severity findings unfairly tank the
- * score — a log-dampened low/medium term would be the next iteration.
+ * Each severity has a weight and a cap on its total contribution:
+ *   - critical: weight 15, cap 45 (3+ criticals max out this band)
+ *   - high:     weight 10, cap 32 (10+ highs max out)
+ *   - medium:   weight 4,  cap 15 (14+ mediums max out)
+ *   - low:      weight 2,  cap 8  (16+ lows max out)
+ *
+ * Total max penalty = 100, so a project with severe issues across all bands
+ * reaches 0 while a clean project stays at 100.
  */
 export function computeSecurityScore(summary: SeveritySummary): number {
+  const band = (count: number, weight: number, cap: number) =>
+    Math.min(Math.sqrt(count) * weight, cap)
   const penalty =
-    summary.critical * 15 + summary.high * 8 + summary.medium * 3 + summary.low * 1
-  return Math.max(0, Math.min(100, 100 - penalty))
+    band(summary.critical, 15, 45) +
+    band(summary.high, 10, 32) +
+    band(summary.medium, 4, 15) +
+    band(summary.low, 2, 8)
+  return Math.max(0, Math.min(100, Math.round(100 - penalty)))
 }
 
 // Score band thresholds — a real product decision, not arbitrary:

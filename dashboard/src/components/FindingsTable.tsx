@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback } from 'react';
-import { ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, ShieldBan, ShieldAlert, ShieldCheck } from 'lucide-react';
 import type { Finding } from '../types/api';
 import { SeverityBadge } from './SeverityBadge';
+import { quarantinePackage, blockPackage, unquarantinePackage } from '../lib/api';
 
 const SEV_ORDER: Record<string, number> = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1, INFORMATIONAL: 0 };
 
@@ -11,13 +12,17 @@ type SortDir = 'asc' | 'desc';
 interface Props {
   findings: Finding[];
   maxRows?: number;
+  showActions?: boolean;
+  denyList?: string[];
+  onPolicyChange?: () => void;
 }
 
-export function FindingsTable({ findings, maxRows }: Props) {
+export function FindingsTable({ findings, maxRows, showActions, denyList, onPolicyChange }: Props) {
   const [visibleCount, setVisibleCount] = useState(50);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [sortKey, setSortKey] = useState<SortKey>('severity');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const toggleSort = useCallback((key: SortKey) => {
     if (sortKey === key) {
@@ -171,6 +176,53 @@ export function FindingsTable({ findings, maxRows }: Props) {
                                 <pre style={{ marginTop: 6, color: 'var(--fg)', fontSize: '0.68rem', fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-all', opacity: 0.7 }}>
                                   {JSON.stringify(Object.fromEntries(rest.map(k => [k, m[k]])), null, 2)}
                                 </pre>
+                              )}
+                            </div>
+                          );
+                        })()}
+                        {showActions && (() => {
+                          const pkgName = (f.metadata?.package_name as string) || (f.metadata?.artifact as string) || f.id.split('-')[0] || '';
+                          if (!pkgName) return null;
+                          const isDenied = denyList?.some(d => d.toLowerCase() === pkgName.toLowerCase());
+                          const loading = actionLoading === pkgName;
+                          const doAction = async (action: 'quarantine' | 'block' | 'unquarantine') => {
+                            setActionLoading(pkgName);
+                            try {
+                              if (action === 'quarantine') await quarantinePackage(pkgName, f.title);
+                              else if (action === 'block') await blockPackage(pkgName, f.title);
+                              else await unquarantinePackage(pkgName);
+                              onPolicyChange?.();
+                            } catch { /* toast would be nice but not critical */ }
+                            setActionLoading(null);
+                          };
+                          return (
+                            <div style={{ marginTop: '0.75rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              <span style={{ color: 'var(--color-muted)', fontSize: '0.68rem', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', marginRight: 4 }}>Actions</span>
+                              {isDenied ? (
+                                <button
+                                  disabled={loading}
+                                  onClick={(e) => { e.stopPropagation(); doAction('unquarantine'); }}
+                                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 4, border: '1px solid rgba(0,255,135,0.3)', background: 'rgba(0,255,135,0.08)', color: '#00FF87', fontSize: '0.72rem', fontFamily: 'var(--font-mono)', cursor: loading ? 'wait' : 'pointer' }}
+                                >
+                                  <ShieldCheck size={12} /> Unquarantine
+                                </button>
+                              ) : (
+                                <>
+                                  <button
+                                    disabled={loading}
+                                    onClick={(e) => { e.stopPropagation(); doAction('quarantine'); }}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 4, border: '1px solid rgba(255,165,0,0.3)', background: 'rgba(255,165,0,0.08)', color: '#FFA500', fontSize: '0.72rem', fontFamily: 'var(--font-mono)', cursor: loading ? 'wait' : 'pointer' }}
+                                  >
+                                    <ShieldAlert size={12} /> Quarantine
+                                  </button>
+                                  <button
+                                    disabled={loading}
+                                    onClick={(e) => { e.stopPropagation(); doAction('block'); }}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 4, border: '1px solid rgba(255,61,61,0.3)', background: 'rgba(255,61,61,0.08)', color: '#FF3D3D', fontSize: '0.72rem', fontFamily: 'var(--font-mono)', cursor: loading ? 'wait' : 'pointer' }}
+                                  >
+                                    <ShieldBan size={12} /> Block
+                                  </button>
+                                </>
                               )}
                             </div>
                           );

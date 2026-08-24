@@ -276,12 +276,14 @@ func (h *logCaptureHandler) WithGroup(name string) slog.Handler {
 }
 
 type Handler struct {
-	cfg   Config
-	log   *slog.Logger
-	db    *dbsqlc.Queries // nil when DATABASE_URL is not set
-	jobs  *jobRegistry
-	cache *scanCache
-	logs  *logRing
+	cfg           Config
+	log           *slog.Logger
+	db            *dbsqlc.Queries // nil when DATABASE_URL is not set
+	jobs          *jobRegistry
+	cache         *scanCache
+	logs          *logRing
+	monitorMu     sync.Mutex
+	monitorEvents []monitorEvent
 }
 
 // New creates a handler suite. pool may be nil; DB-backed endpoints will return
@@ -485,6 +487,16 @@ func (h *Handler) TriggerScan(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
 
+		pkgLabel := fmt.Sprintf("%s@%s", req.Package, req.Version)
+		notifyCfg, _ := loadNotifyConfig()
+		scanStart := time.Now()
+
+		notify.NotifyScanStart(notifyCfg, notify.ScanEvent{
+			Package:  pkgLabel,
+			ScanType: "registry",
+			Target:   fmt.Sprintf("%s/%s", req.Ecosystem, pkgLabel),
+		})
+
 		// Download artifact from registry and extract to temp dir.
 		artifact, cleanup, dlErr := downloadArtifact(ctx, req.Ecosystem, req.Package, req.Version)
 		if dlErr != nil {
@@ -534,6 +546,27 @@ func (h *Handler) TriggerScan(c *gin.Context) {
 		}
 
 		summary := scanner.Summarize(findings)
+
+		var engineNames []string
+		for _, r := range results {
+			engineNames = append(engineNames, r.Scanner)
+		}
+		notify.NotifyScanComplete(notifyCfg, notify.ScanEvent{
+			Package:  pkgLabel,
+			ScanType: "registry",
+			Target:   fmt.Sprintf("%s/%s", req.Ecosystem, pkgLabel),
+			Engines:  engineNames,
+			Duration: time.Since(scanStart),
+			Findings: findings,
+			Summary: &notify.ScanSummaryInfo{
+				Total:      summary.Total,
+				Critical:   summary.Critical,
+				High:       summary.High,
+				Medium:     summary.Medium,
+				Low:        summary.Low,
+				HighestSev: string(summary.HighestSev),
+			},
+		})
 
 		h.cache.add(cachedScanResult{
 			Ecosystem:       req.Ecosystem,
@@ -660,6 +693,15 @@ func (h *Handler) ScanUpload(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
 
+		notifyCfg, _ := loadNotifyConfig()
+		scanStart := time.Now()
+
+		notify.NotifyScanStart(notifyCfg, notify.ScanEvent{
+			Package:  label,
+			ScanType: "upload",
+			Target:   label,
+		})
+
 		agentBus.publish(AgentEvent{
 			Type:    "start",
 			Message: fmt.Sprintf("Scanning uploaded archive: %s", label),
@@ -668,6 +710,12 @@ func (h *Handler) ScanUpload(c *gin.Context) {
 		ls := localscanner.New(h.cfg.GetIntelStorePath())
 		result, err := ls.Scan(ctx, dir, nil)
 		if err != nil {
+			notify.NotifyScanError(notifyCfg, notify.ScanEvent{
+				Package:  label,
+				ScanType: "upload",
+				Target:   label,
+				Error:    err.Error(),
+			})
 			agentBus.publish(AgentEvent{
 				Type:    "error",
 				Message: fmt.Sprintf("Upload scan failed: %s", err.Error()),
@@ -675,6 +723,27 @@ func (h *Handler) ScanUpload(c *gin.Context) {
 			return nil, err
 		}
 		result.RootDir = label
+
+		var allFindings []core.Finding
+		for _, r := range result.Results {
+			allFindings = append(allFindings, r.Findings...)
+		}
+		summary := result.Summary
+		notify.NotifyScanComplete(notifyCfg, notify.ScanEvent{
+			Package:  label,
+			ScanType: "upload",
+			Target:   label,
+			Duration: time.Since(scanStart),
+			Findings: allFindings,
+			Summary: &notify.ScanSummaryInfo{
+				Total:      summary.Total,
+				Critical:   summary.Critical,
+				High:       summary.High,
+				Medium:     summary.Medium,
+				Low:        summary.Low,
+				HighestSev: string(summary.HighestSev),
+			},
+		})
 
 		agentBus.publish(AgentEvent{
 			Type:    "done",
@@ -1677,6 +1746,190 @@ func (h *Handler) SavePolicy(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, p)
+}
+
+// QuarantinePackage adds a package to the policy deny list.
+// POST /api/v1/policy/quarantine  body: {"package": "minimist", "reason": "CVE-2020-7598"}
+func (h *Handler) QuarantinePackage(c *gin.Context) {
+	var req struct {
+		Package string `json:"package" binding:"required"`
+		Reason  string `json:"reason"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "package name is required"})
+		return
+	}
+
+	pol, err := policy.Load()
+	if err != nil || pol == nil {
+		if pol == nil {
+			pol = policy.DefaultPolicy()
+		}
+	}
+
+	for _, d := range pol.DenyPackages {
+		if strings.EqualFold(d, req.Package) {
+			c.JSON(http.StatusOK, gin.H{
+				"status":  "already_denied",
+				"package": req.Package,
+				"message": fmt.Sprintf("Package %q is already in the deny list", req.Package),
+			})
+			return
+		}
+	}
+
+	pol.DenyPackages = append(pol.DenyPackages, req.Package)
+	if err := policy.Save(pol); err != nil {
+		internalError(c, h.log, "operation failed", err)
+		return
+	}
+
+	h.addMonitorEvent("quarantine", req.Package, req.Reason)
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "quarantined",
+		"package": req.Package,
+		"action":  "added to deny list",
+		"deny_packages": pol.DenyPackages,
+	})
+}
+
+// BlockPackage adds a package to the deny list and sets fail_on to at least medium.
+// POST /api/v1/policy/block  body: {"package": "minimist", "reason": "CVE-2020-7598"}
+func (h *Handler) BlockPackage(c *gin.Context) {
+	var req struct {
+		Package string `json:"package" binding:"required"`
+		Reason  string `json:"reason"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "package name is required"})
+		return
+	}
+
+	pol, err := policy.Load()
+	if err != nil || pol == nil {
+		if pol == nil {
+			pol = policy.DefaultPolicy()
+		}
+	}
+
+	alreadyDenied := false
+	for _, d := range pol.DenyPackages {
+		if strings.EqualFold(d, req.Package) {
+			alreadyDenied = true
+			break
+		}
+	}
+	if !alreadyDenied {
+		pol.DenyPackages = append(pol.DenyPackages, req.Package)
+	}
+
+	sevRank := map[string]int{"": 0, "critical": 4, "high": 3, "medium": 2, "low": 1}
+	if sevRank[strings.ToLower(pol.FailOn)] > 2 || pol.FailOn == "" {
+		pol.FailOn = "medium"
+	}
+
+	if err := policy.Save(pol); err != nil {
+		internalError(c, h.log, "operation failed", err)
+		return
+	}
+
+	h.addMonitorEvent("block", req.Package, req.Reason)
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":         "blocked",
+		"package":        req.Package,
+		"action":         "denied + fail_on=medium",
+		"deny_packages":  pol.DenyPackages,
+		"fail_on":        pol.FailOn,
+	})
+}
+
+// UnquarantinePackage removes a package from the policy deny list.
+// POST /api/v1/policy/unquarantine  body: {"package": "minimist"}
+func (h *Handler) UnquarantinePackage(c *gin.Context) {
+	var req struct {
+		Package string `json:"package" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "package name is required"})
+		return
+	}
+
+	pol, err := policy.Load()
+	if err != nil || pol == nil {
+		c.JSON(http.StatusOK, gin.H{"status": "not_found", "message": "no policy file or package not in deny list"})
+		return
+	}
+
+	var kept []string
+	found := false
+	for _, d := range pol.DenyPackages {
+		if strings.EqualFold(d, req.Package) {
+			found = true
+			continue
+		}
+		kept = append(kept, d)
+	}
+	if !found {
+		c.JSON(http.StatusOK, gin.H{"status": "not_found", "package": req.Package, "message": "package is not in the deny list"})
+		return
+	}
+
+	pol.DenyPackages = kept
+	if err := policy.Save(pol); err != nil {
+		internalError(c, h.log, "operation failed", err)
+		return
+	}
+
+	h.addMonitorEvent("unquarantine", req.Package, "manually removed from deny list")
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":         "removed",
+		"package":        req.Package,
+		"deny_packages":  pol.DenyPackages,
+	})
+}
+
+// monitorEvent is an in-memory log entry for policy actions.
+type monitorEvent struct {
+	Timestamp time.Time `json:"timestamp"`
+	Action    string    `json:"action"`
+	Package   string    `json:"package"`
+	Reason    string    `json:"reason,omitempty"`
+}
+
+func (h *Handler) addMonitorEvent(action, pkg, reason string) {
+	h.monitorMu.Lock()
+	defer h.monitorMu.Unlock()
+	h.monitorEvents = append(h.monitorEvents, monitorEvent{
+		Timestamp: time.Now().UTC(),
+		Action:    action,
+		Package:   pkg,
+		Reason:    reason,
+	})
+	if len(h.monitorEvents) > 500 {
+		h.monitorEvents = h.monitorEvents[len(h.monitorEvents)-500:]
+	}
+}
+
+// MonitorEvents returns the in-memory log of policy actions.
+// GET /api/v1/monitor/events
+func (h *Handler) MonitorEvents(c *gin.Context) {
+	h.monitorMu.Lock()
+	events := make([]monitorEvent, len(h.monitorEvents))
+	copy(events, h.monitorEvents)
+	h.monitorMu.Unlock()
+
+	// Return newest first
+	for i, j := 0, len(events)-1; i < j; i, j = i+1, j-1 {
+		events[i], events[j] = events[j], events[i]
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"events": events,
+		"total":  len(events),
+	})
 }
 
 // WebhookTest reads ~/.forgeguardian/config.yaml (the same file

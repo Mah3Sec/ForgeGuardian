@@ -5,13 +5,15 @@ import { cn } from './ui/utils';
 import { Input } from './ui/input';
 
 export function WorkspaceSwitcher({ collapsed }: { collapsed: boolean }) {
-  const { workspaces, activeId, create, remove, setActive } = useWorkspaceStore();
+  const { workspaces, activeId, create, remove, setActive, syncFromServer } = useWorkspaceStore();
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [selectedColor, setSelectedColor] = useState(WORKSPACE_COLORS[0]);
   const containerRef = useRef<HTMLDivElement>(null);
   const flyoutRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { syncFromServer(); }, [syncFromServer]);
 
   const getFlyoutPos = () => {
     if (!containerRef.current) return { top: 0, left: 60 };

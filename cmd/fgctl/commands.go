@@ -2,6 +2,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"flag"
@@ -22,6 +23,7 @@ import (
 	"github.com/mah3sec/forgeguardian/internal/core"
 	"github.com/mah3sec/forgeguardian/internal/intelligence"
 	"github.com/mah3sec/forgeguardian/internal/localscanner"
+	"github.com/mah3sec/forgeguardian/internal/notify"
 	"github.com/mah3sec/forgeguardian/internal/policy"
 	"github.com/mah3sec/forgeguardian/internal/scanner"
 	"github.com/mah3sec/forgeguardian/internal/ui"
@@ -84,6 +86,14 @@ func findAgentBinary() string {
 
 // runMonitor watches manifest files for changes and re-scans on each change.
 // Uses polling (fsnotify-free) with a 3s interval — avoids adding a new dep.
+//
+// --action controls the response to new threats:
+//
+//	notify      (default) send webhook alert only
+//	quarantine  remove from node_modules/vendor + add to policy deny list + notify
+//	block       same as quarantine + set fail_on=medium so CI fails + notify
+//
+// Quarantine and block prompt for approval before acting unless --auto-approve is set.
 func runMonitor(args []string, log *slog.Logger, p *ui.Printer) error {
 	fs := flag.NewFlagSet("monitor", flag.ExitOnError)
 	watchFlag := fs.Bool("watch", false, "watch for manifest changes and re-scan")
@@ -91,39 +101,99 @@ func runMonitor(args []string, log *slog.Logger, p *ui.Printer) error {
 	intervalFlag := fs.Duration("interval", 3*time.Second, "polling interval for --watch mode")
 	workersFlag := fs.Int("workers", 4, "scan workers")
 	timeoutFlag := fs.Duration("timeout", 5*time.Minute, "scan timeout per cycle")
-	fs.Parse(args)
+	actionFlag := fs.String("action", "notify", "auto-response for new threats: notify|quarantine|block")
+	autoApproveFlag := fs.Bool("auto-approve", false, "skip approval prompt for quarantine/block (CI/unattended use)")
+
+	// Go's flag package stops at the first non-flag positional arg. Reorder so
+	// flags are parsed regardless of where the user puts the directory path.
+	var flagArgs, posArgs []string
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if strings.HasPrefix(a, "-") {
+			flagArgs = append(flagArgs, a)
+			if !strings.Contains(a, "=") {
+				name := strings.TrimLeft(a, "-")
+				knownValueFlags := map[string]bool{
+					"dir": true, "interval": true, "workers": true,
+					"timeout": true, "action": true,
+				}
+				if knownValueFlags[name] && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+					i++
+					flagArgs = append(flagArgs, args[i])
+				}
+			}
+		} else {
+			posArgs = append(posArgs, a)
+		}
+	}
+	fs.Parse(append(flagArgs, posArgs...))
 
 	dir := *dirFlag
 	if len(fs.Args()) > 0 {
 		dir = fs.Args()[0]
 	}
 
+	action := strings.ToLower(*actionFlag)
+	if action != "notify" && action != "quarantine" && action != "block" {
+		return fmt.Errorf("invalid --action %q — must be notify, quarantine, or block", *actionFlag)
+	}
+
 	if !*watchFlag {
-		// One-shot: just scan and exit.
 		opts := localScanOpts{workers: *workersFlag, timeout: *timeoutFlag}
 		return runLocalScan(dir, opts, log, p)
 	}
 
+	cfg := loadConfig()
+	notifyCfg := notify.Config{
+		SlackWebhookURL:   cfg.Notify.SlackWebhookURL,
+		DiscordWebhookURL: cfg.Notify.DiscordWebhookURL,
+		GenericWebhookURL: cfg.Notify.GenericWebhookURL,
+		OnSeverity:        cfg.Notify.OnSeverity,
+	}
+
+	absDir, _ := filepath.Abs(dir)
+
 	p.Banner()
-	fmt.Printf("  Watching %s for manifest changes (poll interval: %s)...\n", dir, *intervalFlag)
+	actionLabel := "notify only"
+	if action == "quarantine" {
+		actionLabel = "quarantine (remove + deny)"
+		if *autoApproveFlag {
+			actionLabel += " [auto-approve]"
+		}
+	} else if action == "block" {
+		actionLabel = "block (remove + deny + fail CI)"
+		if *autoApproveFlag {
+			actionLabel += " [auto-approve]"
+		}
+	}
+	fmt.Printf("  Watching %s for manifest changes (poll interval: %s)\n", dir, *intervalFlag)
+	fmt.Printf("  Action on new threats: %s\n", actionLabel)
 	fmt.Printf("  Press Ctrl+C to stop.\n\n")
+
+	notify.NotifyMonitorStarted(notifyCfg, dir, *intervalFlag)
 
 	storePath, _ := signaturesStorePath()
 	ls := localscanner.New(storePath)
 	ls.Workers = *workersFlag
 
-	// Collect baseline manifest mtimes.
+	stdinReader := bufio.NewReader(os.Stdin)
+
 	mtimes := manifestMtimes(dir)
 
-	// Run initial scan.
-	prevFindings := map[string]core.Finding{}
+	type findingWithPkg struct {
+		finding   core.Finding
+		pkgLabel  string // "eco/name@ver"
+		ecosystem string
+	}
+	prevFindings := map[string]findingWithPkg{}
 	ctx, cancel := context.WithTimeout(context.Background(), *timeoutFlag)
 	result, err := ls.Scan(ctx, dir, nil)
 	cancel()
 	if err == nil {
 		for _, r := range result.Results {
+			pkg := r.Entry.Ecosystem + "/" + r.Entry.Name + "@" + r.Entry.Version
 			for _, f := range r.Findings {
-				prevFindings[r.Entry.Ecosystem+"/"+r.Entry.Name+"@"+r.Entry.Version+":"+f.ID] = f
+				prevFindings[pkg+":"+f.ID] = findingWithPkg{finding: f, pkgLabel: pkg, ecosystem: r.Entry.Ecosystem}
 			}
 		}
 		ts := time.Now().Format("15:04:05")
@@ -160,58 +230,250 @@ func runMonitor(args []string, log *slog.Logger, p *ui.Printer) error {
 		cancel2()
 		if err != nil {
 			fmt.Printf("  [%s] scan error: %v\n", time.Now().Format("15:04:05"), err)
+			notify.NotifyScanError(notifyCfg, notify.ScanEvent{
+				Package:  dir,
+				ScanType: "monitor",
+				Target:   dir,
+				Error:    err.Error(),
+			})
 			continue
 		}
 
-		// Diff: new vs previous findings.
-		newFindings := map[string]core.Finding{}
+		newFindings := map[string]findingWithPkg{}
 		for _, r := range newResult.Results {
+			pkg := r.Entry.Ecosystem + "/" + r.Entry.Name + "@" + r.Entry.Version
 			for _, f := range r.Findings {
-				newFindings[r.Entry.Ecosystem+"/"+r.Entry.Name+"@"+r.Entry.Version+":"+f.ID] = f
+				newFindings[pkg+":"+f.ID] = findingWithPkg{finding: f, pkgLabel: pkg, ecosystem: r.Entry.Ecosystem}
 			}
 		}
 
-		added := 0
-		for key, f := range newFindings {
+		var addedFindings []notify.MonitorFinding
+		type quarantineTarget struct {
+			name      string
+			ecosystem string
+		}
+		var quarantineTargets []quarantineTarget
+
+		for key, fwp := range newFindings {
 			if _, existed := prevFindings[key]; !existed {
-				// Parse package identifier from key "eco/name@ver:findingID".
-				pkgLabel := ""
-				if parts := strings.SplitN(key, ":", 2); len(parts) == 2 {
-					pkgLabel = " (" + parts[0] + ")"
-				}
-				sev := ui.SeverityColor(f.Severity)
-				fmt.Printf("  [%s] NEW %s%s  %s\n",
+				sev := ui.SeverityColor(fwp.finding.Severity)
+				fmt.Printf("  [%s] NEW %s (%s)  %s\n",
 					time.Now().Format("15:04:05"),
-					sev.Sprintf("[%s]", f.Severity),
-					pkgLabel,
-					f.Title)
-				added++
+					sev.Sprintf("[%s]", fwp.finding.Severity),
+					fwp.pkgLabel,
+					fwp.finding.Title)
+
+				addedFindings = append(addedFindings, notify.MonitorFinding{
+					Package: fwp.pkgLabel,
+					Finding: fwp.finding,
+				})
+
+				if action == "quarantine" || action == "block" {
+					parts := strings.SplitN(fwp.pkgLabel, "/", 2)
+					if len(parts) == 2 {
+						nameVer := parts[1]
+						nameOnly := nameVer
+						if atIdx := strings.LastIndex(nameVer, "@"); atIdx > 0 {
+							nameOnly = nameVer[:atIdx]
+						}
+						quarantineTargets = append(quarantineTargets, quarantineTarget{
+							name:      nameOnly,
+							ecosystem: fwp.ecosystem,
+						})
+					}
+				}
 			}
 		}
-		resolved := 0
-		for key, f := range prevFindings {
+
+		var resolvedFindings []notify.MonitorFinding
+		for key, fwp := range prevFindings {
 			if _, still := newFindings[key]; !still {
-				fmt.Printf("  [%s] RESOLVED  %s\n", time.Now().Format("15:04:05"), f.Title)
-				resolved++
+				fmt.Printf("  [%s] RESOLVED  %s\n", time.Now().Format("15:04:05"), fwp.finding.Title)
+				resolvedFindings = append(resolvedFindings, notify.MonitorFinding{
+					Package: fwp.pkgLabel,
+					Finding: fwp.finding,
+				})
 			}
 		}
 
 		ts := time.Now().Format("15:04:05")
-		if added == 0 && resolved == 0 {
+		if len(addedFindings) == 0 && len(resolvedFindings) == 0 {
 			color.New(color.FgWhite).Fprintf(p.Out, "  [%s] No changes.\n", ts)
 		} else {
 			var deltaParts []string
-			if added > 0 {
-				deltaParts = append(deltaParts, color.New(color.FgRed).Sprintf("%d new", added))
+			if len(addedFindings) > 0 {
+				deltaParts = append(deltaParts, color.New(color.FgRed).Sprintf("%d new", len(addedFindings)))
 			}
-			if resolved > 0 {
-				deltaParts = append(deltaParts, color.New(color.FgGreen).Sprintf("%d resolved", resolved))
+			if len(resolvedFindings) > 0 {
+				deltaParts = append(deltaParts, color.New(color.FgGreen).Sprintf("%d resolved", len(resolvedFindings)))
 			}
 			fmt.Fprintf(p.Out, "  [%s] %s\n", ts, strings.Join(deltaParts, "  "))
+
+			// Send webhook alert for changes
+			if err := notify.NotifyMonitorAlert(notifyCfg, notify.MonitorEvent{
+				Target:   dir,
+				Action:   action,
+				Added:    addedFindings,
+				Resolved: resolvedFindings,
+			}); err != nil {
+				fmt.Fprintf(os.Stderr, "  [%s] webhook alert failed: %v\n", ts, err)
+			}
+
+			// Quarantine/block: prompt for approval, then remove + deny
+			if (action == "quarantine" || action == "block") && len(quarantineTargets) > 0 {
+				// Dedup targets
+				seen := map[string]quarantineTarget{}
+				for _, qt := range quarantineTargets {
+					seen[qt.name] = qt
+				}
+
+				approved := *autoApproveFlag
+				if !approved {
+					var pkgNames []string
+					for name := range seen {
+						pkgNames = append(pkgNames, name)
+					}
+					sort.Strings(pkgNames)
+
+					verb := "Quarantine"
+					if action == "block" {
+						verb = "Block"
+					}
+					color.New(color.FgYellow, color.Bold).Fprintf(p.Out,
+						"\n  ⚠  %s %d package(s)? This will:\n", verb, len(pkgNames))
+					fmt.Fprintf(p.Out, "     • Remove from local install (node_modules/vendor)\n")
+					fmt.Fprintf(p.Out, "     • Add to policy deny list\n")
+					if action == "block" {
+						fmt.Fprintf(p.Out, "     • Set fail_on=medium (CI will fail)\n")
+					}
+					fmt.Fprintf(p.Out, "     Packages: %s\n", strings.Join(pkgNames, ", "))
+					fmt.Fprintf(p.Out, "\n  Proceed? [y/N] ")
+
+					answer, _ := stdinReader.ReadString('\n')
+					answer = strings.TrimSpace(strings.ToLower(answer))
+					approved = answer == "y" || answer == "yes"
+
+					if !approved {
+						color.New(color.FgCyan).Fprintf(p.Out, "  [%s] Skipped — packages left in place.\n\n", ts)
+					}
+				}
+
+				if approved {
+					pol, _ := policy.Load()
+					if pol == nil {
+						pol = policy.DefaultPolicy()
+					}
+
+					policyChanged := false
+					for _, qt := range seen {
+						// 1. Remove from local install directory
+						removed := removeInstalledPackage(absDir, qt.name, qt.ecosystem)
+
+						// 2. Add to policy deny list
+						alreadyDenied := false
+						for _, d := range pol.DenyPackages {
+							if strings.EqualFold(d, qt.name) {
+								alreadyDenied = true
+								break
+							}
+						}
+						if !alreadyDenied {
+							pol.DenyPackages = append(pol.DenyPackages, qt.name)
+							policyChanged = true
+						}
+
+						sev := color.New(color.FgYellow)
+						verb := "QUARANTINED"
+						if action == "block" {
+							sev = color.New(color.FgRed)
+							verb = "BLOCKED"
+						}
+
+						detail := "denied"
+						if removed {
+							detail = "removed + denied"
+						}
+						sev.Fprintf(p.Out, "  [%s] %s  %s → %s\n", ts, verb, qt.name, detail)
+					}
+
+					if action == "block" {
+						// Ensure fail_on is at least medium so blocked packages cause CI failure.
+						sevRank := map[string]int{"": 0, "critical": 4, "high": 3, "medium": 2, "low": 1}
+						if sevRank[strings.ToLower(pol.FailOn)] > 2 || pol.FailOn == "" {
+							pol.FailOn = "medium"
+							policyChanged = true
+						}
+					}
+
+					if policyChanged {
+						if err := policy.Save(pol); err != nil {
+							fmt.Fprintf(os.Stderr, "  [%s] failed to save policy: %v\n", ts, err)
+						}
+					}
+					fmt.Fprintln(p.Out)
+				}
+			}
 		}
 
 		prevFindings = newFindings
 	}
+}
+
+// removeInstalledPackage deletes a package from the project's local install
+// directory (node_modules for npm, vendor for Go/Ruby, etc.). Returns true if
+// something was actually removed.
+func removeInstalledPackage(projectDir, pkgName, ecosystem string) bool {
+	var candidates []string
+	switch ecosystem {
+	case "npm":
+		candidates = append(candidates,
+			filepath.Join(projectDir, "node_modules", pkgName),
+			filepath.Join(projectDir, "node_modules", ".package-lock.json"),
+		)
+	case "pypi":
+		// pip site-packages are global; we can't safely nuke them from a project dir.
+		// Best effort: check for a local venv.
+		for _, venv := range []string{".venv", "venv", "env"} {
+			siteDir := filepath.Join(projectDir, venv, "lib")
+			if info, err := os.Stat(siteDir); err == nil && info.IsDir() {
+				// Walk looking for the package egg-info/dist-info directory
+				filepath.WalkDir(siteDir, func(path string, d os.DirEntry, err error) error {
+					if err != nil || !d.IsDir() {
+						return nil
+					}
+					lower := strings.ToLower(d.Name())
+					normalized := strings.ReplaceAll(strings.ToLower(pkgName), "-", "_")
+					if strings.HasPrefix(lower, normalized) &&
+						(strings.Contains(lower, ".dist-info") || strings.Contains(lower, ".egg-info")) {
+						candidates = append(candidates, path)
+					}
+					return nil
+				})
+			}
+		}
+	case "go":
+		candidates = append(candidates, filepath.Join(projectDir, "vendor", pkgName))
+	case "rubygems":
+		candidates = append(candidates, filepath.Join(projectDir, "vendor", "bundle"))
+	case "crates":
+		// Cargo doesn't vendor by default; nothing to remove locally.
+	}
+
+	removed := false
+	for _, path := range candidates {
+		if info, err := os.Stat(path); err == nil {
+			if info.IsDir() {
+				if os.RemoveAll(path) == nil {
+					removed = true
+				}
+			} else {
+				if os.Remove(path) == nil {
+					removed = true
+				}
+			}
+		}
+	}
+	return removed
 }
 
 // manifestMtimes returns a map of manifest file path → mtime.
