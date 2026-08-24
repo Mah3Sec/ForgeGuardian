@@ -139,7 +139,6 @@ function CategoryTreemap({ findings }: { findings: Finding[] }) {
           dataKey="size"
           nameKey="name"
           stroke="var(--border-color)"
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           content={(({ x, y, width, height, name, index }: { x: number; y: number; width: number; height: number; name: string; index: number }) => {
             const w = Number(width) || 0;
             const h = Number(height) || 0;

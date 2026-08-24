@@ -32,7 +32,7 @@ else
   GREEN=''; YELLOW=''; RED=''; BOLD=''; DIM=''; CYAN=''; MAGENTA=''; NC=''
 fi
 
-step()  { printf "\n  ${CYAN}${BOLD}[%s/7]${NC} ${BOLD}%s${NC}\n" "$1" "$2"; }
+step()  { printf "\n  ${CYAN}${BOLD}[%s/8]${NC} ${BOLD}%s${NC}\n" "$1" "$2"; }
 info()  { printf "  ${GREEN}+${NC}  %s\n" "$*"; }
 warn()  { printf "  ${YELLOW}!${NC}  %s\n" "$*"; }
 err()   { printf "  ${RED}x${NC}  %s\n" "$*" >&2; }
@@ -44,6 +44,7 @@ INSTALL_DIR="${INSTALL_DIR:-${HOME}/.local/bin}"
 DATA_DIR="${HOME}/.forgeguardian"
 REPO="Mah3Sec/ForgeGuardian"
 SKIP_ENGINES="${SKIP_ENGINES:-0}"
+SKIP_SERVER="${SKIP_SERVER:-0}"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # STEP 1: Detect platform
@@ -465,9 +466,97 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# STEP 7: Verify
+# STEP 7: Auto-start server
 # ═══════════════════════════════════════════════════════════════════════════════
-step 7 "Verifying installation"
+step 7 "Setting up server"
+
+if [ "$SKIP_SERVER" = "1" ]; then
+  warn "Skipping (SKIP_SERVER=1)"
+elif $IS_WINDOWS; then
+  info "Run 'fgctl serve' to start the platform"
+elif [ "$OS" = "darwin" ]; then
+  # macOS: create a launchd agent
+  PLIST_DIR="${HOME}/Library/LaunchAgents"
+  PLIST_FILE="${PLIST_DIR}/com.forgeguardian.server.plist"
+  ensure_dir "$PLIST_DIR"
+  cat > "$PLIST_FILE" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.forgeguardian.server</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>${INSTALL_DIR}/fgctl</string>
+    <string>serve</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>${DATA_DIR}/server.log</string>
+  <key>StandardErrorPath</key>
+  <string>${DATA_DIR}/server.log</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>${INSTALL_DIR}:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+</dict>
+</plist>
+PLIST
+  launchctl load "$PLIST_FILE" 2>/dev/null && info "Server started (launchd agent)" \
+    || warn "Could not start launchd agent — run 'fgctl serve' manually"
+  info "Logs: ${DATA_DIR}/server.log"
+elif has_cmd systemctl; then
+  # Linux with systemd: create a user service
+  SYSTEMD_DIR="${HOME}/.config/systemd/user"
+  ensure_dir "$SYSTEMD_DIR"
+  cat > "${SYSTEMD_DIR}/forgeguardian.service" <<SVC
+[Unit]
+Description=ForgeGuardian Security Platform
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=${INSTALL_DIR}/fgctl serve
+Restart=on-failure
+RestartSec=5
+Environment=PATH=${INSTALL_DIR}:/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=default.target
+SVC
+  systemctl --user daemon-reload 2>/dev/null || true
+  systemctl --user enable forgeguardian.service 2>/dev/null || true
+  systemctl --user start forgeguardian.service 2>/dev/null \
+    && info "Server started (systemd user service)" \
+    || warn "Could not start systemd service — run 'fgctl serve' manually"
+  # Enable lingering so the service runs even when user is not logged in
+  loginctl enable-linger "$(whoami)" 2>/dev/null || true
+  info "Manage: systemctl --user {start|stop|status} forgeguardian"
+  info "Logs:   journalctl --user -u forgeguardian -f"
+else
+  # No systemd — start in background
+  nohup "${INSTALL_DIR}/fgctl" serve > "${DATA_DIR}/server.log" 2>&1 &
+  SERVER_PID=$!
+  sleep 1
+  if kill -0 "$SERVER_PID" 2>/dev/null; then
+    info "Server started in background (PID ${SERVER_PID})"
+    info "Logs: ${DATA_DIR}/server.log"
+    printf '%s' "$SERVER_PID" > "${DATA_DIR}/server.pid"
+  else
+    warn "Server failed to start — check ${DATA_DIR}/server.log"
+  fi
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STEP 8: Verify
+# ═══════════════════════════════════════════════════════════════════════════════
+step 8 "Verifying installation"
 
 printf "\n"
 CHECK_PASS=0; CHECK_TOTAL=0
@@ -499,9 +588,15 @@ else
 fi
 printf "  ${BOLD}==========================================${NC}\n"
 printf "\n"
-printf "  ${BOLD}Start the platform:${NC}\n"
-printf "    ${GREEN}${BOLD}fgctl serve${NC}\n"
-printf "    ${DIM}-> API + Dashboard at http://localhost:8080${NC}\n"
+if [ "$SKIP_SERVER" != "1" ] && ! $IS_WINDOWS; then
+  printf "  ${BOLD}Dashboard:${NC}\n"
+  printf "    ${GREEN}${BOLD}http://localhost:8080${NC}\n"
+  printf "    ${DIM}Server is running — open the URL above in your browser${NC}\n"
+else
+  printf "  ${BOLD}Start the platform:${NC}\n"
+  printf "    ${GREEN}${BOLD}fgctl serve${NC}\n"
+  printf "    ${DIM}-> API + Dashboard at http://localhost:8080${NC}\n"
+fi
 printf "\n"
 printf "  ${BOLD}Scan a project:${NC}\n"
 printf "    ${GREEN}fgctl scan .${NC}                        ${DIM}# scan current directory${NC}\n"
@@ -532,7 +627,7 @@ if ($env:INSTALL_DIR) { $installDir = $env:INSTALL_DIR } else { $installDir = Jo
 $dataDir = Join-Path $HOME '.forgeguardian'
 $skipEngines = $env:SKIP_ENGINES -eq '1'
 
-function Write-Step { param($n, $msg) Write-Host "`n  [$n/7] $msg" -ForegroundColor Cyan }
+function Write-Step { param($n, $msg) Write-Host "`n  [$n/8] $msg" -ForegroundColor Cyan }
 function Write-Ok { param($msg) Write-Host "  > $msg" -ForegroundColor Green }
 function Write-Warn { param($msg) Write-Host "  ! $msg" -ForegroundColor Yellow }
 function Test-Cmd { param($cmd) $null -ne (Get-Command $cmd -ErrorAction SilentlyContinue) }
@@ -705,8 +800,23 @@ engines:
     Write-Ok "Config created -> $cfgFile"
 } else { Write-Ok "Config exists -> $cfgFile" }
 
-# ── Step 7: Verify ─────────────────────────────────────────────────────────
-Write-Step 7 'Verifying installation'
+# ── Step 7: Server ─────────────────────────────────────────────────────────
+Write-Step 7 'Setting up server'
+
+if ($env:SKIP_SERVER -ne '1') {
+    $fgctlExe = Join-Path $installDir 'fgctl.exe'
+    if (Test-Path $fgctlExe) {
+        try {
+            Start-Process -FilePath $fgctlExe -ArgumentList 'serve' -WindowStyle Hidden -PassThru | Out-Null
+            Start-Sleep -Seconds 2
+            Write-Ok 'Server started in background'
+            Write-Ok 'Dashboard: http://localhost:8080'
+        } catch { Write-Warn 'Could not auto-start — run "fgctl serve" manually' }
+    }
+} else { Write-Warn 'Skipping (SKIP_SERVER=1)' }
+
+# ── Step 8: Verify ─────────────────────────────────────────────────────────
+Write-Step 8 'Verifying installation'
 Write-Host ''
 $pass = 0; $total = 0
 foreach ($item in @('fgctl','grype','trivy','semgrep')) {
@@ -730,9 +840,15 @@ if ($pass -eq $total) { Write-Host "    All $total components installed" -Foregr
 else { Write-Host "    Installed $pass/$total components" -ForegroundColor Green }
 Write-Host '  ==========================================' -ForegroundColor White
 Write-Host ''
-Write-Host '  Start the platform:' -ForegroundColor Cyan
-Write-Host '    fgctl serve' -ForegroundColor Green
-Write-Host '    -> API + Dashboard at http://localhost:8080' -ForegroundColor DarkGray
+if ($env:SKIP_SERVER -ne '1') {
+    Write-Host '  Dashboard:' -ForegroundColor Cyan
+    Write-Host '    http://localhost:8080' -ForegroundColor Green
+    Write-Host '    Server is running — open the URL above in your browser' -ForegroundColor DarkGray
+} else {
+    Write-Host '  Start the platform:' -ForegroundColor Cyan
+    Write-Host '    fgctl serve' -ForegroundColor Green
+    Write-Host '    -> API + Dashboard at http://localhost:8080' -ForegroundColor DarkGray
+}
 Write-Host ''
 Write-Host '  Scan a project:' -ForegroundColor Cyan
 Write-Host '    fgctl scan .                        # scan current directory' -ForegroundColor DarkGray

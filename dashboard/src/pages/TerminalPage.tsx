@@ -131,11 +131,12 @@ export function TerminalPage() {
       }
 
       setLines(prev => [...prev, { type: 'system', text: '' }])
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
+    } catch (err: unknown) {
+      const e = err as Error
+      if (e.name === 'AbortError') {
         setLines(prev => [...prev, { type: 'error', text: '^C' }])
       } else {
-        setLines(prev => [...prev, { type: 'error', text: err.message }])
+        setLines(prev => [...prev, { type: 'error', text: e.message || 'Unknown error' }])
       }
     } finally {
       setRunning(false)
