@@ -91,9 +91,12 @@ elif $IS_WINDOWS; then
   DISTRO="windows"
   DISTRO_PRETTY="Windows ($(uname -o 2>/dev/null || printf 'Git Bash'))"
 elif [ -f /etc/os-release ]; then
+  _FG_VER="$VERSION"
   . /etc/os-release
   DISTRO="${ID:-unknown}"
   DISTRO_PRETTY="${PRETTY_NAME:-${ID} ${VERSION_ID:-}}"
+  VERSION="$_FG_VER"
+  unset _FG_VER
 fi
 
 # package manager
