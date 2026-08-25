@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="dashboard/public/logo.png" alt="ForgeGuardian" width="80"/>
+  <img src="dashboard/public/logo.png" alt="ForgeGuardian" width="160"/>
 </p>
 
 <h1 align="center">ForgeGuardian</h1>
