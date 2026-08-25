@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="480" viewBox="0 0 820 480">
+  <defs>
+    <style>
+      .term-bg { fill: #0d1117; }
+      .term-bar { fill: #161b22; }
+      .term-border { stroke: #30363d; stroke-width: 1; fill: none; }
+      .dot-red { fill: #ff5f56; }
+      .dot-yellow { fill: #ffbd2e; }
+      .dot-green { fill: #27c93f; }
+      .title { fill: #8b949e; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 12px; }
+      .prompt { fill: #58a6ff; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; }
+      .cmd { fill: #c9d1d9; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; }
+      .white { fill: #e6edf3; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; }
+      .dim { fill: #8b949e; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; }
+      .green { fill: #3fb950; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; }
+      .green-bold { fill: #3fb950; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; font-weight: 700; }
+      .cyan { fill: #79c0ff; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; }
+      .blue { fill: #58a6ff; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; }
+      .yellow { fill: #e3b341; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; }
+      .bold { font-weight: 700; }
+    </style>
+  </defs>
+  <!-- Window -->
+  <rect class="term-bg" width="820" height="480" rx="8"/>
+  <rect class="term-border" x="0.5" y="0.5" width="819" height="479" rx="8"/>
+  <!-- Title bar -->
+  <rect class="term-bar" width="820" height="36" rx="8"/>
+  <rect class="term-bar" y="28" width="820" height="8"/>
+  <circle class="dot-red" cx="20" cy="18" r="6"/>
+  <circle class="dot-yellow" cx="40" cy="18" r="6"/>
+  <circle class="dot-green" cx="60" cy="18" r="6"/>
+  <text class="title" x="410" y="22" text-anchor="middle">Terminal</text>
+
+  <!-- Step 1: Install -->
+  <text class="prompt" x="20" y="62">$</text>
+  <text class="cmd" x="36" y="62">curl -sSfL https://raw.githubusercontent.com/.../install.sh | bash</text>
+
+  <text class="dim" x="20" y="86">Detecting OS... Linux x86_64</text>
+  <text class="green" x="20" y="106">Downloading fgctl v3.0.0...</text>
+  <text class="dim" x="20" y="126">[========================================] 100%</text>
+  <text class="green" x="20" y="146">Installed fgctl to ~/.local/bin/fgctl</text>
+  <text class="green" x="20" y="166">Installed fg-agent to ~/.local/bin/fg-agent</text>
+  <text class="green" x="20" y="186">Installed intel-agent to ~/.local/bin/intel-agent</text>
+
+  <text class="dim" x="20" y="210">Installing scanner engines...</text>
+  <text class="green" x="20" y="230">  grype     installed (v0.82.0)</text>
+  <text class="green" x="20" y="250">  trivy     installed (v0.58.0)</text>
+  <text class="green" x="20" y="270">  semgrep   installed (v1.96.0)</text>
+
+  <text class="dim" x="20" y="294">Downloading 223 community signatures...</text>
+  <text class="green" x="20" y="314">  Signatures saved to ~/.forgeguardian/signatures.json</text>
+
+  <!-- Divider -->
+  <line x1="20" y1="336" x2="800" y2="336" stroke="#30363d" stroke-width="1"/>
+
+  <text class="green-bold" x="20" y="360">ForgeGuardian installed successfully!</text>
+
+  <text class="dim" x="20" y="388">Quick start:</text>
+  <text class="white" x="20" y="412">  fgctl scan .              </text>
+  <text class="dim" x="310" y="412">Scan current project</text>
+  <text class="white" x="20" y="432">  fgctl serve               </text>
+  <text class="dim" x="310" y="432">Start dashboard at :8080</text>
+  <text class="white" x="20" y="452">  fgctl doctor              </text>
+  <text class="dim" x="310" y="452">Check system health</text>
+</svg>

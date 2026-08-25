@@ -1,0 +1,183 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="560" viewBox="0 0 960 560">
+  <defs>
+    <style>
+      .bg { fill: #0d1117; }
+      .sidebar { fill: #161b22; }
+      .card { fill: #161b22; rx: 8; }
+      .card-border { stroke: #30363d; stroke-width: 1; fill: none; rx: 8; }
+      .bar { fill: #21262d; }
+      .text-primary { fill: #e6edf3; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; }
+      .text-secondary { fill: #8b949e; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; }
+      .text-blue { fill: #58a6ff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; }
+      .text-green { fill: #3fb950; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; }
+      .text-red { fill: #f85149; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; }
+      .text-orange { fill: #d29922; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; }
+      .text-yellow { fill: #e3b341; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; }
+      .accent { fill: #58a6ff; }
+      .critical-bg { fill: #f851491a; }
+      .high-bg { fill: #d299221a; }
+      .medium-bg { fill: #e3b3411a; }
+      .low-bg { fill: #58a6ff1a; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect class="bg" width="960" height="560"/>
+
+  <!-- Top bar -->
+  <rect x="0" y="0" width="960" height="48" fill="#161b22"/>
+  <line x1="0" y1="48" x2="960" y2="48" stroke="#30363d" stroke-width="1"/>
+
+  <!-- Logo in top bar -->
+  <circle cx="28" cy="24" r="12" fill="#58a6ff" opacity="0.2"/>
+  <text x="28" y="28" text-anchor="middle" fill="#58a6ff" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="14" font-weight="700">F</text>
+  <text x="48" y="29" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="14" font-weight="600">ForgeGuardian</text>
+
+  <!-- Workspace selector -->
+  <rect x="180" y="10" width="140" height="28" rx="6" fill="#21262d" stroke="#30363d" stroke-width="1"/>
+  <text x="196" y="29" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="11">Production</text>
+  <text x="304" y="29" fill="#484f58" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="10">&#9662;</text>
+
+  <!-- Sidebar -->
+  <rect x="0" y="48" width="200" height="512" fill="#0d1117"/>
+  <line x1="200" y1="48" x2="200" y2="560" stroke="#21262d" stroke-width="1"/>
+
+  <!-- Sidebar items -->
+  <rect x="8" y="60" width="184" height="32" rx="6" fill="#58a6ff" opacity="0.15"/>
+  <text x="40" y="81" fill="#58a6ff" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="13" font-weight="500">Dashboard</text>
+
+  <text x="16" y="116" fill="#484f58" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="10" font-weight="600" letter-spacing="1">SCAN</text>
+  <text x="40" y="140" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="13">Scan Now</text>
+  <text x="40" y="166" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="13">Scan Sessions</text>
+  <text x="40" y="192" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="13">Inventory</text>
+
+  <text x="16" y="224" fill="#484f58" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="10" font-weight="600" letter-spacing="1">ANALYZE</text>
+  <text x="40" y="248" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="13">Risks</text>
+  <text x="40" y="274" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="13">Advisory</text>
+  <text x="40" y="300" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="13">Attack Surface</text>
+  <text x="40" y="326" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="13">Terminal</text>
+
+  <text x="16" y="358" fill="#484f58" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="10" font-weight="600" letter-spacing="1">INTELLIGENCE</text>
+  <text x="40" y="382" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="13">Signatures</text>
+  <text x="40" y="408" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="13">Alerts</text>
+  <text x="40" y="434" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="13">Policies</text>
+
+  <!-- Main content area -->
+  <!-- Page title -->
+  <text x="224" y="84" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="20" font-weight="700">Security Overview</text>
+  <text x="224" y="104" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="12">Last scan: 2 minutes ago</text>
+
+  <!-- Stat cards row -->
+  <!-- Critical -->
+  <rect x="224" y="120" width="170" height="80" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+  <rect x="224" y="120" width="170" height="4" rx="2" fill="#f85149"/>
+  <text x="240" y="150" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="11" font-weight="500">CRITICAL</text>
+  <text x="240" y="180" fill="#f85149" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="28" font-weight="700">4</text>
+  <text x="270" y="180" fill="#f85149" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="11">+2</text>
+
+  <!-- High -->
+  <rect x="404" y="120" width="170" height="80" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+  <rect x="404" y="120" width="170" height="4" rx="2" fill="#d29922"/>
+  <text x="420" y="150" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="11" font-weight="500">HIGH</text>
+  <text x="420" y="180" fill="#d29922" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="28" font-weight="700">12</text>
+  <text x="460" y="180" fill="#d29922" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="11">+3</text>
+
+  <!-- Medium -->
+  <rect x="584" y="120" width="170" height="80" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+  <rect x="584" y="120" width="170" height="4" rx="2" fill="#e3b341"/>
+  <text x="600" y="150" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="11" font-weight="500">MEDIUM</text>
+  <text x="600" y="180" fill="#e3b341" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="28" font-weight="700">8</text>
+
+  <!-- Low -->
+  <rect x="764" y="120" width="170" height="80" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+  <rect x="764" y="120" width="170" height="4" rx="2" fill="#58a6ff"/>
+  <text x="780" y="150" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="11" font-weight="500">LOW</text>
+  <text x="780" y="180" fill="#58a6ff" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="28" font-weight="700">6</text>
+
+  <!-- Vulnerability trend chart -->
+  <rect x="224" y="216" width="500" height="200" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+  <text x="244" y="244" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="14" font-weight="600">Vulnerability Trend</text>
+  <text x="624" y="244" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="11">30 days</text>
+
+  <!-- Chart grid lines -->
+  <line x1="260" y1="270" x2="700" y2="270" stroke="#21262d" stroke-width="1"/>
+  <line x1="260" y1="300" x2="700" y2="300" stroke="#21262d" stroke-width="1"/>
+  <line x1="260" y1="330" x2="700" y2="330" stroke="#21262d" stroke-width="1"/>
+  <line x1="260" y1="360" x2="700" y2="360" stroke="#21262d" stroke-width="1"/>
+  <line x1="260" y1="390" x2="700" y2="390" stroke="#21262d" stroke-width="1"/>
+
+  <!-- Y-axis labels -->
+  <text x="248" y="274" fill="#484f58" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="9" text-anchor="end">20</text>
+  <text x="248" y="304" fill="#484f58" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="9" text-anchor="end">15</text>
+  <text x="248" y="334" fill="#484f58" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="9" text-anchor="end">10</text>
+  <text x="248" y="364" fill="#484f58" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="9" text-anchor="end">5</text>
+  <text x="248" y="394" fill="#484f58" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="9" text-anchor="end">0</text>
+
+  <!-- Critical line (red) -->
+  <polyline points="280,378 320,372 360,384 400,378 440,366 480,354 520,360 560,342 600,336 640,342 680,330" fill="none" stroke="#f85149" stroke-width="2" stroke-linejoin="round"/>
+
+  <!-- High line (orange) -->
+  <polyline points="280,354 320,348 360,360 400,342 440,336 480,324 520,330 560,318 600,312 640,324 680,306" fill="none" stroke="#d29922" stroke-width="2" stroke-linejoin="round"/>
+
+  <!-- Medium line (yellow) -->
+  <polyline points="280,336 320,330 360,342 400,324 440,318 480,312 520,324 560,306 600,300 640,312 680,294" fill="none" stroke="#e3b341" stroke-width="2" stroke-linejoin="round"/>
+
+  <!-- Legend -->
+  <circle cx="280" cy="406" r="4" fill="#f85149"/>
+  <text x="290" y="410" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="10">Critical</text>
+  <circle cx="350" cy="406" r="4" fill="#d29922"/>
+  <text x="360" y="410" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="10">High</text>
+  <circle cx="410" cy="406" r="4" fill="#e3b341"/>
+  <text x="420" y="410" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="10">Medium</text>
+
+  <!-- Risk heatmap card -->
+  <rect x="734" y="216" width="200" height="200" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+  <text x="754" y="244" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="14" font-weight="600">Risk Grades</text>
+
+  <!-- Heatmap entries -->
+  <rect x="754" y="260" width="160" height="24" rx="4" fill="#f8514920"/>
+  <text x="766" y="277" fill="#f85149" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="12" font-weight="700">F</text>
+  <text x="786" y="277" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="11">axios</text>
+  <rect x="874" y="265" width="30" height="14" rx="3" fill="#f8514930"/>
+  <text x="889" y="276" fill="#f85149" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle">19</text>
+
+  <rect x="754" y="290" width="160" height="24" rx="4" fill="#d2992220"/>
+  <text x="766" y="307" fill="#d29922" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="12" font-weight="700">D</text>
+  <text x="786" y="307" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="11">lodash</text>
+  <rect x="874" y="295" width="30" height="14" rx="3" fill="#d2992230"/>
+  <text x="889" y="306" fill="#d29922" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle">4</text>
+
+  <rect x="754" y="320" width="160" height="24" rx="4" fill="#e3b34120"/>
+  <text x="766" y="337" fill="#e3b341" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="12" font-weight="700">C</text>
+  <text x="786" y="337" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="11">requests</text>
+  <rect x="874" y="325" width="30" height="14" rx="3" fill="#e3b34130"/>
+  <text x="889" y="336" fill="#e3b341" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle">2</text>
+
+  <rect x="754" y="350" width="160" height="24" rx="4" fill="#3fb95020"/>
+  <text x="766" y="367" fill="#3fb950" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="12" font-weight="700">A</text>
+  <text x="786" y="367" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="11">express</text>
+  <rect x="874" y="355" width="30" height="14" rx="3" fill="#3fb95030"/>
+  <text x="889" y="366" fill="#3fb950" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle">0</text>
+
+  <rect x="754" y="380" width="160" height="24" rx="4" fill="#3fb95020"/>
+  <text x="766" y="397" fill="#3fb950" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="12" font-weight="700">A</text>
+  <text x="786" y="397" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="11">fastify</text>
+  <rect x="874" y="385" width="30" height="14" rx="3" fill="#3fb95030"/>
+  <text x="889" y="396" fill="#3fb950" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle">0</text>
+
+  <!-- Recent activity card -->
+  <rect x="224" y="430" width="710" height="116" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+  <text x="244" y="458" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="14" font-weight="600">Recent Activity</text>
+
+  <circle cx="252" cy="482" r="4" fill="#f85149"/>
+  <text x="264" y="486" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="11">Critical CVE found in axios@1.3.4</text>
+  <text x="870" y="486" fill="#484f58" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="10" text-anchor="end">2 min ago</text>
+
+  <circle cx="252" cy="506" r="4" fill="#3fb950"/>
+  <text x="264" y="510" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="11">Scan completed: 12 packages, 25 findings</text>
+  <text x="870" y="510" fill="#484f58" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="10" text-anchor="end">5 min ago</text>
+
+  <circle cx="252" cy="530" r="4" fill="#58a6ff"/>
+  <text x="264" y="534" fill="#e6edf3" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="11">Signatures updated: 223 rules loaded</text>
+  <text x="870" y="534" fill="#484f58" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="10" text-anchor="end">1 hr ago</text>
+</svg>
