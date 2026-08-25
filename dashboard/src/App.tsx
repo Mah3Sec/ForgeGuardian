@@ -273,14 +273,19 @@ function CommandPalette({ navigate }: { navigate: (path: string) => void }) {
   return <CommandMenu open={open} onOpenChange={setOpen} commands={commands} />;
 }
 
+function normalizePath(p: string): string {
+  return p.length > 1 && p.endsWith('/') ? p.slice(0, -1) : p;
+}
+
 export default function App() {
-  const [path, setPath] = useState(() => window.location.pathname || '/');
+  const [path, setPath] = useState(() => normalizePath(window.location.pathname || '/'));
   const _setNavigateFn = useUIStore(s => s._setNavigateFn);
   const setSidebarOpen = useUIStore(s => s.setSidebarOpen);
 
   const navigateAndPush = (p: string) => {
-    if (p !== window.location.pathname) window.history.pushState({}, '', p);
-    setPath(p);
+    const normalized = normalizePath(p);
+    if (normalized !== window.location.pathname) window.history.pushState({}, '', normalized);
+    setPath(normalized);
   };
 
   useEffect(() => {
@@ -288,7 +293,7 @@ export default function App() {
   }, [_setNavigateFn]);
 
   useEffect(() => {
-    const onPop = () => setPath(window.location.pathname || '/');
+    const onPop = () => setPath(normalizePath(window.location.pathname || '/'));
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
