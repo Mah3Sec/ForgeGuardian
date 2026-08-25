@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import {
   Network, Package, ShieldAlert, ShieldCheck, X,
-  Target, Layers, AlertTriangle,
+  Target, AlertTriangle,
 } from 'lucide-react';
 import { getDependencyGraph, getActiveRisks } from '../lib/api';
 import { NetworkGraph, type NetworkGraphNode } from '../components/NetworkGraph';

@@ -4,7 +4,7 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip as RechartsTooltip, ResponsiveContainer, Legend,
 } from 'recharts';
-import { GitBranch, TrendingUp, TrendingDown, Minus, ArrowUpRight, ArrowDownRight, AlertTriangle, Shield } from 'lucide-react';
+import { GitBranch, TrendingUp, Minus, ArrowUpRight, ArrowDownRight, AlertTriangle, Shield } from 'lucide-react';
 import { getDashboardTimeline, getActiveRisks, padTimeline } from '../lib/api';
 import { cn } from '../components/ui/utils';
 

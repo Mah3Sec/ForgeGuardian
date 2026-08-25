@@ -220,28 +220,6 @@ export function NetworkGraph({ mode, data, opacity = 0.08, width = 600, height =
     [nodeConnections]
   )
 
-  // Vibrant link colors — each link gets a distinct color from the palette based on hash
-  const linkColor = useCallback(
-    (link: NetworkGraphLink) => {
-      const srcId = typeof link.source === 'object' ? (link.source as NetworkGraphNode).id : link.source
-      const tgtId = typeof link.target === 'object' ? (link.target as NetworkGraphNode).id : link.target
-      const idx = hashStr(srcId + tgtId) % LINK_PALETTE.length
-      return LINK_PALETTE[idx] + '66'
-    },
-    []
-  )
-
-  // Vibrant link colors for arrows too
-  const linkArrowColor = useCallback(
-    (link: NetworkGraphLink) => {
-      const srcId = typeof link.source === 'object' ? (link.source as NetworkGraphNode).id : link.source
-      const tgtId = typeof link.target === 'object' ? (link.target as NetworkGraphNode).id : link.target
-      const idx = hashStr(srcId + tgtId) % LINK_PALETTE.length
-      return LINK_PALETTE[idx] + '88'
-    },
-    []
-  )
-
   // Custom link painting for curved, vibrant lines
   const paintLink = useCallback(
     (link: LinkObject, ctx: CanvasRenderingContext2D, globalScale: number) => {
