@@ -2,7 +2,7 @@
   <img src="dashboard/public/logo.png" alt="ForgeGuardian" width="360"/>
 </p>
 
-<h1 align="center">ForgeGuardian</h1>
+<h3 align="center">ForgeGuardian</h3>
 
 <p align="center">
   <strong>Supply chain security scanner for every package you depend on.</strong><br/>
