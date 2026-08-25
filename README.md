@@ -16,6 +16,10 @@
   <img src="https://img.shields.io/badge/Signatures-223+-orange?style=flat-square" alt="Signatures"/>
 </p>
 
+<p align="center">
+  <img src="docs/images/dashboard-overview.png" alt="ForgeGuardian Dashboard" width="900"/>
+</p>
+
 ---
 
 ## Install
@@ -52,10 +56,6 @@ cd ForgeGuardian && make build
 ```
 </details>
 
-<p align="center">
-  <img src="docs/images/install.svg" alt="Install ForgeGuardian" width="780"/>
-</p>
-
 ---
 
 ## Scan
@@ -65,10 +65,6 @@ fgctl scan .
 ```
 
 That's it. Scans your project, shows findings with severity and fix versions.
-
-<p align="center">
-  <img src="docs/images/cli-scan.svg" alt="CLI scan output" width="780"/>
-</p>
 
 ---
 
@@ -80,15 +76,33 @@ Start the web dashboard:
 fgctl serve
 ```
 
-Open **http://localhost:8080** — SOC-style overview with risk heatmap, severity trends, and real-time alerts.
-
-<p align="center">
-  <img src="docs/images/dashboard.svg" alt="ForgeGuardian Dashboard" width="780"/>
-</p>
+Open **http://localhost:8080** — SOC-style overview with security posture grading, severity trends, real-time alerts, and risk heatmaps.
 
 **Live demo:** [forgeguardian.mahendrapurbia.com](https://forgeguardian.mahendrapurbia.com)
 
-The dashboard includes 30+ pages: scan (registry + file upload + remote SSH), scan history with export, inventory, AI advisory, SBOM, Sigstore signing, provenance, live monitoring, built-in web terminal, signature authoring, alerts, policies, webhooks, and more.
+### 30+ pages across 7 categories
+
+**Analyze** — Multi-engine vulnerability scanner (registry + file upload + remote SSH), scan session history with JSON/CSV/HTML export, recursive directory scanning, system audit across all package managers
+
+**AI-Powered** — AI security analysis, AI advisory with remediation guidance, autonomous patch agent
+
+**Monitor** — Live monitoring with auto-quarantine, structured log viewer, dependency topology with attack surface mapping, dependency drift detection, alert timeline
+
+<p align="center">
+  <img src="docs/images/attack-surface.png" alt="Attack Surface — Dependency Topology" width="900"/>
+</p>
+
+**Inventory** — Multi-workspace project management, dependency inventory with risk grades, SBOM generation (CycloneDX + SPDX)
+
+**Policy** — Policy-as-code rules, allowlist/blocklist management, Sigstore keyless signing + verification, provenance tracking, signature authoring with guided wizard
+
+**Integrations** — Webhook alerts (Slack, Discord, HTTP), CI/CD pipeline config, report exports
+
+**Tools** — Built-in web terminal for CLI commands, developer docs, API reference, settings
+
+<p align="center">
+  <img src="docs/images/scan-now.png" alt="Vulnerability Scanner" width="900"/>
+</p>
 
 ---
 
@@ -169,11 +183,15 @@ Drop into any GitHub Actions workflow:
 
 - **Offline-first** — all scans run locally, no data leaves your machine
 - **AI triage** — optional AI advisory and patch agent (needs `ANTHROPIC_API_KEY`)
+- **Multi-workspace** — organize projects into workspaces with independent scan histories
 - **SBOM** — CycloneDX 1.5 + SPDX 2.3 generation
 - **Sigstore signing** — keyless artifact signing + verification
 - **Policy-as-code** — YAML policy rules, deny lists, threshold enforcement
+- **Attack surface mapping** — dependency topology graph with risk visualization
 - **Webhooks** — Slack, Discord, generic HTTP alerts
 - **Risk scoring** — A-F letter grades per package
+- **Scan sessions** — full history with JSON/CSV/HTML export
+- **Web terminal** — run CLI commands from the dashboard
 - **Self-hostable** — Docker one-liner, airgap-compatible
 - **SLSA Level 3** — provenance for every release
 

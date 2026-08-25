@@ -183,7 +183,7 @@ export function LogMonitorPage() {
       </div>
 
       {/* Stats strip */}
-      <div className="grid grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         {[
           { label: 'Total Entries', value: stats.total, color: 'var(--primary-blue)' },
           { label: 'Errors', value: stats.error, color: LEVEL_COLORS.ERROR },

@@ -192,7 +192,7 @@ export default function ScanSessionsPage() {
       </div>
 
       {/* Stats strip */}
-      <div className="grid grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
         {[
           { label: 'Total Sessions', value: stats.total, color: 'var(--primary-blue)' },
           { label: 'Critical Findings', value: stats.critical, color: SEV_COLORS.CRITICAL },

@@ -71,7 +71,7 @@ export function RecursiveScanPage() {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-3xl">
+    <div className="p-6 space-y-6">
       <div className="flex items-center gap-3">
         <Layers size={20} style={{ color: 'var(--color-indigo)' }} />
         <div>
@@ -84,7 +84,7 @@ export function RecursiveScanPage() {
 
       {/* Input form */}
       <div className="rounded-lg p-5 space-y-4" style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 140px', gap: '0.75rem', alignItems: 'end' }}>
+        <div className="grid grid-cols-1 sm:grid-cols-[120px_1fr_140px] gap-3 items-end">
           <div>
             <label style={{ fontSize: '0.7rem', color: 'var(--color-muted)', fontFamily: 'var(--font-mono)', display: 'block', marginBottom: 4 }}>ECOSYSTEM</label>
             <select value={eco} onChange={e => setEco(e.target.value)} style={{ ...inputStyle, width: '100%' }}>

@@ -1,7 +1,7 @@
 # ForgeGuardian — Complete Documentation
 
 > Local-first AI-native Software Supply Chain Security Platform  
-> Version 2.0.0 · June 2026
+> Version 2.1.0 · August 2026
 
 ---
 
@@ -839,6 +839,12 @@ cd dashboard && npm ci && npm run dev
 make dev
 ```
 
+**One-command server:**
+```bash
+fgctl serve
+# → http://localhost:8080 (API + dashboard served together)
+```
+
 **Makefile shortcuts:**
 
 | Command | Description |
@@ -859,34 +865,82 @@ ForgeGuardian API offline — Start the API: make api   OR   docker compose -f d
 
 The banner auto-dismisses when the API comes back online (polls every 15s).
 
+### Multi-Workspace Management
+
+Projects are organized into **workspaces** — each workspace maintains its own scan history, dependency graph, and risk posture. Switch between workspaces using the dropdown in the sidebar.
+
+- **Default** workspace is created automatically
+- Create new workspaces from the sidebar dropdown
+- Each workspace tracks its own dependency topology and scan results
+- Workspace context flows into scan sessions, attack surface mapping, and export
+
 ### Pages
 
-The dashboard ships **28 routes** — all connected to live backend data:
+The dashboard ships **30+ pages** across 7 categories — all connected to live backend data:
+
+**Analyze**
 
 | Page | What it does |
 |---|---|
-| **Dashboard** | SOC-style overview — risk heatmap, activity feed, 30-day recharts timeline |
-| **Scan** | **Tab 1:** registry package scan — downloads real artifact, runs all 8 engines, shows engine status bar. **Tab 2:** drag-drop project archive (`.tar.gz`/`.zip`) for full scan |
-| **Inventory** | Paginated package list with search and ecosystem filter |
+| **Dashboard** | SOC-style overview — security posture grading, severity cards, 30-day recharts timeline, activity feed, risk heatmap, top risks, engine coverage, fix rate |
+| **Scan Now** | 3-tab scanner: **registry** package scan, **file upload** (drag-drop archive), **remote SSH** host scan — each runs all 8 engines with engine status bar |
+| **Scan Sessions** | Full scan history per workspace — view past results, re-scan, export as JSON/CSV/HTML |
+| **Recursive Scan** | Multi-package batch scan — comma-separated packages, per-package results |
+| **System Audit** | brew / gem / docker / PATH security audit across all package managers |
+| **Logs** | Structured log viewer for scan and system events |
+
+**Monitor**
+
+| Page | What it does |
+|---|---|
+| **Live Monitor** | Live SBOM monitoring with auto-quarantine — auto-reconnect with exponential backoff |
+| **Attack Surface** | Dependency topology graph (force-directed) with exposure breakdown by ecosystem, risk-colored nodes, interactive zoom/pan |
+| **Dependency Drift** | 30-day vulnerability trend chart with severity breakdown |
+| **Alerts** | Real-time security alerts — severity filter, dismissed toggle, one-click dismiss |
+| **Alert Timeline** | Chronological alert history with severity trend |
+
+**AI-Powered**
+
+| Page | What it does |
+|---|---|
+| **AI Security Analysis** | AI supply chain threat analysis |
 | **Advisory** | AI-generated security advisory per package (needs `ANTHROPIC_API_KEY`) |
+| **AI Agents** | Live SSE feed of autonomous patch agent sessions — session status badge, event log |
+
+**Inventory**
+
+| Page | What it does |
+|---|---|
+| **Workspaces** | Multi-workspace project management with independent scan histories |
+| **Inventory** | Paginated package list with search, ecosystem filter, and risk grades |
 | **SBOM** | Generate and download CycloneDX / SPDX in 4 formats |
-| **Sign / Verify** | Sigstore keyless signing + attestation verification |
-| **Monitor** | Live SBOM monitoring — auto-reconnect with exponential backoff |
-| **Intelligence** | Detection signatures list + manual refresh trigger |
-| **Risks** | Risk heatmap with A–F grades, sortable |
-| **Policy** | Policy rules display + last evaluation status |
-| **Alerts** | Real-time security alerts from DB — severity filter + one-click dismiss |
-| **Allowlist** | Add/remove trusted packages that bypass policy enforcement (full CRUD) |
-| **Projects** | Risk posture grouped by package |
-| **Dependency Drift** | 30-day vulnerability trend chart |
-| **AI Agents** | Live SSE feed of autonomous patch agent sessions — session status badge, event log, clear button |
-| **Webhooks** | Configure Slack/Discord alerts + test delivery |
-| **CI/CD** | GitHub Actions, GitLab CI, Makefile integration snippets |
-| **System Audit** | brew / gem / docker / PATH security audit |
-| **Recursive Scan** | Multi-package scan — comma-separated packages, per-package results |
 | **Exports** | SBOM format guide + generate links |
-| **AI Security** | AI supply chain threat explainer |
-| **Settings** | Config management |
+
+**Policy & Signing**
+
+| Page | What it does |
+|---|---|
+| **Policy** | Policy-as-code rules, threshold enforcement |
+| **Allowlist** | Add/remove trusted packages that bypass policy enforcement (full CRUD) |
+| **Sign / Verify** | Sigstore keyless signing + attestation verification |
+| **Provenance** | SLSA provenance tracking |
+| **Intelligence** | Detection signatures browser, signature authoring wizard, manual refresh |
+
+**Integrations**
+
+| Page | What it does |
+|---|---|
+| **Webhooks** | Configure Slack/Discord/HTTP alerts + test delivery |
+| **CI/CD** | GitHub Actions, GitLab CI, Makefile integration snippets |
+
+**Tools**
+
+| Page | What it does |
+|---|---|
+| **Web Terminal** | Built-in terminal for running `fgctl` commands directly from the dashboard |
+| **Docs** | Developer documentation and guides |
+| **API Reference** | API endpoint documentation |
+| **Settings** | Configuration management |
 
 ### Scan engine status bar
 
@@ -902,17 +956,53 @@ artifact downloaded — full scan
 ### File upload scan
 
 ```
-Dashboard → Scan → Upload Project tab
+Dashboard → Scan Now → Upload Project tab
 Drop any .tar.gz / .zip / .jar / .gem / .whl
-→ Uploads to POST /api/v1/scan/upload
-→ Extracts to temp dir
-→ Runs all 8 engines
+→ Extracts and runs all 8 engines
 → Returns findings + engine status
 ```
 
+### Remote SSH scan
+
+```
+Dashboard → Scan Now → Remote tab
+Enter host, port, username, and key path
+→ Connects via SSH, discovers manifests
+→ Runs full scan on remote dependencies
+```
+
+### Attack Surface Mapping
+
+```
+Dashboard → Attack Surface
+→ Force-directed dependency topology graph
+→ Nodes colored by worst finding severity
+→ Interactive zoom, pan, and node inspection
+→ Exposure breakdown sidebar by ecosystem
+→ Risk distribution visualization
+```
+
+The topology graph shows the active workspace name as the root node, with all dependencies radiating outward. Node colors map to severity: red (critical), orange (high), amber (medium), blue (low), grey (clean).
+
+### Scan Sessions & Export
+
+Every scan creates a session record tied to the active workspace. The **Scan Sessions** page lets you:
+- Browse scan history with timestamps, package counts, and finding summaries
+- Re-scan any previous session
+- Export results as JSON, CSV, or HTML report
+
+### Web Terminal
+
+The dashboard includes a built-in web terminal under **Tools → Terminal**. It streams `fgctl` command output in real time via SSE.
+
+- Allowlisted commands only (scan, sbom, doctor, version, help, etc.)
+- Shell injection characters are rejected
+- 5-minute timeout per command
+- Full ANSI color rendering
+
 ### Live agent feed
 
-`Dashboard → AI Agents` — connects to `GET /api/v1/agent/stream` (Server-Sent Events).  
+`Dashboard → AI Agents` — connects via Server-Sent Events.  
 When `fgctl patch` runs, events stream in real time: `start` → `step` → `patch` → `done`.  
 No page refresh needed. Reconnects automatically on disconnect.
 
@@ -1492,4 +1582,4 @@ See CLAUDE.md Phase 13 entry for the full list of 20 improvements.
 ---
 
 *ForgeGuardian is open source — community contributions welcome.*  
-*Documentation last updated: 2026-06-13*
+*Documentation last updated: 2026-08-25*

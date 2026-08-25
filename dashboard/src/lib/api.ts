@@ -349,6 +349,19 @@ export interface TimelinePoint {
 export const getDashboardTimeline = (days = 30) =>
   request<{ days: number; points: TimelinePoint[] }>(`/api/v1/dashboard/timeline?days=${days}`);
 
+export function padTimeline(points: TimelinePoint[], days: number): TimelinePoint[] {
+  const byDate = new Map(points.map(p => [p.date, p]))
+  const result: TimelinePoint[] = []
+  const now = new Date()
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now)
+    d.setDate(d.getDate() - i)
+    const key = d.toISOString().slice(0, 10)
+    result.push(byDate.get(key) ?? { date: key, critical: 0, high: 0, medium: 0, low: 0, total: 0 })
+  }
+  return result
+}
+
 export const getDashboardActivity = (limit = 20) =>
   request<{ events: import('../types/api').ActivityEvent[] }>(`/api/v1/dashboard/activity?limit=${limit}`);
 

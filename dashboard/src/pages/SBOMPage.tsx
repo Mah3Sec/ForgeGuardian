@@ -38,7 +38,7 @@ export function SBOMPage() {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-4xl">
+    <div className="p-6 space-y-6">
       <h1 className="text-xl font-bold font-mono" style={{ color: 'var(--fg)' }}>SBOM Generator</h1>
       <p className="text-sm" style={{ color: 'var(--color-muted)' }}>
         Generate CycloneDX or SPDX software bill of materials for any package.

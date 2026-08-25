@@ -13,7 +13,7 @@ export function AiSecurityPage() {
   ];
 
   return (
-    <div className="p-6 space-y-6 max-w-3xl">
+    <div className="p-6 space-y-6">
       <div className="flex items-center gap-3">
         <Bot size={22} style={{ color: 'var(--color-indigo)' }} />
         <div>

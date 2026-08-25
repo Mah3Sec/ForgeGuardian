@@ -65,7 +65,7 @@ function MonitoringStatsRow() {
   const d = stats.data;
 
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
       <MetricCard
         label="Threats detected"
         value={(d?.critical_findings ?? 0) + (d?.high_findings ?? 0)}
@@ -187,7 +187,7 @@ export function SystemAuditPage() {
   });
 
   return (
-    <div className="p-6 space-y-6 max-w-4xl">
+    <div className="p-6 space-y-6">
       <h1 className="text-xl font-bold font-mono" style={{ color: 'var(--fg)' }}>
         System Audit
       </h1>

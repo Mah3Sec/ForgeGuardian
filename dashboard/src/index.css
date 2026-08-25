@@ -211,6 +211,17 @@ button:disabled { cursor: not-allowed; }
 .fg-docs hr { border: none; border-top: 1px solid var(--border-color); margin: 1.5em 0; }
 .fg-docs img { max-width: 100%; }
 
+/* ── Responsive utilities ─────────────────────────────────────────────── */
+@media (max-width: 639px) {
+  .p-5 { padding: 0.75rem !important; }
+  .gap-3\.5 { gap: 0.625rem !important; }
+  .gap-2\.5 { gap: 0.5rem !important; }
+}
+
+/* Ensure wide content scrolls horizontally, not the page */
+table { display: block; overflow-x: auto; max-width: 100%; }
+.recharts-responsive-container { min-width: 0; }
+
 /* Brief highlight when "search this page" scrolls to a match. */
 .fg-search-hit {
   background: var(--blue-light);

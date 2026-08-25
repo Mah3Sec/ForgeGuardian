@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  BarChart, Bar, PieChart, Pie, Cell,
+  LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   ResponsiveContainer, Legend,
 } from 'recharts';
@@ -9,7 +9,7 @@ import {
   CheckCircle2, Clock, Package, Globe, Zap,
   ArrowUp, ArrowDown, Minus, Stethoscope,
 } from 'lucide-react';
-import { getDashboardStats, getDashboardTimeline, getActiveRisks, listPackages, getDependencyGraph } from '../lib/api';
+import { getDashboardStats, getDashboardTimeline, getActiveRisks, listPackages, getDependencyGraph, padTimeline } from '../lib/api';
 import { NetworkGraph } from '../components/NetworkGraph';
 import { computeSecurityScore } from '../components/SecurityScore';
 import { ActivityFeed } from '../components/ActivityFeed';
@@ -251,7 +251,7 @@ function FindingsEvolutionCard({
       <div className="px-2 pb-3">
         {points.length > 0 ? (
           <ResponsiveContainer width="100%" height={160}>
-            <BarChart data={points} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
+            <LineChart data={points} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
               <XAxis dataKey="date" tick={{ fill: 'var(--text-muted)', fontSize: 9 }}
                 tickFormatter={(v: string) => v.slice(5)} interval="preserveStartEnd" />
@@ -260,12 +260,20 @@ function FindingsEvolutionCard({
                 contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border-color)', borderRadius: 8, fontSize: 11 }}
                 labelStyle={{ color: 'var(--text-primary)', fontWeight: 600 }}
               />
-              <Legend iconType="square" iconSize={8} wrapperStyle={{ fontSize: 10, paddingTop: 4 }} />
-              <Bar dataKey="critical" stackId="sev" fill="var(--critical)" name="Critical" />
-              <Bar dataKey="high" stackId="sev" fill="#EA580C" name="High" />
-              <Bar dataKey="medium" stackId="sev" fill="var(--warning)" name="Medium" />
-              <Bar dataKey="low" stackId="sev" fill="var(--cyan)" name="Low" radius={[2, 2, 0, 0]} />
-            </BarChart>
+              <Legend iconType="plainline" iconSize={8} wrapperStyle={{ fontSize: 10, paddingTop: 4 }} />
+              <Line type="monotone" dataKey="critical" name="Critical" stroke="var(--critical)" strokeWidth={2.5}
+                dot={{ r: 4, fill: 'var(--critical)', stroke: 'var(--critical)', strokeWidth: 1 }}
+                activeDot={{ r: 6, fill: 'var(--critical)', stroke: '#fff', strokeWidth: 2 }} />
+              <Line type="monotone" dataKey="high" name="High" stroke="#EA580C" strokeWidth={2.5}
+                dot={{ r: 4, fill: '#EA580C', stroke: '#EA580C', strokeWidth: 1 }}
+                activeDot={{ r: 6, fill: '#EA580C', stroke: '#fff', strokeWidth: 2 }} />
+              <Line type="monotone" dataKey="medium" name="Medium" stroke="var(--warning)" strokeWidth={2.5}
+                dot={{ r: 4, fill: 'var(--warning)', stroke: 'var(--warning)', strokeWidth: 1 }}
+                activeDot={{ r: 6, fill: 'var(--warning)', stroke: '#fff', strokeWidth: 2 }} />
+              <Line type="monotone" dataKey="low" name="Low" stroke="var(--cyan)" strokeWidth={2}
+                dot={{ r: 3.5, fill: 'var(--cyan)', stroke: 'var(--cyan)', strokeWidth: 1 }}
+                activeDot={{ r: 5.5, fill: 'var(--cyan)', stroke: '#fff', strokeWidth: 2 }} />
+            </LineChart>
           </ResponsiveContainer>
         ) : (
           <div className="h-40 flex items-center justify-center">
@@ -650,7 +658,7 @@ export function DashboardPage() {
   const risks    = useQuery({ queryKey: ['active-risks'],            queryFn: getActiveRisks,                  refetchInterval: 60_000, retry: false });
   const packages = useQuery({ queryKey: ['packages-all'],            queryFn: () => listPackages({ page_size: 200 }), staleTime: 120_000, retry: false });
 
-  const pts7 = tl7.data?.points ?? [];
+  const pts7 = useMemo(() => padTimeline(tl7.data?.points ?? [], 7), [tl7.data]);
   const sparklines = {
     critical: pts7.map(p => p.critical),
     high:     pts7.map(p => p.high),
@@ -660,14 +668,28 @@ export function DashboardPage() {
   };
 
   const d = stats.data;
-  const timelinePoints = timeline.data?.points ?? [];
+  const timelinePoints = useMemo(() => padTimeline(timeline.data?.points ?? [], 30), [timeline.data]);
   const allRisks = risks.data?.risks ?? [];
   const allPkgs  = packages.data?.packages ?? [];
 
-  const critCount   = d?.critical_findings ?? 0;
-  const highCount   = d?.high_findings ?? 0;
-  const mediumCount = d?.medium_findings ?? 0;
-  const lowCount    = d?.low_findings ?? 0;
+  const riskDerived = useMemo(() => {
+    if (!allRisks.length) return { critical: 0, high: 0, medium: 0, low: 0, total: 0, packages: 0 };
+    let critical = 0, high = 0, medium = 0, low = 0;
+    for (const r of allRisks) {
+      const sev = r.top_severity?.toUpperCase();
+      if (sev === 'CRITICAL') critical += r.finding_count;
+      else if (sev === 'HIGH') high += r.finding_count;
+      else if (sev === 'MEDIUM') medium += r.finding_count;
+      else low += r.finding_count;
+    }
+    return { critical, high, medium, low, total: critical + high + medium + low, packages: allRisks.length };
+  }, [allRisks]);
+
+  const statsEmpty = !d || (d.total_findings === 0 && d.critical_findings === 0 && riskDerived.total > 0);
+  const critCount   = statsEmpty ? riskDerived.critical : (d?.critical_findings ?? 0);
+  const highCount   = statsEmpty ? riskDerived.high : (d?.high_findings ?? 0);
+  const mediumCount = statsEmpty ? riskDerived.medium : (d?.medium_findings ?? 0);
+  const lowCount    = statsEmpty ? riskDerived.low : (d?.low_findings ?? 0);
   const totalFindings = critCount + highCount + mediumCount + lowCount;
 
   const critTrend  = trendDelta(sparklines.critical);
@@ -689,7 +711,7 @@ export function DashboardPage() {
           score={score}
           critCount={critCount}
           totalFindings={totalFindings}
-          totalPackages={d?.total_packages ?? 0}
+          totalPackages={statsEmpty ? riskDerived.packages : (d?.total_packages ?? 0)}
           ecosystems={d?.ecosystems_covered ?? []}
           scannedToday={d?.scanned_today ?? 0}
           lastUpdated={d?.last_updated ?? ''}
@@ -697,7 +719,7 @@ export function DashboardPage() {
         />
 
         {/* 2. KPI strip — 5 tiles */}
-        <div className="grid grid-cols-5 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
           <KPITile
             className="fg-entrance"
             label="Total findings"
@@ -750,7 +772,7 @@ export function DashboardPage() {
         </div>
 
         {/* 3. Findings evolution + severity donut */}
-        <div className="grid gap-3.5" style={{ gridTemplateColumns: '3fr 2fr' }}>
+        <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-3.5">
           <FindingsEvolutionCard points={timelinePoints} onNavigate={navigate} />
           <SeverityDonutCard
             critical={critCount} high={highCount} medium={mediumCount} low={lowCount}
@@ -759,17 +781,17 @@ export function DashboardPage() {
         </div>
 
         {/* 4. Top risks + engine coverage + fix rate */}
-        <div className="grid gap-3.5" style={{ gridTemplateColumns: '2fr 2fr 1fr' }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[2fr_2fr_1fr] gap-3.5">
           <TopRisksCard risks={allRisks} onNavigate={navigate} />
           <EngineCoverageCard onNavigate={navigate} />
           <FixRateCard totalFindings={totalFindings} />
         </div>
 
         {/* 5. Ecosystems + scan coverage + recent activity */}
-        <div className="grid grid-cols-3 gap-3.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
           <EcosystemsCard packages={allPkgs} onNavigate={navigate} />
           <ScanCoverageCard
-            totalPackages={d?.total_packages ?? 0}
+            totalPackages={statsEmpty ? riskDerived.packages : (d?.total_packages ?? 0)}
             totalFindings={totalFindings}
             scannedToday={d?.scanned_today ?? 0}
             lastUpdated={d?.last_updated ?? ''}

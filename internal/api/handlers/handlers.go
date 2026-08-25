@@ -1130,7 +1130,11 @@ func (h *Handler) DashboardGraph(c *gin.Context) {
 		limit = 20
 	}
 
-	nodes := []graphNode{{ID: "root", Name: "your-app", Version: "", Severity: "none"}}
+	rootName := "Project"
+	if ws := c.Query("workspace"); ws != "" {
+		rootName = ws
+	}
+	nodes := []graphNode{{ID: "root", Name: rootName, Version: "", Severity: "none"}}
 	links := []graphLink{}
 
 	if h.db != nil {

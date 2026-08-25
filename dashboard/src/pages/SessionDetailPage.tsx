@@ -436,7 +436,7 @@ export default function SessionDetailPage({ sessionId }: { sessionId: string }) 
       </div>
 
       {/* Severity cards */}
-      <div className="grid grid-cols-5 gap-3 mt-5 mb-5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mt-5 mb-5">
         {[
           { label: 'Critical', value: summary.critical, color: SEV_COLORS.CRITICAL },
           { label: 'High', value: summary.high, color: SEV_COLORS.HIGH },
@@ -452,7 +452,7 @@ export default function SessionDetailPage({ sessionId }: { sessionId: string }) 
       </div>
 
       {/* Metrics strip */}
-      <div className="grid grid-cols-3 gap-3 mb-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
         <div className="rounded-lg border border-border-color bg-surface p-3 flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-success/10 flex items-center justify-center">
             <Shield size={14} className="text-success" />

@@ -85,7 +85,7 @@ export function IntelAuthoringPage() {
   const copyYAML = () => yamlText && navigator.clipboard.writeText(yamlText);
 
   return (
-    <div className="p-6 space-y-6 max-w-3xl">
+    <div className="p-6 space-y-6">
       <h1 className="text-xl font-bold font-mono" style={{ color: 'var(--fg)' }}>Signature Authoring</h1>
       <p className="text-sm" style={{ color: 'var(--color-muted)' }}>
         Author, validate, and test new detection signatures for the ForgeGuardian intelligence store.
@@ -237,7 +237,7 @@ export function IntelAuthoringPage() {
       {generated && (
         <div className="rounded-lg p-5 space-y-3" style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
           <h2 className="text-sm font-mono" style={{ color: 'var(--color-muted)' }}>TEST AGAINST A LIVE PACKAGE</h2>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <select value={testEco} onChange={e => setTestEco(e.target.value)}
               className="rounded px-3 py-2 text-sm font-mono" style={inputStyle}>
               {ECOSYSTEMS.filter(e => e !== '*').map(e => <option key={e}>{e}</option>)}

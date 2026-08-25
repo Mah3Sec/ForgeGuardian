@@ -1,7 +1,7 @@
-# ForgeGuardian — Deep Technical Guide  v2.0.0
+# ForgeGuardian — Deep Technical Guide  v2.1.0
 
 > How every module works, data flows, internal logic, and all command flags.  
-> Last updated: 2026-08-14
+> Last updated: 2026-08-25
 
 ---
 
@@ -1030,23 +1030,27 @@ ForgeGuardian uses Claude (Anthropic) in three ways:
 **Location:** `dashboard/`  
 **Stack:** React 18 + TypeScript 5 + Vite + Tailwind CSS + shadcn/ui + Zustand + React Query
 
-The dashboard has 28 routes (`dashboard/src/App.tsx`'s router). Full up-to-date
+The dashboard has 30+ routes (`dashboard/src/App.tsx`'s router). Full up-to-date
 page-by-page list: see [README.md's Dashboard section](README.md#dashboard) —
 not duplicated here to avoid the two drifting apart again. A few worth
 calling out for how they're actually built:
 
 | Page | Route | Description |
 |------|-------|-------------|
-| Dashboard | `/` | Stats, 30-day recharts AreaChart timeline, ActivityFeed, RiskHeatmap, dependency force graph |
-| Monitor | `/monitor` | Live stats polling every 10s via `GET /api/v1/dashboard/stats` |
-| Scan | `/scan` | 3 tabs: registry package, file upload, remote SSH host — trigger scans, view findings |
+| Dashboard | `/` | Stats, severity cards, 30-day recharts AreaChart timeline, ActivityFeed, RiskHeatmap, top risks, engine coverage, fix rate |
+| Scan Now | `/scan` | 3 tabs: registry package, file upload, remote SSH host — trigger scans, view findings |
+| Scan Sessions | `/scan-sessions` | Workspace-scoped scan history with re-scan and JSON/CSV/HTML export |
+| Attack Surface | `/attack-surface` | Force-directed dependency topology graph with exposure breakdown sidebar |
+| Monitor | `/monitor` | Live stats polling every 10s, auto-quarantine support |
 | Advisory | `/advisory` | AI-generated advisory viewer |
 | SBOM | `/sbom` | SBOM viewer and download |
 | Sign/Verify | `/sign` | Sigstore attestation management |
-| Intelligence | `/intelligence` | Signature browser and refresh |
+| Intelligence | `/intelligence` | Signature browser, authoring wizard, and refresh |
 | Risks | `/risks` | Prioritized active risks with A–F grade |
 | Inventory | `/inventory` | Full package inventory browser |
 | Policy | `/policy` | Policy-as-code viewer and editor |
+| Web Terminal | `/terminal` | Built-in terminal for `fgctl` commands via SSE streaming |
+| Log Viewer | `/logs` | Structured log viewer for scan and system events |
 
 ### shadcn/ui components (`dashboard/src/components/ui/`)
 
@@ -1059,7 +1063,17 @@ calling out for how they're actually built:
 
 ### DependencyGraph
 
-`DependencyGraph.tsx` uses `react-force-graph-2d` (canvas). Node colors map to worst finding severity. Cleanup calls `graphRef.current?.pauseAnimation()` on unmount.
+`DependencyGraph.tsx` uses `react-force-graph-2d` (canvas). Node colors map to worst finding severity. The root node displays the active workspace name. Cleanup calls `graphRef.current?.pauseAnimation()` on unmount.
+
+### Workspace & Session stores
+
+`useWorkspaceStore` (Zustand) manages multi-workspace state — create, switch, delete workspaces. Each workspace isolates its scan history and dependency topology.
+
+`useScanSessionStore` (Zustand) tracks scan sessions per workspace — session creation, result storage, and export (JSON/CSV/HTML).
+
+### NetworkGraph (Attack Surface)
+
+`AttackSurfacePage.tsx` renders a full-page attack surface view with a force-directed topology graph (left) and an exposure breakdown sidebar (right). The graph uses `ResizeObserver` for dynamic container-aware sizing and pulls dependency data scoped to the active workspace.
 
 ### CSS/Tailwind token strategy
 
@@ -1321,4 +1335,4 @@ Full format reference: [SIGNATURES.md](SIGNATURES.md)
 ---
 
 *ForgeGuardian is open source — community contributions welcome.*  
-*Guide last updated: 2026-05-24*
+*Guide last updated: 2026-08-25*

@@ -19,7 +19,7 @@ export function AdvisoryPage() {
   });
 
   return (
-    <div className="p-6 space-y-6 max-w-3xl">
+    <div className="p-6 space-y-6">
       <h1 className="text-xl font-bold font-mono" style={{ color: 'var(--fg)' }}>AI Security Advisory</h1>
       <p className="text-sm" style={{ color: 'var(--color-muted)' }}>
         Powered by Claude — generates a structured advisory with exploitability analysis and recommended actions.

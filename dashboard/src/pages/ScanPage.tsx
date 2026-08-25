@@ -371,7 +371,7 @@ export function ScanPage() {
   } as React.CSSProperties);
 
   return (
-    <div className="p-6 space-y-6 max-w-4xl">
+    <div className="p-6 space-y-6">
       <div>
         <h1 className="text-xl font-bold font-mono" style={{ color: 'var(--fg)' }}>Vulnerability Scanner</h1>
         <p className="text-sm mt-1" style={{ color: 'var(--color-muted)' }}>
@@ -553,7 +553,7 @@ export function ScanPage() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.75rem' }}>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 {[
                   { label: 'Critical', val: uploadResult.summary.critical, color: 'var(--color-critical)' },
                   { label: 'High',     val: uploadResult.summary.high,     color: 'var(--color-high)' },
@@ -738,7 +738,7 @@ export function ScanPage() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.75rem' }}>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 {[
                   { label: 'Critical', val: remoteResult.summary.critical, color: 'var(--color-critical)' },
                   { label: 'High',     val: remoteResult.summary.high,     color: 'var(--color-high)' },
@@ -857,7 +857,7 @@ export function ScanPage() {
           )}
 
           {/* Summary cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.75rem' }}>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {[
               { label: 'Critical', val: result.summary.critical, color: 'var(--color-critical)' },
               { label: 'High',     val: result.summary.high,     color: 'var(--color-high)' },
@@ -874,7 +874,7 @@ export function ScanPage() {
 
           {/* Severity donut + Engine bar chart */}
           {(result.summary.total > 0 || (result.engines && result.engines.length > 0)) && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {/* Severity distribution donut */}
               {result.summary.total > 0 && (() => {
                 const sevData = [

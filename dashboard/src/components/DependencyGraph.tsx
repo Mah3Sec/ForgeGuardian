@@ -34,7 +34,7 @@ const severityColor: Record<string, string> = {
 
 const defaultData: GraphData = {
   nodes: [
-    { id: 'root', name: 'your-app', version: '1.0.0', severity: 'none' },
+    { id: 'root', name: 'Project', version: '1.0.0', severity: 'none' },
     { id: 'lodash', name: 'lodash', version: '4.17.20', severity: 'critical' },
     { id: 'axios', name: 'axios', version: '0.21.1', severity: 'high' },
     { id: 'express', name: 'express', version: '4.18.2', severity: 'none' },

@@ -31,7 +31,7 @@ export function AgentsPage() {
                  !latestSessionEvents.some(e => e.type === 'done' || e.type === 'error');
 
   return (
-    <div className="p-6 space-y-6 max-w-3xl">
+    <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold font-mono" style={{ color: 'var(--fg)' }}>AI Patch Agents</h1>

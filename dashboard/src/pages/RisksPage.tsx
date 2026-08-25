@@ -197,7 +197,7 @@ export default function RisksPage() {
       </div>
 
       {/* Severity summary cards */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const).map(sev => (
           <div key={sev} className="rounded-xl border border-border-color bg-surface p-4 shadow-sm">
             <p className="text-xs text-text-secondary">{sev}</p>
@@ -225,7 +225,7 @@ export default function RisksPage() {
         })).filter(d => d.value > 0);
         const GRADE_COLORS: Record<string, string> = { A: '#22c55e', B: '#60A5FA', C: '#F59E0B', D: '#EA580C', F: '#FF3D3D' };
         return (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="rounded-xl border border-border-color bg-surface p-4 shadow-sm">
               <p className="text-xs font-semibold uppercase text-text-secondary" style={{ letterSpacing: '0.05em' }}>Severity Distribution</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: 8 }}>

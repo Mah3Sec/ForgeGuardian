@@ -256,7 +256,7 @@ function PlaceholderSection({
 
 export function SettingsPage() {
   return (
-    <div className="p-6 space-y-4 max-w-2xl">
+    <div className="p-6 space-y-4">
       <h1 className="text-lg font-bold text-text-primary">Settings</h1>
 
       <GeneralSection />

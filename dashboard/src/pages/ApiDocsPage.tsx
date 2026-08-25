@@ -291,7 +291,7 @@ function HeroExample() {
 
 export function ApiDocsPage() {
   return (
-    <div className="flex flex-col gap-5 p-6 max-w-4xl">
+    <div className="flex flex-col gap-5 p-6">
       <div className="flex items-center gap-3">
         <Server size={20} className="text-primary-blue" />
         <div>

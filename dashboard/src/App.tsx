@@ -293,13 +293,13 @@ export default function App() {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  // Minimal mobile responsive pass — default the sidebar to collapsed on
-  // narrow viewports so it doesn't push content off-screen. Just a one-time
-  // initial-state check on mount, not a full resize-listener drawer system.
   useEffect(() => {
-    if (window.innerWidth < 768) {
-      setSidebarOpen(false);
-    }
+    const check = () => {
+      if (window.innerWidth < 768) setSidebarOpen(false);
+    };
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

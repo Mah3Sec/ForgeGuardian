@@ -45,7 +45,7 @@ export function AllowlistPage() {
   const entries = data?.allowlist ?? [];
 
   return (
-    <div className="p-6 space-y-6 max-w-3xl">
+    <div className="p-6 space-y-6">
       <div className="flex items-center gap-3">
         <ListFilter size={20} style={{ color: 'var(--color-indigo)' }} />
         <div>
@@ -59,7 +59,7 @@ export function AllowlistPage() {
       {/* Add form */}
       <div className="rounded-lg p-4 space-y-3" style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
         <p className="text-xs font-mono font-bold" style={{ color: 'var(--color-muted)' }}>ADD ENTRY</p>
-        <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 1fr', gap: '0.625rem' }}>
+        <div className="grid grid-cols-1 sm:grid-cols-[110px_1fr_1fr] gap-2.5">
           <div>
             <label style={{ fontSize: '0.68rem', color: 'var(--color-muted)', display: 'block', marginBottom: 3 }}>ECOSYSTEM</label>
             <input value={eco} onChange={e => setEco(e.target.value)} placeholder="npm" style={inputStyle} />
