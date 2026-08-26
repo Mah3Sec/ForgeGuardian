@@ -36,6 +36,7 @@ var allowedCommands = map[string]bool{
 	"patch":      true,
 	"monitor":    true,
 	"debug":      true,
+	"upgrade":    true,
 }
 
 var blockedCommands = map[string]bool{

@@ -137,7 +137,7 @@ func main() {
 
 	bannerSkip := map[string]bool{
 		"help": true, "--help": true, "-h": true, "version": true,
-		"license": true, "config": true, "stats": true, "debug": true,
+		"license": true, "config": true, "stats": true, "debug": true, "upgrade": true,
 		"policy": true, "sig": true, "serve": true,
 	}
 	if !suppressHuman && !bannerSkip[cmd] {
@@ -194,6 +194,8 @@ func main() {
 		err = runServe(args, logger, p)
 	case "setup":
 		err = runSetup(args, logger)
+	case "upgrade":
+		err = runUpgrade()
 	case "doctor":
 		err = runDoctor(args, logger)
 	case "stats":
@@ -1547,6 +1549,7 @@ PLATFORM
   setup       Interactive setup — configure dashboard credentials + .env
   policy      Manage security policy  (~/.forgeguardian/policy.yaml)
   config      Manage platform configuration  (~/.forgeguardian/config.yaml)
+  upgrade     Self-update fgctl to the latest release
   update      Fetch latest community detection signatures
   intel       Author, validate, test, and update detection signatures  (new|validate|test|update|list)
   license     Print current license tier  (set via FG_LICENSE_KEY)
