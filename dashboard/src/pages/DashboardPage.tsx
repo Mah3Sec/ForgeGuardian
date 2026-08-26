@@ -7,7 +7,7 @@ import {
 } from 'recharts';
 import {
   CheckCircle2, Clock, Package, Globe, Zap,
-  ArrowUp, ArrowDown, Minus, Stethoscope,
+  ArrowUp, ArrowDown, Minus,
 } from 'lucide-react';
 import { getDashboardStats, getDashboardTimeline, getActiveRisks, listPackages, getDependencyGraph, padTimeline } from '../lib/api';
 import { NetworkGraph } from '../components/NetworkGraph';
@@ -188,12 +188,6 @@ function PostureBanner({
         </div>
 
         <div className="flex gap-2 shrink-0">
-          <button
-            onClick={() => onNavigate('/system-audit')}
-            className="flex items-center gap-1.5 text-[0.72rem] font-medium px-3 py-1.5 rounded-lg border border-border-color bg-transparent text-text-primary hover:bg-surface-muted cursor-pointer transition-colors"
-          >
-            <Stethoscope size={13} /> Doctor
-          </button>
           <button
             onClick={() => onNavigate('/scan')}
             className="flex items-center gap-1.5 text-[0.72rem] font-medium px-3 py-1.5 rounded-lg border-none text-white cursor-pointer transition-colors"
