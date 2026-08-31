@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Terminal, Package, FileCode, Beer, Gem, Container, Binary, AlertCircle, Activity, ShieldAlert, Clock, Play, Loader, CheckCircle } from 'lucide-react';
 import { getAuditStats, getDashboardStats, getHealth, triggerAudit, getAuditJobStatus } from '../lib/api';
@@ -86,9 +86,30 @@ function MonitoringStatsRow() {
   );
 }
 
+const AUDIT_JOB_KEY = 'fg-audit-job-id';
+const AUDIT_OUTPUT_KEY = 'fg-audit-output';
+
 function AuditRunner() {
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [auditOutput, setAuditOutput] = useState<string | null>(null);
+  const [jobId, setJobId] = useState<string | null>(() => {
+    try { return sessionStorage.getItem(AUDIT_JOB_KEY); } catch { return null; }
+  });
+  const [auditOutput, setAuditOutput] = useState<string | null>(() => {
+    try { return sessionStorage.getItem(AUDIT_OUTPUT_KEY); } catch { return null; }
+  });
+
+  useEffect(() => {
+    try {
+      if (jobId) sessionStorage.setItem(AUDIT_JOB_KEY, jobId);
+      else sessionStorage.removeItem(AUDIT_JOB_KEY);
+    } catch {}
+  }, [jobId]);
+
+  useEffect(() => {
+    try {
+      if (auditOutput) sessionStorage.setItem(AUDIT_OUTPUT_KEY, auditOutput);
+      else sessionStorage.removeItem(AUDIT_OUTPUT_KEY);
+    } catch {}
+  }, [auditOutput]);
 
   const trigger = useMutation({
     mutationFn: triggerAudit,
@@ -101,12 +122,15 @@ function AuditRunner() {
   const jobPoll = useQuery({
     queryKey: ['audit-job', jobId],
     queryFn: () => getAuditJobStatus(jobId!),
-    enabled: !!jobId,
+    enabled: !!jobId && !auditOutput,
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       if (status === 'complete' || status === 'failed') {
         if (status === 'complete' && query.state.data?.result?.output) {
           setAuditOutput(query.state.data.result.output);
+        }
+        if (status === 'failed') {
+          setJobId(null);
         }
         return false;
       }
@@ -114,7 +138,7 @@ function AuditRunner() {
     },
   });
 
-  const isRunning = trigger.isPending || (!!jobId && jobPoll.data?.status !== 'complete' && jobPoll.data?.status !== 'failed');
+  const isRunning = trigger.isPending || (!!jobId && !auditOutput && jobPoll.data?.status !== 'complete' && jobPoll.data?.status !== 'failed');
   const jobError = trigger.error || (jobPoll.data?.status === 'failed' ? new Error(jobPoll.data.error || 'Audit failed') : undefined);
 
   return (
