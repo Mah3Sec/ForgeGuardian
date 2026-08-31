@@ -45,9 +45,9 @@ mkdir -p /data/.forgeguardian
 # ── Database status ──────────────────────────────────────────────────────────
 if [ -z "$DATABASE_URL" ]; then
     echo ""
-    echo "  No DATABASE_URL — using file-based cache (/data/scan-cache.json)"
+    echo "  No DATABASE_URL — using embedded SQLite (/data/.forgeguardian/forgeguardian.db)"
     echo "  Scan history persists across restarts via the /data volume."
-    echo "  For PostgreSQL support: docker compose up -d"
+    echo "  For PostgreSQL: set DATABASE_URL or use docker compose up -d"
     echo ""
 fi
 

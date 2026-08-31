@@ -15,13 +15,35 @@ type ManifestFile struct {
 // other packages (e.g. internal/remotescan) can discover the same set of
 // filenames without hand-maintaining a duplicate list.
 var ManifestNames = map[string]string{
-	"package.json":     "npm",
+	// npm
+	"package.json":      "npm",
+	"package-lock.json": "npm",
+	"yarn.lock":         "npm",
+	"pnpm-lock.yaml":    "npm",
+	// pypi
 	"requirements.txt": "pypi",
 	"pyproject.toml":   "pypi",
-	"go.mod":           "go",
-	"Cargo.toml":       "crates",
-	"pom.xml":          "maven",
-	"Gemfile":          "rubygems",
+	"Pipfile":          "pypi",
+	"Pipfile.lock":     "pypi",
+	"poetry.lock":      "pypi",
+	// go
+	"go.mod": "go",
+	"go.sum": "go",
+	// crates
+	"Cargo.toml": "crates",
+	"Cargo.lock": "crates",
+	// maven / gradle
+	"pom.xml":           "maven",
+	"build.gradle":      "maven",
+	"build.gradle.kts":  "maven",
+	// rubygems
+	"Gemfile":      "rubygems",
+	"Gemfile.lock": "rubygems",
+	// nuget
+	"packages.config": "nuget",
+	// packagist (PHP)
+	"composer.json": "packagist",
+	"composer.lock": "packagist",
 }
 
 // SkipDirNames are directory names never descended into during the walk.

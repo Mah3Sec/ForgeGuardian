@@ -15,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mah3sec/forgeguardian/internal/api/db"
+	dbsqlc "github.com/mah3sec/forgeguardian/internal/api/db/sqlc"
 	"github.com/mah3sec/forgeguardian/internal/api/handlers"
 	"github.com/mah3sec/forgeguardian/internal/api/middleware"
 	"github.com/mah3sec/forgeguardian/internal/auth"
@@ -36,6 +37,9 @@ func Run(cfg *Config) error {
 	if authEnabled && cfg.SessionSecret == "" {
 		return fmt.Errorf("FG_ADMIN_EMAIL/FG_ADMIN_PASSWORD are set but FG_SESSION_SECRET is not — refusing to start with weak/no session signing secret")
 	}
+	if authEnabled && len(cfg.SessionSecret) < 32 {
+		return fmt.Errorf("FG_SESSION_SECRET must be at least 32 characters (got %d) — use: openssl rand -hex 32", len(cfg.SessionSecret))
+	}
 	if authEnabled {
 		logger.Info("dashboard login enabled", "email", adminIdentity.Email)
 		if adminIdentity.PasswordMustChange {
@@ -50,6 +54,7 @@ func Run(cfg *Config) error {
 	}
 
 	var pool *pgxpool.Pool
+	var dbQuerier dbsqlc.Querier
 	if cfg.DatabaseURL != "" {
 		var err error
 		dbCtx, dbCancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -58,7 +63,7 @@ func Run(cfg *Config) error {
 		if err != nil {
 			logger.Warn("database unavailable — DB-backed endpoints will return 503", "error", err)
 		} else {
-			logger.Info("database connected")
+			logger.Info("database connected", "backend", "postgresql")
 			defer pool.Close()
 			migrCtx, migrCancel := context.WithTimeout(context.Background(), 30*time.Second)
 			if migrErr := db.Migrate(migrCtx, pool); migrErr != nil {
@@ -67,9 +72,24 @@ func Run(cfg *Config) error {
 			}
 			migrCancel()
 			logger.Info("database migrations applied")
+			dbQuerier = dbsqlc.New(pool)
 		}
 	} else {
-		logger.Warn("DATABASE_URL not set — DB-backed endpoints will return 503")
+		dbPath, pathErr := db.DefaultSQLitePath()
+		if pathErr != nil {
+			logger.Warn("could not determine SQLite path — DB-backed endpoints will return 503", "error", pathErr)
+		} else {
+			sqlCtx, sqlCancel := context.WithTimeout(context.Background(), 10*time.Second)
+			sqlDB, sqlErr := db.ConnectSQLite(sqlCtx, dbPath)
+			sqlCancel()
+			if sqlErr != nil {
+				logger.Warn("SQLite unavailable — DB-backed endpoints will return 503", "error", sqlErr)
+			} else {
+				logger.Info("embedded database ready", "backend", "sqlite", "path", dbPath)
+				defer sqlDB.Close()
+				dbQuerier = dbsqlc.NewSQLite(sqlDB)
+			}
+		}
 	}
 
 	r := gin.New()
@@ -77,7 +97,7 @@ func Run(cfg *Config) error {
 	r.Use(middleware.Logger(logger))
 	r.Use(middleware.Recovery(logger))
 	r.Use(middleware.CORS(cfg.DashboardOrigin))
-	r.Use(middleware.DualAuth(cfg.APIKey, []byte(cfg.SessionSecret), authEnabled))
+	r.Use(middleware.DualAuth(cfg.APIKey, []byte(cfg.SessionSecret), authEnabled, adminIdentity))
 	r.Use(middleware.RateLimiter(60, 20))
 
 	if cfg.APIKey == "" {
@@ -97,7 +117,7 @@ func Run(cfg *Config) error {
 		SessionSecret:   []byte(cfg.SessionSecret),
 		CookieSecure:    cfg.CookieSecure,
 	}
-	h := handlers.New(hcfg, logger, pool)
+	h := handlers.NewWithDB(hcfg, logger, dbQuerier)
 
 	captureLogger := slog.New(handlers.NewLogCaptureHandler(
 		slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}),
@@ -153,6 +173,7 @@ func Run(cfg *Config) error {
 		v1.GET("/export/report", h.ExportReport)
 		v1.POST("/cli/sync", h.CLISync)
 		v1.GET("/workspaces", h.ListWorkspaces)
+		v1.GET("/ai/status", h.AIProviderStatus)
 		v1.POST("/terminal/exec", h.TerminalExec)
 		v1.GET("/terminal/completions", h.TerminalCompletions)
 		v1.POST("/auth/login", middleware.LoginRateLimiter(), h.Login)

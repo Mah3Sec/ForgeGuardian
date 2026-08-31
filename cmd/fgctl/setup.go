@@ -119,7 +119,9 @@ func writeEnvFile(email, password, secret, anthropicKey, envPath string) error {
 		existing["ANTHROPIC_API_KEY"] = anthropicKey
 	}
 	if _, ok := existing["POSTGRES_PASSWORD"]; !ok {
-		existing["POSTGRES_PASSWORD"] = "devpassword"
+		b := make([]byte, 16)
+		rand.Read(b)
+		existing["POSTGRES_PASSWORD"] = hex.EncodeToString(b)
 	}
 
 	var out strings.Builder

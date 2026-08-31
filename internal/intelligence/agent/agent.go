@@ -1,5 +1,4 @@
-// Package agent runs a Claude tool-use loop that converts raw threat intelligence
-// findings into typed DetectionSignature entries for ForgeGuardian's signature store.
+// Package agent converts raw threat intelligence into detection signatures.
 package agent
 
 import (
@@ -42,12 +41,10 @@ Rules:
 - Call multiple tools if the data warrants multiple signatures.
 - When done, stop calling tools.`
 
-// Agent generates DetectionSignatures from raw threat intelligence using Claude.
 type Agent struct {
 	client *anthropic.Client
 }
 
-// New creates a new intelligence Agent.
 func New(apiKey string) *Agent {
 	var opts []option.RequestOption
 	if apiKey != "" {
@@ -57,8 +54,6 @@ func New(apiKey string) *Agent {
 	return &Agent{client: &c}
 }
 
-// GenerateSignatures runs a Claude tool-use loop against the provided threat context
-// and returns all DetectionSignature entries produced by tool calls.
 func (a *Agent) GenerateSignatures(ctx context.Context, threatContext string) ([]intelligence.DetectionSignature, error) {
 	tools := buildTools()
 	messages := []anthropic.MessageParam{
@@ -302,7 +297,6 @@ func contentToParams(blocks []anthropic.ContentBlockUnion) []anthropic.ContentBl
 	return params
 }
 
-// BuildThreatContext formats raw threat feed data into a prompt for Claude.
 func BuildThreatContext(osvFindings []intelligence.DetectionSignature, ossffFindings []intelligence.DetectionSignature) string {
 	var sb strings.Builder
 	sb.WriteString("## New Threat Intelligence Findings\n\n")

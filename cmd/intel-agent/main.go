@@ -1,23 +1,4 @@
-// Command intel-agent is the ForgeGuardian real-time intelligence daemon.
-//
-// It polls threat feeds (OSV, OpenSSF malicious-packages, popularity APIs),
-// runs a Claude AI agent loop to generate typed detection signatures, and
-// writes them to the ForgeGuardian signature store.
-//
-// Usage:
-//
-//	intel-agent [flags]
-//
-// Flags:
-//
-//	--store=~/.forgeguardian/signatures.json  path to signature store (default: ~/.forgeguardian/signatures.json)
-//	--loop                                    run continuously (default: one-shot)
-//	--interval=6h                             poll interval in loop mode
-//	--api-key=...                             Anthropic API key (or ANTHROPIC_API_KEY env)
-//	--ecosystems=npm,pypi,go                  comma-separated ecosystems to poll (default: npm,pypi,go,rubygems,crates)
-//	--max-ossf=100                            max malicious-packages entries to fetch per ecosystem
-//	--dry-run                                 print signatures without saving to disk
-//	--skip-ai                                 skip the AI generation step (feeds only)
+// Command intel-agent is the ForgeGuardian intelligence daemon.
 package main
 
 import (

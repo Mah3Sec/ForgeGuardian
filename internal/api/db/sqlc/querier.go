@@ -4,7 +4,7 @@ package dbsqlc
 
 import "context"
 
-// Querier is the interface implemented by *Queries.
+// Querier is the interface implemented by *Queries and *SQLiteQueries.
 type Querier interface {
 	// packages
 	UpsertPackage(ctx context.Context, ecosystem, name string) (Package, error)
@@ -27,4 +27,16 @@ type Querier interface {
 	// attestations
 	InsertAttestation(ctx context.Context, arg InsertAttestationParams) (Attestation, error)
 	GetAttestationBySHA256(ctx context.Context, sha256 string) (AttestationWithPackage, error)
+
+	// allowlist
+	ListAllowlist(ctx context.Context) ([]AllowlistEntry, error)
+	UpsertAllowlist(ctx context.Context, ecosystem, pkg, reason, addedBy string) (AllowlistEntry, error)
+	DeleteAllowlist(ctx context.Context, id int64) error
+	IsAllowlisted(ctx context.Context, pkg, ecosystem string) (bool, error)
+
+	// alerts
+	InsertAlert(ctx context.Context, typ, message, severity string, pkgName, eco, ver *string, meta []byte) (Alert, error)
+	ListAlerts(ctx context.Context, dismissed *bool, severity string, limit, offset int32) ([]Alert, error)
+	DismissAlert(ctx context.Context, id int64) error
+	CountAlerts(ctx context.Context, dismissed *bool, severity string) (int64, error)
 }

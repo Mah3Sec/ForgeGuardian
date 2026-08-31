@@ -328,7 +328,7 @@ export function PublicDocsPage({ onNavigateHome }: { onNavigateHome?: () => void
 
           <h3 className="text-base font-semibold text-text-primary mt-6 mb-3">Supported ecosystems</h3>
           <div className="flex flex-wrap gap-2 mb-6">
-            {['npm', 'PyPI', 'Go', 'Maven', 'RubyGems', 'crates.io', 'HuggingFace', 'MCP', 'OCI / Docker'].map(e => (
+            {['npm', 'PyPI', 'Go', 'Maven', 'RubyGems', 'crates.io', 'NuGet', 'Packagist', 'HuggingFace', 'MCP', 'OCI / Docker'].map(e => (
               <span key={e} className="px-3 py-1.5 rounded-md bg-surface border border-border-color text-[0.78rem] font-mono text-text-primary">{e}</span>
             ))}
           </div>
@@ -339,6 +339,46 @@ export function PublicDocsPage({ onNavigateHome }: { onNavigateHome?: () => void
             Update signatures and create your own:
           </p>
           <CodeBlock code={`fgctl update                # Pull latest signatures\nfgctl intel new             # Guided signature wizard\nfgctl intel validate .      # Validate your signature\nfgctl intel test . --eco npm --package evil-pkg --version 1.0.0`} />
+
+          <h3 className="text-base font-semibold text-text-primary mt-8 mb-3">Remote host scanning (SSH)</h3>
+          <p className="text-text-secondary text-[0.88rem] mb-3">
+            Scan dependency manifests on remote servers over SSH. The scan is fully read-only — only{' '}
+            <code className="px-1 py-0.5 bg-surface-muted rounded text-[0.78rem]">echo</code>,{' '}
+            <code className="px-1 py-0.5 bg-surface-muted rounded text-[0.78rem]">find</code>, and{' '}
+            <code className="px-1 py-0.5 bg-surface-muted rounded text-[0.78rem]">cat</code>{' '}
+            commands run on the remote host. Nothing is installed or written remotely.
+          </p>
+
+          <h4 className="text-[0.88rem] font-semibold text-text-primary mt-6 mb-2">1. Generate an SSH key (if you don't have one)</h4>
+          <CodeBlock code={`# Ed25519 (recommended)\nssh-keygen -t ed25519 -C "your_email@example.com"\n# → saves to ~/.ssh/id_ed25519 (private) and ~/.ssh/id_ed25519.pub (public)\n\n# RSA 4096-bit (if Ed25519 is not supported)\nssh-keygen -t rsa -b 4096 -C "your_email@example.com"`} />
+
+          <h4 className="text-[0.88rem] font-semibold text-text-primary mt-6 mb-2">2. Copy your public key to the remote host</h4>
+          <CodeBlock code={`# Automatic (Linux/macOS)\nssh-copy-id user@host\n\n# Manual (any OS)\ncat ~/.ssh/id_ed25519.pub | ssh user@host "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"\n\n# Windows PowerShell\ntype $env:USERPROFILE\\.ssh\\id_ed25519.pub | ssh user@host "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"`} />
+
+          <h4 className="text-[0.88rem] font-semibold text-text-primary mt-6 mb-2">3. Verify SSH connection</h4>
+          <CodeBlock code={`ssh user@host "echo connected"`} />
+
+          <h4 className="text-[0.88rem] font-semibold text-text-primary mt-6 mb-2">4. Scan the remote host</h4>
+          <CodeBlock code={`# Basic — scans remote $HOME for all dependency manifests\nfgctl scan --remote user@host\n\n# Scan a specific directory\nfgctl scan --remote deploy@10.0.4.12 --remote-path /opt/app\n\n# Custom SSH port\nfgctl scan --remote deploy@10.0.4.12 --remote-port 2222\n\n# Explicit key file\nfgctl scan --remote user@host --identity ~/.ssh/id_ed25519\n\n# First-time connection (trust unknown host key)\nfgctl scan --remote user@host --accept-new-host-key\n\n# Limit directory depth\nfgctl scan --remote user@host --remote-max-depth 5\n\n# Combine with output/filter flags\nfgctl scan --remote user@host --severity=high --format=json\nfgctl scan --remote user@host --fail-on=high --compact`} />
+
+          <h4 className="text-[0.88rem] font-semibold text-text-primary mt-6 mb-2">Supported manifest files</h4>
+          <p className="text-text-secondary text-[0.84rem] mb-4">
+            Both local and remote scans discover these files automatically:
+          </p>
+          <div className="flex flex-wrap gap-1.5 mb-6">
+            {[
+              'package.json', 'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml',
+              'requirements.txt', 'pyproject.toml', 'Pipfile', 'Pipfile.lock', 'poetry.lock',
+              'go.mod', 'go.sum',
+              'Cargo.toml', 'Cargo.lock',
+              'pom.xml', 'build.gradle', 'build.gradle.kts',
+              'Gemfile', 'Gemfile.lock',
+              'packages.config',
+              'composer.json', 'composer.lock',
+            ].map(f => (
+              <span key={f} className="px-2 py-1 rounded bg-surface border border-border-color text-[0.7rem] font-mono text-text-secondary">{f}</span>
+            ))}
+          </div>
 
           {/* ─── Docker ──────────────────────────────────────────────── */}
           <SectionHeading id="docker" title="Docker Deployment" />

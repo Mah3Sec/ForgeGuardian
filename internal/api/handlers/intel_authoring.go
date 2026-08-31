@@ -128,9 +128,19 @@ func (h *Handler) ValidateSignatureYAML(c *gin.Context) {
 		return
 	}
 
+	if len(req.YAML) > 64*1024 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "YAML input exceeds 64 KB limit"})
+		return
+	}
+
 	var sig intelligence.SignatureYAML
 	if err := yaml.Unmarshal([]byte(req.YAML), &sig); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid YAML: " + err.Error()})
+		return
+	}
+
+	if sig.Pattern != "" && len(sig.Pattern) > 1024 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "pattern exceeds 1024 character limit"})
 		return
 	}
 
@@ -155,6 +165,11 @@ func (h *Handler) TestSignature(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if len(req.YAML) > 64*1024 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "YAML input exceeds 64 KB limit"})
 		return
 	}
 

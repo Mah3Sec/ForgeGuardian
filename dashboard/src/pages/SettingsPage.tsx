@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import {
   Info, Server, ShieldCheck, LogOut, Webhook, KeyRound,
-  Users, CreditCard, ScrollText, Clock, Lock, Loader, CheckCircle,
+  Users, CreditCard, ScrollText, Clock, Lock, Loader, CheckCircle, Bot,
 } from 'lucide-react'
-import { getAuthStatus, logout, changePassword } from '../lib/api'
+import { getAuthStatus, logout, changePassword, getAIStatus } from '../lib/api'
 import { useUIStore } from '../store/ui'
 import { Input } from '../components/ui/input'
 import { Button } from '../components/ui/button'
@@ -254,12 +254,80 @@ function PlaceholderSection({
   )
 }
 
+const PROVIDER_LABELS: Record<string, string> = {
+  anthropic: 'Anthropic',
+  openai: 'OpenAI',
+  bedrock: 'AWS Bedrock',
+  gemini: 'Google Gemini',
+  ollama: 'Ollama (Local)',
+}
+
+function AIProviderSection() {
+  const ai = useQuery({ queryKey: ['ai-status'], queryFn: getAIStatus, retry: false, staleTime: 60_000 })
+
+  return (
+    <SectionCard title="AI Provider" icon={Bot}>
+      {ai.isLoading ? (
+        <p className="text-xs text-text-secondary">Checking AI provider…</p>
+      ) : ai.isError ? (
+        <p className="text-xs text-text-secondary">
+          AI status unavailable — the server may not support the <code className="font-mono">/ai/status</code> endpoint yet.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-text-primary font-medium">
+                {ai.data?.configured
+                  ? `Active: ${PROVIDER_LABELS[ai.data.provider] ?? ai.data.provider}`
+                  : 'No AI provider configured'}
+              </p>
+              {ai.data?.configured && ai.data?.model && (
+                <p className="text-xs text-text-secondary mt-0.5 font-mono">{ai.data.model}</p>
+              )}
+              {ai.data?.error && (
+                <p className="text-xs text-critical mt-0.5">{ai.data.error}</p>
+              )}
+            </div>
+            <span
+              className="text-[0.65rem] font-medium px-2 py-0.5 rounded-full shrink-0"
+              style={{
+                background: ai.data?.configured ? 'var(--blue-light)' : 'var(--surface-muted)',
+                color: ai.data?.configured ? 'var(--primary-blue)' : 'var(--text-secondary)',
+              }}
+            >
+              {ai.data?.configured ? 'Active' : 'Not configured'}
+            </span>
+          </div>
+
+          <div className="rounded-md border border-border-color bg-bg-base p-3 space-y-1.5">
+            <p className="text-[0.65rem] font-mono font-semibold text-text-muted uppercase tracking-wide">Supported Providers</p>
+            {ai.data?.available_providers?.map(p => (
+              <div key={p.id} className="flex items-center justify-between text-xs">
+                <span className="text-text-primary">{p.name}</span>
+                <code className="text-text-muted font-mono text-[0.65rem]">{p.env}</code>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-xs text-text-muted">
+            Set <code className="font-mono">FG_AI_PROVIDER</code> to switch providers.
+            Use <code className="font-mono">FG_AI_MODEL</code> to override the default model.
+            For Ollama, set <code className="font-mono">FG_AI_BASE_URL</code> (default: <code className="font-mono">http://localhost:11434</code>).
+          </p>
+        </div>
+      )}
+    </SectionCard>
+  )
+}
+
 export function SettingsPage() {
   return (
     <div className="p-6 space-y-4">
       <h1 className="text-lg font-bold text-text-primary">Settings</h1>
 
       <GeneralSection />
+      <AIProviderSection />
       <SecuritySection />
       <ChangePasswordSection />
       <NotificationsSection />

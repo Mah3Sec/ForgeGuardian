@@ -1,49 +1,25 @@
-// Package license provides tier detection and feature gating for ForgeGuardian.
-//
-// Tiers:
-//
-//	Community — free forever, full CLI scan + signatures + SBOM + signing
-//	Pro        — AI advisory, autonomous patch, continuous monitoring, full dashboard
-//	Enterprise — Pro + RBAC, SSO, team management, SLA
-//
-// License key format: fg{tier}-{expiry-unix}-{hmac16}
-//
-//	fgp-1893456000-abc123def456  (Pro, expires 2030-01-01)
-//	fge-1893456000-abc123def456  (Enterprise)
-//
-// Set via: export FG_LICENSE_KEY=fgp-...
-// Dev mode: FG_LICENSE_KEY=dev skips validation (local dev only)
+// Package license provides tier detection and feature gating.
 package license
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
+	"crypto/ed25519"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
-	"strconv"
+	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
-// secret is overridden at build time by .goreleaser.yaml's ldflags, sourced
-// from the FG_LICENSE_SECRET repo secret in .github/workflows/release.yml
-// (which refuses to run if that secret isn't set — see that workflow's
-// "Verify license secret is configured" step). For a manual local build:
-//
-//	go build -ldflags "-X github.com/mah3sec/forgeguardian/internal/license.secret=YOUR_SECRET"
-//
-// Never commit the real secret. Use a random 32-byte hex string.
-//
-// This value is PUBLIC in every build that doesn't override it (including
-// this source file). Anyone who reads it can pass FG_LICENSE_KEY=dev for
-// full Enterprise tier, or call the exported GenerateKey() themselves to
-// mint arbitrary Pro/Enterprise keys that will validate. Official releases
-// override this at build time; local/dev builds intentionally do not, so
-// that local development never requires a real license key.
-var secret = "forgeguardian-community-build-do-not-use-in-prod"
+var publicKeyHex = "0000000000000000000000000000000000000000000000000000000000000000"
 
-// Tier represents the license level.
+var activationURL = "https://api.forgeguardian.dev/v1/license"
+
 type Tier int
 
 const (
@@ -63,30 +39,109 @@ func (t Tier) String() string {
 	}
 }
 
-// Current returns the active license tier based on FG_LICENSE_KEY env var.
-func Current() Tier {
-	key := strings.TrimSpace(os.Getenv("FG_LICENSE_KEY"))
-	if key == "" {
-		return TierCommunity
-	}
-	// Dev bypass — for development and testing
-	if key == "dev" {
-		return TierEnterprise
-	}
-	tier, _, ok := parseKey(key)
-	if !ok {
-		return TierCommunity
-	}
-	return tier
+type LicensePayload struct {
+	ID       string `json:"id"`
+	Tier     string `json:"t"`
+	Email    string `json:"e"`
+	Expiry   int64  `json:"x"`
+	IssuedAt int64  `json:"i"`
+	MaxSeats int    `json:"s,omitempty"`
 }
 
-// IsPro returns true for Pro and Enterprise tiers.
+var (
+	cachedTier     Tier
+	cachedPayload  *LicensePayload
+	cacheOnce      sync.Once
+	revokedKeys    map[string]bool
+	revokeMu       sync.RWMutex
+)
+
+func init() {
+	loadRevocationList()
+}
+
+func Current() Tier {
+	cacheOnce.Do(func() {
+		cachedTier, cachedPayload = resolveCurrentTier()
+	})
+	return cachedTier
+}
+
+func CurrentPayload() *LicensePayload {
+	Current() // ensure cache is populated
+	return cachedPayload
+}
+
+func resolveCurrentTier() (Tier, *LicensePayload) {
+	key := strings.TrimSpace(os.Getenv("FG_LICENSE_KEY"))
+	if key == "" {
+		return TierCommunity, nil
+	}
+
+	payload, err := Validate(key)
+	if err != nil {
+		return TierCommunity, nil
+	}
+
+	if payload.Tier == "enterprise" {
+		if !checkActivation(payload) {
+			return TierCommunity, nil
+		}
+		return TierEnterprise, payload
+	}
+
+	return TierPro, payload
+}
+
+func Validate(key string) (*LicensePayload, error) {
+	parts := strings.SplitN(key, ".", 3)
+	if len(parts) != 3 || parts[0] != "fg2" {
+		return nil, fmt.Errorf("invalid key format")
+	}
+
+	payloadBytes, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return nil, fmt.Errorf("invalid payload encoding")
+	}
+
+	sigBytes, err := base64.RawURLEncoding.DecodeString(parts[2])
+	if err != nil {
+		return nil, fmt.Errorf("invalid signature encoding")
+	}
+
+	pubKeyBytes, err := hex.DecodeString(publicKeyHex)
+	if err != nil || len(pubKeyBytes) != ed25519.PublicKeySize {
+		return nil, fmt.Errorf("invalid public key configuration")
+	}
+
+	if !ed25519.Verify(ed25519.PublicKey(pubKeyBytes), payloadBytes, sigBytes) {
+		return nil, fmt.Errorf("invalid signature")
+	}
+
+	var payload LicensePayload
+	if err := json.Unmarshal(payloadBytes, &payload); err != nil {
+		return nil, fmt.Errorf("invalid payload")
+	}
+
+	if payload.Expiry > 0 && time.Now().Unix() > payload.Expiry {
+		return nil, fmt.Errorf("license expired on %s", time.Unix(payload.Expiry, 0).Format("2006-01-02"))
+	}
+
+	if isRevoked(payload.ID) {
+		return nil, fmt.Errorf("license has been revoked")
+	}
+
+	if payload.Tier != "pro" && payload.Tier != "enterprise" {
+		return nil, fmt.Errorf("unknown tier %q", payload.Tier)
+	}
+
+	return &payload, nil
+}
+
 func IsPro() bool { return Current() >= TierPro }
 
-// IsEnterprise returns true only for Enterprise tier.
 func IsEnterprise() bool { return Current() >= TierEnterprise }
 
-// RequirePro returns an error with upgrade instructions if not Pro.
 func RequirePro(featureName string) error {
 	if IsPro() {
 		return nil
@@ -103,81 +158,218 @@ func RequirePro(featureName string) error {
                   fgctl doctor`, featureName)
 }
 
-// Info returns a human-readable license summary.
 func Info() string {
 	key := strings.TrimSpace(os.Getenv("FG_LICENSE_KEY"))
 	if key == "" {
 		return "Community (free) — upgrade at forgeguardian.dev/pro"
 	}
-	tier, expiry, ok := parseKey(key)
-	if !ok {
-		return "Invalid license key — using Community tier"
-	}
-	if !expiry.IsZero() && time.Now().After(expiry) {
-		return fmt.Sprintf("%s license EXPIRED on %s — renew at forgeguardian.dev/pro",
-			tier, expiry.Format("2006-01-02"))
-	}
-	if expiry.IsZero() {
-		return fmt.Sprintf("%s license (no expiry)", tier)
-	}
-	return fmt.Sprintf("%s license — expires %s", tier, expiry.Format("2006-01-02"))
-}
-
-// GenerateKey generates a license key for the given tier and expiry.
-// Used internally by the license server — not exposed in the CLI.
-func GenerateKey(tier Tier, expiry time.Time) string {
-	prefix := "fgp"
-	if tier == TierEnterprise {
-		prefix = "fge"
-	}
-	expiryStr := strconv.FormatInt(expiry.Unix(), 10)
-	payload := prefix + "-" + expiryStr
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(payload))
-	sig := hex.EncodeToString(mac.Sum(nil))[:16]
-	return payload + "-" + sig
-}
-
-// parseKey parses and validates a license key.
-// Returns tier, expiry, and whether the key is valid.
-func parseKey(key string) (Tier, time.Time, bool) {
-	parts := strings.Split(key, "-")
-	if len(parts) < 3 {
-		return TierCommunity, time.Time{}, false
-	}
-
-	prefix := parts[0]
-	expiryStr := parts[1]
-	sig := parts[2]
-
-	var tier Tier
-	switch prefix {
-	case "fgp":
-		tier = TierPro
-	case "fge":
-		tier = TierEnterprise
-	default:
-		return TierCommunity, time.Time{}, false
-	}
-
-	payload := prefix + "-" + expiryStr
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(payload))
-	expected := hex.EncodeToString(mac.Sum(nil))[:16]
-
-	if !hmac.Equal([]byte(sig), []byte(expected)) {
-		return TierCommunity, time.Time{}, false
-	}
-
-	expiryUnix, err := strconv.ParseInt(expiryStr, 10, 64)
+	payload, err := Validate(key)
 	if err != nil {
-		return TierCommunity, time.Time{}, false
+		return fmt.Sprintf("Invalid license: %s — using Community tier", err)
 	}
 
-	expiry := time.Unix(expiryUnix, 0)
-	if !expiry.IsZero() && time.Now().After(expiry) {
-		return TierCommunity, expiry, false // expired
+	tier := TierPro
+	if payload.Tier == "enterprise" {
+		tier = TierEnterprise
 	}
 
-	return tier, expiry, true
+	expiry := time.Unix(payload.Expiry, 0)
+	parts := []string{fmt.Sprintf("%s license", tier)}
+	if payload.Email != "" {
+		parts = append(parts, fmt.Sprintf("(%s)", payload.Email))
+	}
+	if payload.ID != "" {
+		parts = append(parts, fmt.Sprintf("[%s]", payload.ID))
+	}
+	parts = append(parts, fmt.Sprintf("— expires %s", expiry.Format("2006-01-02")))
+	return strings.Join(parts, " ")
+}
+
+
+
+type activationCache struct {
+	LicenseID  string `json:"license_id"`
+	ActivatedAt int64 `json:"activated_at"`
+	ValidUntil  int64 `json:"valid_until"`
+	MachineID   string `json:"machine_id"`
+}
+
+func activationCachePath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".forgeguardian", "activation.json")
+}
+
+func machineFingerprint() string {
+	hostname, _ := os.Hostname()
+	home, _ := os.UserHomeDir()
+	raw := hostname + "|" + home + "|" + os.Getenv("USER") + os.Getenv("USERNAME")
+	h := make([]byte, 0, 16)
+	for i, b := range []byte(raw) {
+		if i < 16 {
+			h = append(h, b)
+		} else {
+			h[i%16] ^= b
+		}
+	}
+	return hex.EncodeToString(h)
+}
+
+func checkActivation(payload *LicensePayload) bool {
+	cache := loadActivationCache()
+	if cache != nil && cache.LicenseID == payload.ID && cache.MachineID == machineFingerprint() {
+		if time.Now().Unix() < cache.ValidUntil {
+			return true
+		}
+	}
+
+	if activateOnline(payload) {
+		return true
+	}
+
+	if cache != nil && cache.LicenseID == payload.ID {
+		gracePeriod := cache.ValidUntil + (30 * 24 * 60 * 60)
+		if time.Now().Unix() < gracePeriod {
+			return true
+		}
+	}
+
+	return false
+}
+
+func activateOnline(payload *LicensePayload) bool {
+	url := activationURL + "/activate"
+	body := fmt.Sprintf(`{"license_id":%q,"machine_id":%q}`, payload.ID, machineFingerprint())
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Post(url, "application/json", strings.NewReader(body))
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return false
+	}
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false
+	}
+
+	var result struct {
+		Activated  bool  `json:"activated"`
+		ValidUntil int64 `json:"valid_until"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil || !result.Activated {
+		return false
+	}
+
+	cache := &activationCache{
+		LicenseID:   payload.ID,
+		ActivatedAt: time.Now().Unix(),
+		ValidUntil:  result.ValidUntil,
+		MachineID:   machineFingerprint(),
+	}
+	saveActivationCache(cache)
+	return true
+}
+
+func loadActivationCache() *activationCache {
+	data, err := os.ReadFile(activationCachePath())
+	if err != nil {
+		return nil
+	}
+	var cache activationCache
+	if err := json.Unmarshal(data, &cache); err != nil {
+		return nil
+	}
+	return &cache
+}
+
+func saveActivationCache(cache *activationCache) {
+	dir := filepath.Dir(activationCachePath())
+	os.MkdirAll(dir, 0700)
+	data, _ := json.Marshal(cache)
+	os.WriteFile(activationCachePath(), data, 0600)
+}
+
+
+func revocationListPath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".forgeguardian", "revoked-licenses.json")
+}
+
+func loadRevocationList() {
+	revokeMu.Lock()
+	defer revokeMu.Unlock()
+	revokedKeys = make(map[string]bool)
+
+	data, err := os.ReadFile(revocationListPath())
+	if err != nil {
+		return
+	}
+	var ids []string
+	if err := json.Unmarshal(data, &ids); err != nil {
+		return
+	}
+	for _, id := range ids {
+		revokedKeys[id] = true
+	}
+}
+
+func isRevoked(licenseID string) bool {
+	revokeMu.RLock()
+	defer revokeMu.RUnlock()
+	return revokedKeys[licenseID]
+}
+
+func UpdateRevocationList() error {
+	url := activationURL + "/revoked"
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		return fmt.Errorf("fetch revocation list: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("revocation list: HTTP %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	var ids []string
+	if err := json.Unmarshal(body, &ids); err != nil {
+		return fmt.Errorf("invalid revocation list format")
+	}
+
+	dir := filepath.Dir(revocationListPath())
+	os.MkdirAll(dir, 0700)
+	if err := os.WriteFile(revocationListPath(), body, 0600); err != nil {
+		return err
+	}
+
+	loadRevocationList()
+	return nil
+}
+
+func Revoke(licenseID string) {
+	revokeMu.Lock()
+	defer revokeMu.Unlock()
+	if revokedKeys == nil {
+		revokedKeys = make(map[string]bool)
+	}
+	revokedKeys[licenseID] = true
+
+	var ids []string
+	for id := range revokedKeys {
+		ids = append(ids, id)
+	}
+	data, _ := json.Marshal(ids)
+	dir := filepath.Dir(revocationListPath())
+	os.MkdirAll(dir, 0700)
+	os.WriteFile(revocationListPath(), data, 0600)
 }

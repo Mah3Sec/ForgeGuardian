@@ -46,11 +46,14 @@ func runDoctor(args []string, log *slog.Logger) error {
 		checkBinary("grype"),
 		checkBinary("semgrep"),
 		checkBinary("trivy"),
-		checkEnvKey("ANTHROPIC_API_KEY", "advisory and auto-fix commands unavailable"),
+		checkAIProvider(),
 		checkSignatures(),
 		checkSignaturesFreshness(),
 		checkDiskSpace(),
 		checkAPIConn(),
+		checkDatabaseURL(),
+		checkDashboardAuth(),
+		checkAPIKey(),
 		checkDockerAvailable(),
 		checkNodeVersion(),
 		checkDashboardBuild(),
@@ -106,6 +109,14 @@ func runDoctor(args []string, log *slog.Logger) error {
 					updated = checkSignaturesFreshness()
 				case "config.yaml":
 					updated = checkConfigYAML()
+				case "AI provider":
+					updated = checkAIProvider()
+				case "DATABASE_URL":
+					updated = checkDatabaseURL()
+				case "dashboard auth":
+					updated = checkDashboardAuth()
+				case "FG_API_KEY":
+					updated = checkAPIKey()
 				default:
 					updated = c
 				}
@@ -162,8 +173,14 @@ func attemptFix(name string) string {
 		return fixSignatures()
 	case "config.yaml":
 		return ensureForgeDir()
-	case "ANTHROPIC_API_KEY":
-		return "set ANTHROPIC_API_KEY in your shell profile to enable AI features"
+	case "AI provider":
+		return "set an API key for your preferred provider (ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY, AWS_ACCESS_KEY_ID) or set FG_AI_BASE_URL for a local Ollama endpoint"
+	case "DATABASE_URL":
+		return fixDatabaseURL()
+	case "dashboard auth":
+		return "set FG_ADMIN_EMAIL and FG_ADMIN_PASSWORD environment variables to enable dashboard login"
+	case "FG_API_KEY":
+		return fixAPIKey()
 	default:
 		return ensureForgeDir()
 	}
@@ -547,4 +564,96 @@ func checkAPIConn() doctorCheck {
 		Status: doctorWarn,
 		Detail: fmt.Sprintf("returned %d at %s", resp.StatusCode, apiURL),
 	}
+}
+
+func checkAIProvider() doctorCheck {
+	providers := []struct{ name, env string }{
+		{"Anthropic", "ANTHROPIC_API_KEY"},
+		{"OpenAI", "OPENAI_API_KEY"},
+		{"Google Gemini", "GOOGLE_API_KEY"},
+		{"AWS Bedrock", "AWS_ACCESS_KEY_ID"},
+		{"Ollama", "FG_AI_BASE_URL"},
+	}
+	var configured []string
+	for _, p := range providers {
+		if os.Getenv(p.env) != "" {
+			configured = append(configured, p.name)
+		}
+	}
+	if len(configured) > 0 {
+		return doctorCheck{
+			Name:   "AI provider",
+			Status: doctorPass,
+			Detail: fmt.Sprintf("configured: %s", strings.Join(configured, ", ")),
+		}
+	}
+	return doctorCheck{
+		Name:   "AI provider",
+		Status: doctorWarn,
+		Detail: "no AI provider configured — advisory and auto-patch commands unavailable",
+	}
+}
+
+func checkDatabaseURL() doctorCheck {
+	if os.Getenv("DATABASE_URL") != "" {
+		return doctorCheck{Name: "DATABASE_URL", Status: doctorPass, Detail: "set — PostgreSQL backend enabled"}
+	}
+	home, _ := os.UserHomeDir()
+	dbPath := filepath.Join(home, ".forgeguardian", "forgeguardian.db")
+	if _, err := os.Stat(dbPath); err == nil {
+		return doctorCheck{Name: "DATABASE_URL", Status: doctorPass, Detail: "not set — using embedded SQLite at " + dbPath}
+	}
+	return doctorCheck{
+		Name:   "DATABASE_URL",
+		Status: doctorPass,
+		Detail: "not set — embedded SQLite will be auto-created on first serve",
+	}
+}
+
+func fixDatabaseURL() string {
+	return "embedded SQLite is used by default — no configuration needed.\n       For PostgreSQL, set DATABASE_URL, e.g.:\n       export DATABASE_URL=\"postgres://fg:password@localhost:5432/forgeguardian?sslmode=disable\""
+}
+
+func checkDashboardAuth() doctorCheck {
+	email := os.Getenv("FG_ADMIN_EMAIL")
+	pass := os.Getenv("FG_ADMIN_PASSWORD")
+	secret := os.Getenv("FG_SESSION_SECRET")
+	if email != "" && pass != "" {
+		if secret != "" {
+			return doctorCheck{Name: "dashboard auth", Status: doctorPass, Detail: "credentials and session secret configured"}
+		}
+		return doctorCheck{
+			Name:   "dashboard auth",
+			Status: doctorWarn,
+			Detail: "FG_SESSION_SECRET not set — fgctl serve auto-generates one, but set it for production",
+		}
+	}
+	return doctorCheck{
+		Name:   "dashboard auth",
+		Status: doctorWarn,
+		Detail: "FG_ADMIN_EMAIL/FG_ADMIN_PASSWORD not set — dashboard runs in open-access dev mode",
+	}
+}
+
+func checkAPIKey() doctorCheck {
+	if os.Getenv("FG_API_KEY") != "" {
+		return doctorCheck{Name: "FG_API_KEY", Status: doctorPass, Detail: "set — API authentication enabled"}
+	}
+	return doctorCheck{
+		Name:   "FG_API_KEY",
+		Status: doctorWarn,
+		Detail: "not set — API endpoints have no authentication (dev mode)",
+	}
+}
+
+func fixAPIKey() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "generate a random API key: openssl rand -hex 32"
+	}
+	envFile := filepath.Join(home, ".forgeguardian", ".env")
+	if _, err := os.Stat(envFile); err == nil {
+		return fmt.Sprintf("add FG_API_KEY to %s, e.g.: FG_API_KEY=$(openssl rand -hex 32)", envFile)
+	}
+	return "set FG_API_KEY environment variable, e.g.: export FG_API_KEY=$(openssl rand -hex 32)"
 }

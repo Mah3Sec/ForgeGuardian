@@ -1,4 +1,4 @@
-// Package triage uses the Anthropic API to generate AI-driven security advisories
+// Package triage uses an AI provider to generate security advisories
 // from a set of scan findings. It produces a structured core.Advisory with
 // severity assessment, exploitability rationale, and recommended action.
 package triage
@@ -7,23 +7,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
-	anthropic "github.com/anthropics/anthropic-sdk-go"
-	"github.com/anthropics/anthropic-sdk-go/option"
+	"github.com/mah3sec/forgeguardian/internal/ai"
 	"github.com/mah3sec/forgeguardian/internal/core"
 )
-
-const defaultModel = "claude-sonnet-4-20250514"
-
-func triageModel() anthropic.Model {
-	if m := os.Getenv("FG_AI_MODEL"); m != "" {
-		return anthropic.Model(m)
-	}
-	return anthropic.Model(defaultModel)
-}
 
 const (
 	maxTokens    = 2048
@@ -39,68 +28,59 @@ Rules:
 - Respond ONLY with the JSON schema requested — no preamble, no markdown fences.`
 )
 
-// Engine generates AI-powered security advisories using Claude.
+// Engine generates AI-powered security advisories.
 type Engine struct {
-	client *anthropic.Client
+	provider ai.Provider
 }
 
-// New creates a new triage Engine. If apiKey is empty, it reads ANTHROPIC_API_KEY.
-func New(apiKey string) *Engine {
-	var opts []option.RequestOption
+// New creates a triage Engine using the given AI provider.
+func New(provider ai.Provider) *Engine {
+	return &Engine{provider: provider}
+}
+
+// NewFromAPIKey creates a triage Engine using legacy Anthropic API key.
+// Deprecated: use New(provider) with ai.NewProviderFromEnv() instead.
+func NewFromAPIKey(apiKey string) *Engine {
+	cfg := ai.LoadConfig()
 	if apiKey != "" {
-		opts = append(opts, option.WithAPIKey(apiKey))
+		cfg.APIKey = apiKey
 	}
-	c := anthropic.NewClient(opts...)
-	return &Engine{client: &c}
+	p, err := ai.NewProvider(cfg)
+	if err != nil {
+		p, _ = ai.NewAnthropicProvider(ai.Config{APIKey: apiKey})
+	}
+	return &Engine{provider: p}
 }
 
 // Triage generates a security advisory for an artifact based on scan findings.
 func (e *Engine) Triage(ctx context.Context, artifact core.BuiltArtifact, findings []core.Finding) (core.Advisory, error) {
 	pkg := artifact.Source.Package
 
-	// Build the user prompt with structured finding data
 	prompt := buildPrompt(artifact, findings)
 
-	msg, err := e.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     triageModel(),
-		MaxTokens: maxTokens,
-		System: []anthropic.TextBlockParam{
-			{Text: systemPrompt},
-		},
-		Messages: []anthropic.MessageParam{
-			anthropic.NewUserMessage(anthropic.NewTextBlock(prompt)),
-		},
+	resp, err := e.provider.Complete(ctx, ai.CompletionRequest{
+		SystemPrompt: systemPrompt,
+		Messages:     []ai.Message{{Role: "user", Content: prompt}},
+		MaxTokens:    maxTokens,
 	})
 	if err != nil {
-		return core.Advisory{}, fmt.Errorf("triage: anthropic api: %w", err)
+		return core.Advisory{}, fmt.Errorf("triage: %s: %w", e.provider.Name(), err)
 	}
 
-	if len(msg.Content) == 0 {
-		return core.Advisory{}, fmt.Errorf("triage: empty response from model")
+	if resp.Text == "" {
+		return core.Advisory{}, fmt.Errorf("triage: empty response from %s", e.provider.Name())
 	}
 
-	var raw string
-	for _, block := range msg.Content {
-		if tb := block.AsText(); tb.Text != "" {
-			raw = tb.Text
-			break
-		}
-	}
-
-	advisory, err := parseAdvisoryJSON(raw, pkg, findings)
+	advisory, err := parseAdvisoryJSON(resp.Text, pkg, findings)
 	if err != nil {
-		// Fall back to a minimal advisory if JSON parsing fails
-		advisory = fallbackAdvisory(pkg, findings, raw)
+		advisory = fallbackAdvisory(pkg, findings, resp.Text)
 	}
 	advisory.GeneratedAt = time.Now().UTC()
 	return advisory, nil
 }
 
-// buildPrompt constructs the user-facing prompt with package + finding data.
 func buildPrompt(artifact core.BuiltArtifact, findings []core.Finding) string {
 	pkg := artifact.Source.Package
-
-	// Serialize findings to JSON for precise representation
 	findingsJSON, _ := json.MarshalIndent(findings, "", "  ")
 
 	return fmt.Sprintf(`Analyze this package and produce a security advisory in the exact JSON format below.
@@ -130,7 +110,6 @@ Respond with ONLY the JSON object — no markdown, no explanation outside the JS
 		len(findings), string(findingsJSON))
 }
 
-// triageResponse is the expected JSON shape from Claude.
 type triageResponse struct {
 	Severity                string  `json:"severity"`
 	Confidence              float64 `json:"confidence"`
@@ -142,7 +121,6 @@ type triageResponse struct {
 }
 
 func parseAdvisoryJSON(raw string, pkg core.PackageVersion, findings []core.Finding) (core.Advisory, error) {
-	// Strip any markdown fences if Claude wrapped the output anyway
 	raw = strings.TrimSpace(raw)
 	if strings.HasPrefix(raw, "```") {
 		lines := strings.Split(raw, "\n")

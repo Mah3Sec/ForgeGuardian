@@ -9,8 +9,7 @@ import { EmptyState } from '../components/EmptyState';
 import { cn } from '../components/ui/utils';
 
 const DOCS = [
-  { key: 'GUIDE', label: 'Guide', file: 'GUIDE.md' },
-  { key: 'DOCS', label: 'Full Docs', file: 'DOCS.md' },
+  { key: 'DOCS', label: 'Docs', file: 'DOCS.md' },
   { key: 'WORKFLOWS', label: 'Workflows', file: 'WORKFLOWS.md' },
 ];
 

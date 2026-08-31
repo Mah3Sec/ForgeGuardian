@@ -182,7 +182,7 @@ Drop into any GitHub Actions workflow:
 ## Key Features
 
 - **Offline-first** — all scans run locally, no data leaves your machine
-- **AI triage** — optional AI advisory and patch agent (needs `ANTHROPIC_API_KEY`)
+- **AI triage** — optional AI advisory and patch agent (supports multiple providers)
 - **Multi-workspace** — organize projects into workspaces with independent scan histories
 - **SBOM** — CycloneDX 1.5 + SPDX 2.3 generation
 - **Sigstore signing** — keyless artifact signing + verification
@@ -218,7 +218,7 @@ The engine, CLI, and community tools are **Apache 2.0, free forever**. Pro adds 
 ## Privacy
 
 - Zero telemetry — phones home for nothing
-- AI features are opt-in (explicit `ANTHROPIC_API_KEY`)
+- AI features are opt-in — supports multiple providers including local LLMs
 - Self-hostable and airgap-compatible
 - SBOMs and provenance published for every release
 

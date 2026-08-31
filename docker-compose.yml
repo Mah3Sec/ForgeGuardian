@@ -2,13 +2,18 @@ version: "3.9"
 
 # Full platform stack — postgres + redis + ForgeGuardian (API + dashboard).
 #
-# Quick start (no .env needed):
+# Quick start:
+#   fgctl setup                      # generates .env with random POSTGRES_PASSWORD
 #   docker compose up -d
 #   open http://localhost:3000
 #   Login: admin@forgeguardian.local / changeme123
 #
+# Or set POSTGRES_PASSWORD manually:
+#   POSTGRES_PASSWORD=$(openssl rand -hex 16) docker compose up -d
+#
 # Custom credentials:
-#   FG_ADMIN_EMAIL=you@example.com FG_ADMIN_PASSWORD=YourSecurePass docker compose up -d
+#   FG_ADMIN_EMAIL=you@example.com FG_ADMIN_PASSWORD=YourSecurePass \
+#     POSTGRES_PASSWORD=secret docker compose up -d
 
 networks:
   forgeguardian:
@@ -27,7 +32,7 @@ services:
     environment:
       POSTGRES_DB: forgeguardian
       POSTGRES_USER: forgeguardian
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env or environment}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/k8s/initdb:/docker-entrypoint-initdb.d:ro
@@ -61,7 +66,7 @@ services:
     build: .
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgres://forgeguardian:${POSTGRES_PASSWORD:-devpassword}@postgres:5432/forgeguardian?sslmode=disable
+      DATABASE_URL: postgres://forgeguardian:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env or environment}@postgres:5432/forgeguardian?sslmode=disable
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       FG_ADMIN_EMAIL: ${FG_ADMIN_EMAIL:-}
       FG_ADMIN_PASSWORD: ${FG_ADMIN_PASSWORD:-}

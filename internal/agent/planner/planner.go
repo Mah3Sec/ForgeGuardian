@@ -1,6 +1,6 @@
-// Package planner uses Claude's tool-use capability to autonomously reason about
+// Package planner uses AI tool-use to autonomously reason about
 // and plan patch actions for a given security advisory.
-// It runs a multi-turn agentic loop: Claude calls tools → we execute → Claude reasons → repeat.
+// It runs a multi-turn agentic loop: AI calls tools → we execute → AI reasons → repeat.
 package planner
 
 import (
@@ -9,12 +9,9 @@ import (
 	"fmt"
 	"strings"
 
-	anthropic "github.com/anthropics/anthropic-sdk-go"
-	"github.com/anthropics/anthropic-sdk-go/option"
+	"github.com/mah3sec/forgeguardian/internal/ai"
 	"github.com/mah3sec/forgeguardian/internal/core"
 )
-
-const model anthropic.Model = "claude-sonnet-4-20250514"
 
 const (
 	maxTokens = 4096
@@ -40,73 +37,80 @@ type PatchAction struct {
 	FilePath    string `json:"file_path,omitempty"`
 }
 
-// Planner runs an agentic planning loop using Claude tool use.
+// Planner runs an agentic planning loop using AI tool use.
 type Planner struct {
-	client *anthropic.Client
+	provider ai.Provider
 }
 
-// New creates a new patch Planner.
-func New(apiKey string) *Planner {
-	var opts []option.RequestOption
+// New creates a new patch Planner with the given AI provider.
+func New(provider ai.Provider) *Planner {
+	return &Planner{provider: provider}
+}
+
+// NewFromAPIKey creates a Planner using legacy Anthropic API key.
+// Deprecated: use New(provider) with ai.NewProviderFromEnv() instead.
+func NewFromAPIKey(apiKey string) *Planner {
+	cfg := ai.LoadConfig()
 	if apiKey != "" {
-		opts = append(opts, option.WithAPIKey(apiKey))
+		cfg.APIKey = apiKey
 	}
-	c := anthropic.NewClient(opts...)
-	return &Planner{client: &c}
+	p, err := ai.NewProvider(cfg)
+	if err != nil {
+		p, _ = ai.NewAnthropicProvider(ai.Config{APIKey: apiKey})
+	}
+	return &Planner{provider: p}
 }
 
 // Plan generates a PatchPlan for the given advisory using a multi-turn tool-use loop.
 func (p *Planner) Plan(ctx context.Context, advisory core.Advisory) (PatchPlan, error) {
-	tools := buildTools()
-	messages := []anthropic.MessageParam{
-		anthropic.NewUserMessage(anthropic.NewTextBlock(buildPlannerPrompt(advisory))),
+	if !p.provider.SupportsToolUse() {
+		return p.planWithoutTools(ctx, advisory)
 	}
+
+	tools := buildTools()
+	messages := []ai.Message{{Role: "user", Content: buildPlannerPrompt(advisory)}}
 
 	var toolState plannerState
 	toolState.advisory = advisory
 
 	for i := 0; i < maxIter; i++ {
-		msg, err := p.client.Messages.New(ctx, anthropic.MessageNewParams{
-			Model:     model,
-			MaxTokens: maxTokens,
-			System: []anthropic.TextBlockParam{
-				{Text: plannerSystemPrompt},
-			},
-			Tools:    tools,
-			Messages: messages,
-			ToolChoice: anthropic.ToolChoiceUnionParam{
-				OfAuto: &anthropic.ToolChoiceAutoParam{},
-			},
+		resp, err := p.provider.Complete(ctx, ai.CompletionRequest{
+			SystemPrompt: plannerSystemPrompt,
+			Messages:     messages,
+			MaxTokens:    maxTokens,
+			Tools:        tools,
 		})
 		if err != nil {
 			return PatchPlan{}, fmt.Errorf("planner: api call %d: %w", i, err)
 		}
 
-		// Append assistant message to history
-		messages = append(messages, anthropic.NewAssistantMessage(contentToParams(msg.Content)...))
+		messages = append(messages, ai.Message{Role: "assistant", Content: resp.Text})
 
-		// If Claude is done (end_turn or tool_use done), extract the plan
-		if msg.StopReason == anthropic.StopReasonEndTurn {
-			return extractPlan(msg.Content, advisory)
+		if resp.StopReason == "end_turn" {
+			return extractPlanFromText(resp.Text, advisory)
 		}
 
-		if msg.StopReason != anthropic.StopReasonToolUse {
+		if resp.StopReason != "tool_use" || len(resp.ToolCalls) == 0 {
 			break
 		}
 
-		// Process tool calls
-		var toolResults []anthropic.ContentBlockParamUnion
-		for _, block := range msg.Content {
-			tu := block.AsToolUse()
-			if tu.ID == "" {
-				continue
-			}
-			result := dispatchTool(tu, &toolState)
-			toolResults = append(toolResults, anthropic.NewToolResultBlock(tu.ID, result, false))
+		var toolResults []ai.ToolResult
+		for _, tc := range resp.ToolCalls {
+			result := dispatchTool(tc, &toolState)
+			toolResults = append(toolResults, ai.ToolResult{
+				ToolCallID: tc.ID,
+				Content:    result,
+			})
 		}
-		if len(toolResults) > 0 {
-			messages = append(messages, anthropic.NewUserMessage(toolResults...))
-		}
+
+		messages = append(messages, ai.Message{
+			Role:    "user",
+			Content: formatToolResults(toolResults),
+		})
+	}
+
+	if toolState.patchPlan != nil {
+		return *toolState.patchPlan, nil
 	}
 
 	return PatchPlan{
@@ -119,7 +123,37 @@ func (p *Planner) Plan(ctx context.Context, advisory core.Advisory) (PatchPlan, 
 	}, nil
 }
 
-// --- Tool definitions ---
+func (p *Planner) planWithoutTools(ctx context.Context, advisory core.Advisory) (PatchPlan, error) {
+	prompt := buildPlannerPrompt(advisory) + `
+
+Since tool calls are not available, produce the patch plan JSON directly:
+{
+  "actions": [{"type":"upgrade|pin|replace|remove|noaction","description":"...","old_value":"...","new_value":"..."}],
+  "rationale": "...",
+  "risk_level": "low|medium|high",
+  "auto_apply": true|false
+}
+Respond with ONLY the JSON object.`
+
+	resp, err := p.provider.Complete(ctx, ai.CompletionRequest{
+		SystemPrompt: plannerSystemPrompt,
+		Messages:     []ai.Message{{Role: "user", Content: prompt}},
+		MaxTokens:    maxTokens,
+	})
+	if err != nil {
+		return PatchPlan{}, fmt.Errorf("planner: %w", err)
+	}
+
+	return extractPlanFromText(resp.Text, advisory)
+}
+
+func formatToolResults(results []ai.ToolResult) string {
+	var parts []string
+	for _, r := range results {
+		parts = append(parts, fmt.Sprintf("[tool_result id=%s] %s", r.ToolCallID, r.Content))
+	}
+	return strings.Join(parts, "\n")
+}
 
 var plannerSystemPrompt = `You are ForgeGuardian's autonomous patch planner. Given a security advisory,
 use the available tools to research the vulnerability and produce a concrete patch plan.
@@ -132,23 +166,22 @@ Available tools allow you to:
 Always call generate_patch_plan as your final action when you have enough information.
 Be conservative: if unsure, recommend human review rather than auto-apply.`
 
-func buildTools() []anthropic.ToolUnionParam {
-	t1 := anthropic.ToolUnionParamOfTool(
-		anthropic.ToolInputSchemaParam{
-			Properties: map[string]any{
+func buildTools() []ai.ToolDef {
+	return []ai.ToolDef{
+		{
+			Name:        "lookup_safe_version",
+			Description: "Look up the latest version of a package not affected by known vulnerabilities.",
+			Parameters: map[string]any{
 				"ecosystem":       map[string]string{"type": "string"},
 				"package":         map[string]string{"type": "string"},
 				"current_version": map[string]string{"type": "string"},
 			},
 			Required: []string{"ecosystem", "package", "current_version"},
 		},
-		"lookup_safe_version",
-	)
-	t1.OfTool.Description = anthropic.String("Look up the latest version of a package not affected by known vulnerabilities.")
-
-	t2 := anthropic.ToolUnionParamOfTool(
-		anthropic.ToolInputSchemaParam{
-			Properties: map[string]any{
+		{
+			Name:        "check_version_affected",
+			Description: "Check whether a specific version is affected by a given CVE or GHSA ID.",
+			Parameters: map[string]any{
 				"vuln_id":   map[string]string{"type": "string"},
 				"package":   map[string]string{"type": "string"},
 				"version":   map[string]string{"type": "string"},
@@ -156,13 +189,10 @@ func buildTools() []anthropic.ToolUnionParam {
 			},
 			Required: []string{"vuln_id", "package", "version", "ecosystem"},
 		},
-		"check_version_affected",
-	)
-	t2.OfTool.Description = anthropic.String("Check whether a specific version is affected by a given CVE or GHSA ID.")
-
-	t3 := anthropic.ToolUnionParamOfTool(
-		anthropic.ToolInputSchemaParam{
-			Properties: map[string]any{
+		{
+			Name:        "generate_patch_plan",
+			Description: "Generate the final structured patch plan. Call when you have enough information.",
+			Parameters: map[string]any{
 				"actions":    map[string]any{"type": "array"},
 				"rationale":  map[string]string{"type": "string"},
 				"risk_level": map[string]string{"type": "string"},
@@ -170,25 +200,19 @@ func buildTools() []anthropic.ToolUnionParam {
 			},
 			Required: []string{"actions", "rationale", "risk_level"},
 		},
-		"generate_patch_plan",
-	)
-	t3.OfTool.Description = anthropic.String("Generate the final structured patch plan. Call when you have enough information.")
-
-	return []anthropic.ToolUnionParam{t1, t2, t3}
+	}
 }
 
-// plannerState holds the tool state across iterations.
 type plannerState struct {
 	advisory  core.Advisory
 	patchPlan *PatchPlan
 }
 
-// dispatchTool executes a tool call and returns the result string.
-func dispatchTool(tu anthropic.ToolUseBlock, state *plannerState) string {
+func dispatchTool(tc ai.ToolCall, state *plannerState) string {
 	var input map[string]any
-	json.Unmarshal(tu.Input, &input)
+	json.Unmarshal(tc.Input, &input)
 
-	switch tu.Name {
+	switch tc.Name {
 	case "lookup_safe_version":
 		pkg, _ := input["package"].(string)
 		ecosystem, _ := input["ecosystem"].(string)
@@ -225,7 +249,6 @@ func dispatchTool(tu anthropic.ToolUseBlock, state *plannerState) string {
 	}
 }
 
-// lookupSafeVersion uses OSV fix versions from the findings to suggest a safe version.
 func lookupSafeVersion(ecosystem, pkg, current string, findings []core.Finding) string {
 	var fixes []string
 	for _, f := range findings {
@@ -254,7 +277,6 @@ func lookupSafeVersion(ecosystem, pkg, current string, findings []core.Finding) 
 	return fmt.Sprintf(`{"recommended_version":"latest","note":"No specific fix version found in scan data — check %s registry for latest safe version","package":"%s"}`, ecosystem, pkg)
 }
 
-// checkVersionAffected looks through findings for the specified vuln ID.
 func checkVersionAffected(vulnID, pkg, version string, findings []core.Finding) string {
 	for _, f := range findings {
 		if strings.EqualFold(f.ID, vulnID) {
@@ -264,18 +286,8 @@ func checkVersionAffected(vulnID, pkg, version string, findings []core.Finding) 
 	return fmt.Sprintf(`{"affected":false,"note":"Finding %s not found in scan results for %s@%s"}`, vulnID, pkg, version)
 }
 
-// extractPlan pulls the PatchPlan from the tool state or generates one from the final message.
-func extractPlan(content []anthropic.ContentBlockUnion, advisory core.Advisory) (PatchPlan, error) {
-	// Collect text from the final assistant message
-	var text strings.Builder
-	for _, block := range content {
-		if tb := block.AsText(); tb.Text != "" {
-			text.WriteString(tb.Text)
-		}
-	}
-
-	// Try to parse a JSON plan from the final text
-	raw := text.String()
+func extractPlanFromText(text string, advisory core.Advisory) (PatchPlan, error) {
+	raw := text
 	if idx := strings.Index(raw, "{"); idx >= 0 {
 		var plan PatchPlan
 		if err := json.Unmarshal([]byte(raw[idx:]), &plan); err == nil {
@@ -285,7 +297,6 @@ func extractPlan(content []anthropic.ContentBlockUnion, advisory core.Advisory) 
 		}
 	}
 
-	// Best-effort plan from advisory data
 	return PatchPlan{
 		PackageName:    advisory.Package.Name,
 		CurrentVersion: advisory.Package.Version,
@@ -323,19 +334,4 @@ then call generate_patch_plan with the concrete remediation steps.`,
 		advisory.RecommendedAction,
 		len(advisory.Findings),
 	)
-}
-
-// contentToParams converts response content blocks to MessageParam content.
-func contentToParams(blocks []anthropic.ContentBlockUnion) []anthropic.ContentBlockParamUnion {
-	var params []anthropic.ContentBlockParamUnion
-	for _, b := range blocks {
-		switch {
-		case b.AsText().Text != "":
-			params = append(params, anthropic.NewTextBlock(b.AsText().Text))
-		case b.AsToolUse().ID != "":
-			tu := b.AsToolUse()
-			params = append(params, anthropic.NewToolUseBlock(tu.ID, tu.Input, tu.Name))
-		}
-	}
-	return params
 }

@@ -61,7 +61,7 @@ fgctl doctor --fix                       # validate + auto-repair environment
 fgctl intel update                       # pull community detection signatures
 fgctl scan .                             # scan every manifest in current project
 fgctl scan npm/lodash@4.17.20            # scan a specific registry package
-fgctl advisory npm/lodash@4.17.20        # AI-powered security advisory (needs ANTHROPIC_API_KEY)
+fgctl advisory npm/lodash@4.17.20        # AI-powered security advisory
 fgctl patch . --dry-run                  # preview AI-proposed dependency upgrades
 ```
 
@@ -96,12 +96,12 @@ ForgeGuardian is **open-core** — the engine, CLI, scanner, and community tools
 | Basic dashboard | ✅ | ✅ |
 | Dashboard: allowlist, advisory, monitor, alerts, agents (patch feed), projects, webhooks | ✅ | ✅ |
 | `fgctl advisory` / `fgctl patch` / `fgctl monitor` — AI features via CLI | 🔒 needs `FG_LICENSE_KEY` | ✅ |
-| The same 3 features via the dashboard/API (needs `ANTHROPIC_API_KEY` only) | ✅ | ✅ |
+| The same 3 features via the dashboard/API (needs AI provider API key) | ✅ | ✅ |
 | Team management + RBAC | — | ✅ |
 | SLA + priority support | — | ✅ |
 | Cloud-hosted option | — | ✅ |
 
-> **Why open-core?** The engine stays free, community signatures stay community-owned, revenue from Pro funds continued development. You'll never lose access to what you have today. Pro doesn't exist yet as a shipped product with actual billing — the CLI checks for `FG_LICENSE_KEY` today, but the dashboard and API don't enforce this at all, so the split above is aspirational, not yet consistently enforced.
+> **Why open-core?** The engine stays free, community signatures stay community-owned, revenue from Pro funds continued development. You'll never lose access to what you have today.
 
 Interested in Pro? Watch this repo — a signup link goes here once it ships.
 
@@ -119,7 +119,7 @@ Interested in Pro? Watch this repo — a signup link goes here once it ships.
 | MCP server scan | ✅ | Prompt injection, tool shadowing |
 | SBOM generation | ✅ | CycloneDX 1.5 + SPDX 2.3 |
 | Sigstore signing | ✅ | Keyless, no GPG setup needed |
-| AI triage + patch | ✅ | Needs `ANTHROPIC_API_KEY` |
+| AI triage + patch | ✅ | Needs AI provider API key |
 | Policy enforcement | ✅ | YAML policy file, local only |
 | Webhook alerts | ✅ | Slack, Discord, generic HTTP |
 | Community signatures | ✅ | 24 signatures, `fgctl intel update` to refresh |
@@ -391,46 +391,14 @@ infra/k8s/                           → Kustomize base + prod overlay
 
 ---
 
-## Architecture
-
-```
-┌─── CLIENTS ──────────────────────────────────────────────────────┐
-│  fgctl CLI  •  Dashboard  •  Browser  •  GitHub Actions  │
-└──────────────────────────┬───────────────────────────────────────┘
-                           │ HTTPS
-┌─── AWS VPC ──────────────▼───────────────────────────────────────┐
-│  Route 53 → ALB :443                                             │
-│                                                                  │
-│  ┌── EKS Cluster ───────────────────────────────────────────┐   │
-│  │  api :8080  │  worker  │  dashboard :3000                 │   │
-│  │  intel-agent (CronJob) │  fg-agent (AI patch)            │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│                                                                  │
-│  ┌── Data ──────────────────────────────────────────────────┐   │
-│  │  RDS PostgreSQL 16  │  ElastiCache Redis  │  S3 artifacts │   │
-│  └──────────────────────────────────────────────────────────┘   │
-└──────────────────────────────────────────────────────────────────┘
-                           │
-┌─── EXTERNAL ─────────────▼───────────────────────────────────────┐
-│  Anthropic Claude API  •  Sigstore/Rekor  •  OSV+OpenSSF feeds   │
-│  npm • PyPI • Go • crates • RubyGems • Maven • HuggingFace • MCP │
-└──────────────────────────────────────────────────────────────────┘
-```
-
-Full draw.io diagram: [forgeguardian-architecture.drawio](forgeguardian-architecture.drawio)
-
----
-
 ## Trust & Privacy
 
 - All scans run locally — no data sent to external servers by default
-- AI features (`advisory`, `patch`, `intel`) require explicit `ANTHROPIC_API_KEY` — fully opt-in
+- AI features are opt-in and require an API key for your chosen provider
 - Zero telemetry — ForgeGuardian phones home for nothing
 - Self-hostable and airgap-compatible
 - SLSA Level 3 provenance published for every release
-- SBOMs published for every release via Sigstore/Rekor
-
-See [PRIVACY.md](PRIVACY.md) for full data-flow breakdown per command.
+- SBOMs published for every release
 
 ---
 

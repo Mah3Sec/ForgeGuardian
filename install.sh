@@ -198,12 +198,12 @@ if $IS_WINDOWS; then
   done
 else
   APT_UPDATED=false
+  if [ "$PKG" = "apt" ]; then
+    $SUDO_CMD apt-get update -qq >/dev/null 2>&1 || true; APT_UPDATED=true
+  fi
   for dep in curl tar; do
     if ! has_cmd "$dep"; then
       warn "$dep not found — installing..."
-      if [ "$PKG" = "apt" ] && ! $APT_UPDATED; then
-        $SUDO_CMD apt-get update -qq >/dev/null 2>&1 || true; APT_UPDATED=true
-      fi
       pkg_install "$dep" || die "Cannot install $dep — install manually"
       info "$dep installed"
     else
@@ -489,12 +489,40 @@ FG_ADMIN_PASSWORD="${FG_ADMIN_PASSWORD:-changeme123}"
 FG_COOKIE_SECURE="${FG_COOKIE_SECURE:-false}"
 info "Default login: ${FG_ADMIN_EMAIL} / changeme123"
 
+# Write env file — single source of truth for all service managers
+ENV_FILE="${DATA_DIR}/.env"
+printf 'FG_ADMIN_EMAIL=%s\n' "$FG_ADMIN_EMAIL" > "$ENV_FILE"
+printf 'FG_ADMIN_PASSWORD=%s\n' "$FG_ADMIN_PASSWORD" >> "$ENV_FILE"
+printf 'FG_SESSION_SECRET=%s\n' "$FG_SESSION_SECRET" >> "$ENV_FILE"
+printf 'FG_COOKIE_SECURE=%s\n' "$FG_COOKIE_SECURE" >> "$ENV_FILE"
+chmod 600 "$ENV_FILE" 2>/dev/null || true
+
+# Helper: start server in background with env vars, prints PID
+start_background() {
+  FG_ADMIN_EMAIL="$FG_ADMIN_EMAIL" \
+  FG_ADMIN_PASSWORD="$FG_ADMIN_PASSWORD" \
+  FG_SESSION_SECRET="$FG_SESSION_SECRET" \
+  FG_COOKIE_SECURE="$FG_COOKIE_SECURE" \
+  PATH="${INSTALL_DIR}:${PATH}" \
+  nohup "${INSTALL_DIR}/fgctl" serve > "${DATA_DIR}/server.log" 2>&1 &
+  echo $!
+}
+
 if [ "$SKIP_SERVER" = "1" ]; then
   warn "Skipping (SKIP_SERVER=1)"
 elif $IS_WINDOWS; then
   info "Run 'fgctl serve' to start the platform"
 elif [ "$OS" = "darwin" ]; then
-  # macOS: create a launchd agent
+  # macOS: wrapper script that loads env file, then exec fgctl serve
+  WRAPPER="${DATA_DIR}/serve-wrapper.sh"
+  cat > "$WRAPPER" <<WRAP
+#!/bin/sh
+set -a
+. "${ENV_FILE}"
+set +a
+exec "${INSTALL_DIR}/fgctl" serve
+WRAP
+  chmod 755 "$WRAPPER"
   PLIST_DIR="${HOME}/Library/LaunchAgents"
   PLIST_FILE="${PLIST_DIR}/com.forgeguardian.server.plist"
   ensure_dir "$PLIST_DIR"
@@ -507,8 +535,7 @@ elif [ "$OS" = "darwin" ]; then
   <string>com.forgeguardian.server</string>
   <key>ProgramArguments</key>
   <array>
-    <string>${INSTALL_DIR}/fgctl</string>
-    <string>serve</string>
+    <string>${WRAPPER}</string>
   </array>
   <key>RunAtLoad</key>
   <true/>
@@ -522,14 +549,6 @@ elif [ "$OS" = "darwin" ]; then
   <dict>
     <key>PATH</key>
     <string>${INSTALL_DIR}:/usr/local/bin:/usr/bin:/bin</string>
-    <key>FG_ADMIN_EMAIL</key>
-    <string>${FG_ADMIN_EMAIL}</string>
-    <key>FG_ADMIN_PASSWORD</key>
-    <string>${FG_ADMIN_PASSWORD}</string>
-    <key>FG_SESSION_SECRET</key>
-    <string>${FG_SESSION_SECRET}</string>
-    <key>FG_COOKIE_SECURE</key>
-    <string>${FG_COOKIE_SECURE}</string>
   </dict>
 </dict>
 </plist>
@@ -538,7 +557,7 @@ PLIST
     || warn "Could not start launchd agent — run 'fgctl serve' manually"
   info "Logs: ${DATA_DIR}/server.log"
 elif has_cmd systemctl; then
-  # Linux with systemd: create a user service
+  # Linux with systemd: user service reads from env file
   SYSTEMD_DIR="${HOME}/.config/systemd/user"
   ensure_dir "$SYSTEMD_DIR"
   cat > "${SYSTEMD_DIR}/forgeguardian.service" <<SVC
@@ -553,10 +572,7 @@ ExecStart=${INSTALL_DIR}/fgctl serve
 Restart=on-failure
 RestartSec=5
 Environment=PATH=${INSTALL_DIR}:/usr/local/bin:/usr/bin:/bin
-Environment=FG_ADMIN_EMAIL=${FG_ADMIN_EMAIL}
-Environment=FG_ADMIN_PASSWORD=${FG_ADMIN_PASSWORD}
-Environment=FG_SESSION_SECRET=${FG_SESSION_SECRET}
-Environment=FG_COOKIE_SECURE=${FG_COOKIE_SECURE}
+EnvironmentFile=${DATA_DIR}/.env
 
 [Install]
 WantedBy=default.target
@@ -564,21 +580,27 @@ SVC
   systemctl --user daemon-reload 2>/dev/null || true
   systemctl --user enable forgeguardian.service 2>/dev/null || true
   systemctl --user stop forgeguardian.service 2>/dev/null || true
-  systemctl --user start forgeguardian.service 2>/dev/null \
-    && info "Server started (systemd user service)" \
-    || warn "Could not start systemd service — run 'fgctl serve' manually"
-  # Enable lingering so the service runs even when user is not logged in
-  loginctl enable-linger "$(whoami)" 2>/dev/null || true
-  info "Manage: systemctl --user {start|stop|status} forgeguardian"
-  info "Logs:   journalctl --user -u forgeguardian -f"
+  if systemctl --user start forgeguardian.service 2>/dev/null; then
+    info "Server started (systemd user service)"
+    loginctl enable-linger "$(whoami)" 2>/dev/null || true
+    info "Manage: systemctl --user {start|stop|status} forgeguardian"
+    info "Logs:   journalctl --user -u forgeguardian -f"
+  else
+    warn "systemd user service failed (common in SSH sessions without XDG_RUNTIME_DIR)"
+    info "Falling back to background process..."
+    SERVER_PID=$(start_background)
+    sleep 1
+    if kill -0 "$SERVER_PID" 2>/dev/null; then
+      info "Server started in background (PID ${SERVER_PID})"
+      info "Logs: ${DATA_DIR}/server.log"
+      printf '%s' "$SERVER_PID" > "${DATA_DIR}/server.pid"
+    else
+      warn "Server failed to start — check ${DATA_DIR}/server.log"
+    fi
+  fi
 else
-  # No systemd — start in background
-  FG_ADMIN_EMAIL="$FG_ADMIN_EMAIL" \
-  FG_ADMIN_PASSWORD="$FG_ADMIN_PASSWORD" \
-  FG_SESSION_SECRET="$FG_SESSION_SECRET" \
-  FG_COOKIE_SECURE="$FG_COOKIE_SECURE" \
-  nohup "${INSTALL_DIR}/fgctl" serve > "${DATA_DIR}/server.log" 2>&1 &
-  SERVER_PID=$!
+  # No systemd — start in background via env file
+  SERVER_PID=$(start_background)
   sleep 1
   if kill -0 "$SERVER_PID" 2>/dev/null; then
     info "Server started in background (PID ${SERVER_PID})"
@@ -844,6 +866,23 @@ engines:
 # ── Step 7: Server ─────────────────────────────────────────────────────────
 Write-Step 7 'Setting up server'
 
+$secretFile = Join-Path $dataDir '.session-secret'
+if (-not $env:FG_SESSION_SECRET) {
+    if (Test-Path $secretFile) {
+        $env:FG_SESSION_SECRET = Get-Content $secretFile -Raw
+    } else {
+        $bytes = New-Object byte[] 32
+        [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+        $env:FG_SESSION_SECRET = ($bytes | ForEach-Object { '{0:x2}' -f $_ }) -join ''
+        New-Item -ItemType Directory -Path $dataDir -Force | Out-Null
+        $env:FG_SESSION_SECRET | Out-File $secretFile -Encoding ascii -NoNewline
+    }
+}
+if (-not $env:FG_ADMIN_EMAIL) { $env:FG_ADMIN_EMAIL = 'admin@forgeguardian.local' }
+if (-not $env:FG_ADMIN_PASSWORD) { $env:FG_ADMIN_PASSWORD = 'changeme123' }
+if (-not $env:FG_COOKIE_SECURE) { $env:FG_COOKIE_SECURE = 'false' }
+Write-Ok "Default login: $($env:FG_ADMIN_EMAIL) / changeme123"
+
 if ($env:SKIP_SERVER -ne '1') {
     $fgctlExe = Join-Path $installDir 'fgctl.exe'
     if (Test-Path $fgctlExe) {
@@ -885,6 +924,11 @@ if ($env:SKIP_SERVER -ne '1') {
     Write-Host '  Dashboard:' -ForegroundColor Cyan
     Write-Host '    http://localhost:8080' -ForegroundColor Green
     Write-Host '    Server is running — open the URL above in your browser' -ForegroundColor DarkGray
+    Write-Host ''
+    Write-Host '  Login:' -ForegroundColor Cyan
+    Write-Host "    Email:    $($env:FG_ADMIN_EMAIL)" -ForegroundColor DarkGray
+    Write-Host '    Password: changeme123' -ForegroundColor DarkGray
+    Write-Host '    You will be prompted to change the password on first login' -ForegroundColor DarkGray
 } else {
     Write-Host '  Start the platform:' -ForegroundColor Cyan
     Write-Host '    fgctl serve' -ForegroundColor Green

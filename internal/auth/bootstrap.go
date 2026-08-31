@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // AdminIdentityPath returns the canonical path to the persisted admin
@@ -43,6 +44,29 @@ func LoadOrBootstrapAdmin(email, plaintextPassword string, isDefault ...bool) (*
 		var existing AdminIdentity
 		if err := json.Unmarshal(data, &existing); err != nil {
 			return nil, fmt.Errorf("auth: parse admin identity: %w", err)
+		}
+		// If env credentials are set and differ from persisted, update the
+		// persisted identity so operators can rotate credentials via env vars.
+		if email != "" && plaintextPassword != "" {
+			needsUpdate := false
+			if !strings.EqualFold(existing.Email, email) {
+				existing.Email = email
+				needsUpdate = true
+			}
+			if CheckPassword(existing.PasswordHash, plaintextPassword) != nil {
+				hash, hashErr := HashPassword(plaintextPassword)
+				if hashErr != nil {
+					return nil, hashErr
+				}
+				existing.PasswordHash = hash
+				mustChange := len(isDefault) > 0 && isDefault[0]
+				existing.PasswordMustChange = mustChange
+				needsUpdate = true
+			}
+			if needsUpdate {
+				out, _ := json.Marshal(&existing)
+				_ = os.WriteFile(path, out, 0o600)
+			}
 		}
 		return &existing, nil
 	}

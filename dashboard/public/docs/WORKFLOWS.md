@@ -503,7 +503,7 @@ fgctl debug --json     # dump diagnostic state for incident report
   "arch": "amd64",
   "signatures": "859 sigs, modified 2026-05-24",
   "api_status": "OK (200)",
-  "anthropic_api_key": "SET (sk-ant-...key)",
+  "ai_provider": "configured",
   "disk_free": "142.3 GB"
 }
 ```

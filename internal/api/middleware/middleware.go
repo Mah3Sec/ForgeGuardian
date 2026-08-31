@@ -187,7 +187,15 @@ func isLocalhostOrigin(origin string) bool {
 		"http://[::1]", "https://[::1]",
 		"http://0.0.0.0", "https://0.0.0.0",
 	} {
-		if strings.HasPrefix(lower, prefix) {
+		if lower == prefix {
+			return true
+		}
+		// Allow origin with a port suffix (e.g. http://localhost:8080)
+		if strings.HasPrefix(lower, prefix+":") {
+			return true
+		}
+		// Allow origin with a path (e.g. http://localhost/)
+		if strings.HasPrefix(lower, prefix+"/") {
 			return true
 		}
 	}
@@ -202,10 +210,15 @@ func LoginRateLimiter() gin.HandlerFunc {
 	return RateLimiter(5.0/60.0, 5)
 }
 
-// authAuthPathPrefix is the route prefix for the login/logout/me endpoints,
-// which must remain reachable regardless of auth state (login/me need to
-// work while logged out; logout needs to work to actually clear a session).
-const authPathPrefix = "/api/v1/auth/"
+// authExemptPaths are the exact routes that must remain reachable
+// regardless of auth state (login/me need to work while logged out;
+// logout needs to work to actually clear a session).
+var authExemptPaths = map[string]bool{
+	"/api/v1/auth/login":    true,
+	"/api/v1/auth/logout":   true,
+	"/api/v1/auth/me":       true,
+	"/api/v1/auth/password": true,
+}
 
 // DualAuth returns middleware that authorizes a request if EITHER the
 // static API key OR a valid session cookie is present. It replaces a bare
@@ -224,7 +237,11 @@ const authPathPrefix = "/api/v1/auth/"
 //     auth.ParseToken. Success authorizes the request.
 //   - If neither path authorized the request and at least one auth
 //     mechanism is actually configured, return 401.
-func DualAuth(apiKey string, sessionSecret []byte, authEnabled bool) gin.HandlerFunc {
+func DualAuth(apiKey string, sessionSecret []byte, authEnabled bool, adminIdentity ...*auth.AdminIdentity) gin.HandlerFunc {
+	var admin *auth.AdminIdentity
+	if len(adminIdentity) > 0 {
+		admin = adminIdentity[0]
+	}
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path
 
@@ -235,7 +252,7 @@ func DualAuth(apiKey string, sessionSecret []byte, authEnabled bool) gin.Handler
 		}
 		// Exempt the auth endpoints themselves — must be reachable while
 		// logged out (login/me) or to clear a session (logout).
-		if strings.HasPrefix(path, authPathPrefix) {
+		if authExemptPaths[path] {
 			c.Next()
 			return
 		}
@@ -264,6 +281,14 @@ func DualAuth(apiKey string, sessionSecret []byte, authEnabled bool) gin.Handler
 		if authEnabled {
 			if tok, err := c.Cookie("fg_session"); err == nil {
 				if _, err := auth.ParseToken(tok, sessionSecret); err == nil {
+					// Enforce server-side password change requirement
+					if admin != nil && admin.PasswordMustChange && path != "/api/v1/auth/password" {
+						c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+							"error":                "password change required before accessing other endpoints",
+							"password_must_change": true,
+						})
+						return
+					}
 					c.Next()
 					return
 				}

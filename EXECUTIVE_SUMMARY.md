@@ -38,7 +38,7 @@ For teams, ForgeGuardian includes a web dashboard (28 pages), a REST API (42 end
 |---|---|---|
 | Engines | 8 concurrent | 1 |
 | Ecosystems | 9 (npm, PyPI, Go, Maven, Ruby, Rust, HuggingFace, MCP, Docker) | 1-3 |
-| AI triage | Built-in (Claude-powered advisories + auto-patch) | Manual |
+| AI triage | Built-in (AI-powered advisories + auto-patch) | Manual |
 | Detection signatures | Community-contributed, Nuclei-style | Vendor-only |
 | Deployment | Local-first, self-hostable, airgap-compatible | Cloud-dependent |
 | Cost | Open-core (CLI free forever, Apache 2.0) | Per-seat SaaS |

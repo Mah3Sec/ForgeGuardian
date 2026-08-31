@@ -1,4 +1,4 @@
-// Package reviewer uses Claude to review a generated PatchPlan and assess its risk
+// Package reviewer uses AI to review a generated PatchPlan and assess its risk
 // before any changes are applied. It acts as a second AI opinion on the planner's output.
 package reviewer
 
@@ -8,14 +8,11 @@ import (
 	"fmt"
 	"strings"
 
-	anthropic "github.com/anthropics/anthropic-sdk-go"
-	"github.com/anthropics/anthropic-sdk-go/option"
+	"github.com/mah3sec/forgeguardian/internal/ai"
 	"github.com/mah3sec/forgeguardian/internal/agent/executor"
 	"github.com/mah3sec/forgeguardian/internal/agent/planner"
 	"github.com/mah3sec/forgeguardian/internal/core"
 )
-
-const model anthropic.Model = "claude-sonnet-4-20250514"
 
 const maxTokens = 1024
 
@@ -30,46 +27,42 @@ type Review struct {
 
 // Reviewer performs AI-driven review of patch plans.
 type Reviewer struct {
-	client *anthropic.Client
+	provider ai.Provider
 }
 
-// New creates a new patch Reviewer.
-func New(apiKey string) *Reviewer {
-	var opts []option.RequestOption
+// New creates a new patch Reviewer with the given AI provider.
+func New(provider ai.Provider) *Reviewer {
+	return &Reviewer{provider: provider}
+}
+
+// NewFromAPIKey creates a Reviewer using legacy Anthropic API key.
+// Deprecated: use New(provider) with ai.NewProviderFromEnv() instead.
+func NewFromAPIKey(apiKey string) *Reviewer {
+	cfg := ai.LoadConfig()
 	if apiKey != "" {
-		opts = append(opts, option.WithAPIKey(apiKey))
+		cfg.APIKey = apiKey
 	}
-	c := anthropic.NewClient(opts...)
-	return &Reviewer{client: &c}
+	p, err := ai.NewProvider(cfg)
+	if err != nil {
+		p, _ = ai.NewAnthropicProvider(ai.Config{APIKey: apiKey})
+	}
+	return &Reviewer{provider: p}
 }
 
 // Review evaluates a PatchPlan and executor results, returning a risk assessment.
 func (r *Reviewer) Review(ctx context.Context, advisory core.Advisory, plan planner.PatchPlan, results []executor.Result) (Review, error) {
 	prompt := buildReviewPrompt(advisory, plan, results)
 
-	msg, err := r.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     model,
-		MaxTokens: maxTokens,
-		System: []anthropic.TextBlockParam{
-			{Text: reviewerSystemPrompt},
-		},
-		Messages: []anthropic.MessageParam{
-			anthropic.NewUserMessage(anthropic.NewTextBlock(prompt)),
-		},
+	resp, err := r.provider.Complete(ctx, ai.CompletionRequest{
+		SystemPrompt: reviewerSystemPrompt,
+		Messages:     []ai.Message{{Role: "user", Content: prompt}},
+		MaxTokens:    maxTokens,
 	})
 	if err != nil {
-		return Review{}, fmt.Errorf("reviewer: api call: %w", err)
+		return Review{}, fmt.Errorf("reviewer: %s: %w", r.provider.Name(), err)
 	}
 
-	var raw string
-	for _, block := range msg.Content {
-		if tb := block.AsText(); tb.Text != "" {
-			raw = tb.Text
-			break
-		}
-	}
-
-	return parseReview(raw, plan)
+	return parseReview(resp.Text, plan)
 }
 
 const reviewerSystemPrompt = `You are ForgeGuardian's patch review engine — a senior security engineer reviewing an AI-generated patch plan.
@@ -136,7 +129,6 @@ func parseReview(raw string, plan planner.PatchPlan) (Review, error) {
 
 	var resp reviewResponse
 	if err := json.Unmarshal([]byte(raw), &resp); err != nil {
-		// Fallback: conservative non-approval
 		return Review{
 			Approved:        false,
 			RiskAssessment:  "Could not parse AI review response — manual review required",

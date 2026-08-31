@@ -19,7 +19,7 @@ func runServe(args []string, _ *slog.Logger, p *ui.Printer) error {
 	dashboardFlag := fs.String("dashboard", "", "path to built dashboard files")
 	fs.Parse(args)
 
-	setDefaultEnv("FG_COOKIE_SECURE", "false")
+	setDefaultEnv("FG_COOKIE_SECURE", "true")
 
 	if os.Getenv("FG_SESSION_SECRET") == "" {
 		home, _ := os.UserHomeDir()

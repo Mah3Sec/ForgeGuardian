@@ -220,7 +220,12 @@ func extractArchive(src, dest string) error {
 	return err
 }
 
+const maxExtractFiles = 10000
+const maxExtractTotalBytes int64 = 2 << 30 // 2 GB
+
 func untar(tr *tar.Reader, dest string) error {
+	fileCount := 0
+	var totalBytes int64
 	for {
 		hdr, err := tr.Next()
 		if err == io.EOF {
@@ -241,19 +246,31 @@ func untar(tr *tar.Reader, dest string) error {
 		case tar.TypeDir:
 			os.MkdirAll(target, 0o755)
 		case tar.TypeReg:
+			fileCount++
+			if fileCount > maxExtractFiles {
+				return fmt.Errorf("archive exceeds maximum file count (%d)", maxExtractFiles)
+			}
 			os.MkdirAll(filepath.Dir(target), 0o755)
 			out, err := os.Create(target)
 			if err != nil {
 				continue
 			}
-			io.Copy(out, io.LimitReader(tr, 50<<20))
+			n, _ := io.Copy(out, io.LimitReader(tr, 50<<20))
 			out.Close()
+			totalBytes += n
+			if totalBytes > maxExtractTotalBytes {
+				return fmt.Errorf("archive exceeds maximum total extracted size")
+			}
 		}
 	}
 	return nil
 }
 
 func unzip(zr *zip.Reader, dest string) error {
+	if len(zr.File) > maxExtractFiles {
+		return fmt.Errorf("archive exceeds maximum file count (%d)", maxExtractFiles)
+	}
+	var totalBytes int64
 	for _, f := range zr.File {
 		clean := filepath.Clean(f.Name)
 		target := filepath.Join(dest, clean)
@@ -274,9 +291,13 @@ func unzip(zr *zip.Reader, dest string) error {
 			rc.Close()
 			continue
 		}
-		io.Copy(out, io.LimitReader(rc, 50<<20))
+		n, _ := io.Copy(out, io.LimitReader(rc, 50<<20))
 		out.Close()
 		rc.Close()
+		totalBytes += n
+		if totalBytes > maxExtractTotalBytes {
+			return fmt.Errorf("archive exceeds maximum total extracted size")
+		}
 	}
 	return nil
 }

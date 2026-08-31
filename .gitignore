@@ -36,6 +36,11 @@
 /fgctl.exe
 /fg-agent.exe
 /intel-agent.exe
+/api.exe
+/license-gen.exe
+
+# ─── Internal tooling (not shipped) ──────────────────────────────────────
+/cmd/license-gen/
 
 # ─── Build output ─────────────────────────────────────────────────────────
 /bin/

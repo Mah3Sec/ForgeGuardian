@@ -27,7 +27,7 @@ builds:
       - -X main.version={{.Version}}
       - -X main.commit={{.Commit}}
       - -X main.buildTime={{.Date}}
-      - -X github.com/mah3sec/forgeguardian/internal/license.secret={{.Env.FG_LICENSE_SECRET}}
+      - -X github.com/mah3sec/forgeguardian/internal/license.publicKeyHex={{.Env.FG_LICENSE_PUBLIC_KEY}}
 
   - id: fg-agent
     main: ./cmd/fg-agent/
@@ -49,7 +49,7 @@ builds:
       - -X main.version={{.Version}}
       - -X main.commit={{.Commit}}
       - -X main.buildTime={{.Date}}
-      - -X github.com/mah3sec/forgeguardian/internal/license.secret={{.Env.FG_LICENSE_SECRET}}
+      - -X github.com/mah3sec/forgeguardian/internal/license.publicKeyHex={{.Env.FG_LICENSE_PUBLIC_KEY}}
 
   - id: intel-agent
     main: ./cmd/intel-agent/
@@ -71,7 +71,7 @@ builds:
       - -X main.version={{.Version}}
       - -X main.commit={{.Commit}}
       - -X main.buildTime={{.Date}}
-      - -X github.com/mah3sec/forgeguardian/internal/license.secret={{.Env.FG_LICENSE_SECRET}}
+      - -X github.com/mah3sec/forgeguardian/internal/license.publicKeyHex={{.Env.FG_LICENSE_PUBLIC_KEY}}
 
 archives:
   - id: default

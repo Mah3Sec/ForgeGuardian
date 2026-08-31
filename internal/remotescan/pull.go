@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // PullResult records the outcome of pulling one discovered file.
@@ -21,9 +22,15 @@ type PullResult struct {
 // remaining files are still attempted, since a project with 9 of 10
 // manifests readable is still worth scanning.
 func (c *Client) Pull(files []DiscoveredFile, localRoot string) []PullResult {
+	absRoot, _ := filepath.Abs(localRoot)
 	results := make([]PullResult, 0, len(files))
 	for _, f := range files {
 		localPath := filepath.Join(localRoot, filepath.FromSlash(f.RelPath))
+		absLocal, _ := filepath.Abs(localPath)
+		if !strings.HasPrefix(absLocal, absRoot+string(os.PathSeparator)) && absLocal != absRoot {
+			results = append(results, PullResult{Remote: f, Err: fmt.Errorf("path traversal blocked: %s", f.RelPath)})
+			continue
+		}
 		if err := os.MkdirAll(filepath.Dir(localPath), 0o700); err != nil {
 			results = append(results, PullResult{Remote: f, Err: fmt.Errorf("create local dir: %w", err)})
 			continue

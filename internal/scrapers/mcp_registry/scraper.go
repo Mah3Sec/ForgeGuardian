@@ -238,7 +238,6 @@ type mcpAnalysis struct {
 func (s *Scraper) analyzeMCPServer(srv mcpServer) mcpAnalysis {
 	var a mcpAnalysis
 
-	// Tool names that shadow Claude's built-in capabilities
 	builtinTools := map[string]bool{
 		"bash": true, "computer": true, "str_replace_editor": true,
 		"text_editor": true, "read_file": true, "write_file": true,

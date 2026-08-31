@@ -56,8 +56,8 @@ ForgeGuardian is a CLI-first supply chain security platform that covers:
 | **Config system** | `fgctl config show/set/init` — `~/.forgeguardian/config.yaml` |
 | **Hermetic build** | Downloads + SHA256-verifies packages with zero network after fetch |
 | **Multi-engine scan** | Grype + OSV + Semgrep + Trivy + Behavioral + Malware + AI model + MCP |
-| **AI advisory** | Claude generates plain-English advisories with agentic risk scoring |
-| **Autonomous patch** | Multi-turn AI tool-use loop reads manifests and proposes/applies upgrades |
+| **AI advisory** | AI-powered plain-English advisories with risk scoring |
+| **Autonomous patch** | AI agent reads manifests and proposes/applies upgrades |
 | **SBOM** | CycloneDX 1.5 JSON/XML + SPDX 2.3 JSON/TV with AI/MCP extensions |
 | **Sigstore signing** | Ephemeral ECDSA + Rekor transparency log + SLSA v1.0 provenance |
 | **Continuous monitor** | Dependency-Track integration for ongoing CVE alerts |
@@ -91,7 +91,7 @@ When optional tools are not installed, those scan engines are skipped and a sing
 
 | Requirement | Details |
 |------------|---------|
-| Anthropic API key | https://console.anthropic.com — required for `advisory`, `fg-agent`, `intel-agent` |
+| AI provider API key | Required for `advisory`, `fg-agent`, `intel-agent` — see Settings for supported providers |
 
 ---
 
@@ -166,7 +166,7 @@ This downloads the latest community detection signatures. Run it before your fir
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `ANTHROPIC_API_KEY` | For AI features | Anthropic API key |
+| AI provider key | For AI features | Set the API key for your chosen provider (see Settings) |
 | `DATABASE_URL` | For server mode | PostgreSQL connection string |
 | `REDIS_URL` | For server mode | Redis connection string |
 | `MINIO_ENDPOINT` | For server mode | MinIO host:port |
@@ -177,7 +177,7 @@ This downloads the latest community detection signatures. Run it before your fir
 
 Set for current session:
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
+export FG_AI_PROVIDER=your-provider
 ```
 
 ### Config file
@@ -255,6 +255,19 @@ fgctl scan . --format=json            # JSON output
 
 # Performance
 fgctl scan . --workers=8 --timeout=5m
+
+# Remote host scan (SSH — read-only, nothing written to remote)
+fgctl scan --remote user@host                              # scan remote $HOME
+fgctl scan --remote deploy@10.0.4.12 --remote-path /opt/app  # scan specific directory
+fgctl scan --remote deploy@10.0.4.12 --remote-port 2222   # custom SSH port
+fgctl scan --remote user@host --identity ~/.ssh/id_ed25519 # explicit key file
+fgctl scan --remote user@host --remote-max-depth 5         # limit directory depth
+fgctl scan --remote user@host --accept-new-host-key        # trust unknown host (first connect)
+fgctl scan --remote user@host --keep-temp                  # keep pulled manifests locally (debug)
+
+# Remote + output/filter flags combine freely
+fgctl scan --remote user@host --severity=high --format=json
+fgctl scan --remote user@host --fail-on=high --compact
 ```
 
 ### Patch
@@ -302,7 +315,6 @@ fgctl config init
 ### Advisory (requires API key)
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
 fgctl advisory npm/lodash@4.17.20
 fgctl advisory npm/lodash@4.17.20 --json
 ```
@@ -399,7 +411,7 @@ fgctl help scan
 
 ## 6. CLI Quick Reference — fg-agent
 
-The autonomous patch agent uses a multi-turn Claude tool-use loop to read manifest files and propose (or apply) version upgrades.
+The autonomous patch agent reads manifest files and proposes (or applies) version upgrades.
 
 ```bash
 # Dry run — shows proposed changes, writes nothing
@@ -420,22 +432,22 @@ fg-agent --recipe=npm --package=lodash --version=4.17.20 --json
 |------|---------|-------------|
 | `--apply` | false | Write changes to manifest files |
 | `--project-dir` | `.` | Directory containing manifests |
-| `--max-turns` | 10 | Max Claude tool-use turns |
-| `--api-key` | `$ANTHROPIC_API_KEY` | Anthropic API key |
+| `--max-turns` | 10 | Max AI agent turns |
+| `--api-key` | env auto-detect | AI provider API key |
 
 **What the agent does:**
 1. Downloads and SHA256-verifies the package
-2. Runs all scan engines (8 in parallel)
-3. Calls Claude to generate a security advisory
-4. Multi-turn tool-use loop: reads your manifests, plans the safest upgrade
-5. Claude reviewer approves the plan
+2. Runs all scan engines in parallel
+3. Generates a security advisory
+4. Reads your manifests, plans the safest upgrade
+5. Reviews the plan
 6. If `--apply`: writes file changes
 
 ---
 
 ## 7. CLI Quick Reference — intel-agent
 
-Polls OSV, OpenSSF malicious-packages, and npm/PyPI popularity feeds. Uses Claude to generate community detection signatures and writes them to the local signature store.
+Polls OSV, OpenSSF malicious-packages, and npm/PyPI popularity feeds. Generates community detection signatures and writes them to the local signature store.
 
 ```bash
 # One-shot run
@@ -742,7 +754,7 @@ fgctl doctor
 | `grype` | Binary in PATH | Reports version |
 | `semgrep` | Binary in PATH | Reports version |
 | `trivy` | Binary in PATH | Reports version |
-| `ANTHROPIC_API_KEY` | Env var set | Warn if missing (AI features unavailable) |
+| AI provider key | Env var set | Warn if missing (AI features unavailable) |
 | `signatures` | `~/.forgeguardian/signatures.json` exists + non-empty | Reports count |
 | `disk space` | ≥500 MB free on `$HOME` filesystem | Reports free space |
 | `Go version` | go binary in PATH | Reports version |
@@ -791,7 +803,7 @@ fgctl debug --json    # JSON for tooling
 - Signature store count and last-modified date
 - API URL and reachability status
 - Tool locations (grype, semgrep, trivy)
-- `ANTHROPIC_API_KEY` presence (masked)
+- AI provider key presence (masked)
 - Disk space free
 
 ---
@@ -904,7 +916,7 @@ The dashboard ships **30+ pages** across 7 categories — all connected to live 
 | Page | What it does |
 |---|---|
 | **AI Security Analysis** | AI supply chain threat analysis |
-| **Advisory** | AI-generated security advisory per package (needs `ANTHROPIC_API_KEY`) |
+| **Advisory** | AI-generated security advisory per package (needs AI provider API key) |
 | **AI Agents** | Live SSE feed of autonomous patch agent sessions — session status badge, event log |
 
 **Inventory**
@@ -970,6 +982,66 @@ Enter host, port, username, and key path
 → Connects via SSH, discovers manifests
 → Runs full scan on remote dependencies
 ```
+
+#### Generate an SSH key (if you don't have one)
+
+```bash
+# Generate an Ed25519 key (recommended)
+ssh-keygen -t ed25519 -C "your_email@example.com"
+# → saves to ~/.ssh/id_ed25519 (private) and ~/.ssh/id_ed25519.pub (public)
+
+# Or RSA 4096-bit if Ed25519 is not supported
+ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+```
+
+#### Copy your public key to the remote host
+
+```bash
+# Automatic (Linux/macOS)
+ssh-copy-id user@host
+
+# Manual (any OS)
+cat ~/.ssh/id_ed25519.pub | ssh user@host "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"
+
+# Windows PowerShell
+type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh user@host "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"
+```
+
+#### Verify SSH connection
+
+```bash
+ssh user@host "echo connected"
+```
+
+#### Scan the remote host (CLI)
+
+```bash
+# Basic — scans remote $HOME for all dependency manifests
+fgctl scan --remote user@host
+
+# Scan a specific directory
+fgctl scan --remote deploy@10.0.4.12 --remote-path /opt/app
+
+# Custom SSH port
+fgctl scan --remote deploy@10.0.4.12 --remote-port 2222
+
+# Explicit key file
+fgctl scan --remote user@host --identity ~/.ssh/id_ed25519
+
+# First-time connection (trust unknown host key)
+fgctl scan --remote user@host --accept-new-host-key
+
+# Limit directory depth
+fgctl scan --remote user@host --remote-max-depth 5
+
+# Combine with output/filter flags
+fgctl scan --remote user@host --severity=high --format=json
+fgctl scan --remote user@host --fail-on=high --compact
+```
+
+Supported manifests: package.json, package-lock.json, yarn.lock, pnpm-lock.yaml, requirements.txt, pyproject.toml, Pipfile, Pipfile.lock, poetry.lock, go.mod, go.sum, Cargo.toml, Cargo.lock, pom.xml, build.gradle, build.gradle.kts, Gemfile, Gemfile.lock, packages.config, composer.json, composer.lock.
+
+The scan is fully read-only — only `echo`, `find`, and `cat` commands run on the remote host. Nothing is installed or written remotely.
 
 ### Attack Surface Mapping
 
@@ -1058,7 +1130,6 @@ Use for: full stack with Sigstore transparency log, continuous monitoring, and a
 # .env file (git-ignored)
 POSTGRES_PASSWORD=devpassword
 GRAFANA_PASSWORD=admin
-ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 ---
@@ -1079,7 +1150,6 @@ fgctl sign npm/chalk@5.3.0 --out=/tmp/chalk.att.json
 
 ```bash
 docker run --rm -it \
-  -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY \
   golang:1.25-alpine sh
 
 # Inside container:
@@ -1105,7 +1175,7 @@ fg-agent --recipe=npm --package=lodash --version=4.17.20 \
 {
   "image": "mcr.microsoft.com/devcontainers/go:1.25",
   "postCreateCommand": "go install github.com/mah3sec/forgeguardian/cmd/fgctl@latest",
-  "containerEnv": { "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}" }
+  "containerEnv": {}
 }
 ```
 
@@ -1159,7 +1229,6 @@ fgctl scan npm/lodash@4.17.20
 fgctl scan maven/org.apache.logging.log4j:log4j-core@2.14.1
 
 # 4. AI advisory (needs API key)
-export ANTHROPIC_API_KEY=sk-ant-...
 fgctl advisory npm/lodash@4.17.20
 
 # 5. Autonomous patch agent dry-run
@@ -1198,8 +1267,6 @@ fgctl verify --attestation=$PKG-attestation.json --sha256=$SHA
 ### Full AI pipeline on a vulnerable package
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
-
 mkdir /tmp/vuln-test
 cat > /tmp/vuln-test/package.json << 'EOF'
 { "name": "test-app", "dependencies": { "lodash": "4.17.20" } }
@@ -1259,8 +1326,7 @@ fgctl debug --json > fg-debug.json
 
 | Problem | Cause | Fix |
 |---------|-------|-----|
-| `ANTHROPIC_API_KEY not set` | Missing env var | `export ANTHROPIC_API_KEY=sk-ant-...` |
-| `[WARN] ANTHROPIC_API_KEY` in doctor | Same | Same |
+| `AI provider not configured` | Missing API key | Set your provider API key (see Settings) |
 | `recipe "X" not found` | Typo | Use: `npm pypi maven go rubygems crates huggingface mcp` |
 | `grype not installed — skipped` | Binary not in PATH | `brew install anchore/grype/grype` |
 | `build failed: 404` | Package/version doesn't exist | Check on registry |
@@ -1445,7 +1511,7 @@ ForgeGuardian is designed around a local-first, zero-trust architecture.
 | Source code | **Never** | All analysis is static/behavioral on the binary/manifest |
 | Scan results | **Never** | Results stored in local PostgreSQL or printed to stdout only |
 | Telemetry / analytics | **Never** | No usage tracking, no phone-home, no crash reports |
-| AI prompts (advisory) | Yes — when using `fgctl advisory` | Finding data sent to Anthropic API; requires explicit invocation |
+| AI prompts (advisory) | Yes — when using `fgctl advisory` | Finding data sent to configured AI provider; requires explicit invocation |
 | Signing keys | **Never** | Ephemeral ECDSA keys generated per-signing event; never stored |
 
 ### Air-gapped operation
@@ -1459,16 +1525,16 @@ fgctl scan . --offline
 
 ### Self-hosted deployment
 
-The full stack (API, dashboard, PostgreSQL, Rekor) runs entirely on-premises via docker-compose. No Anthropic API key required for non-AI features.
+The full stack (API, dashboard, PostgreSQL) runs entirely on-premises via docker-compose. No AI provider key required for non-AI features.
 
-### ANTHROPIC_API_KEY usage
+### AI provider API key usage
 
 The key is only used when:
 1. `fgctl advisory <package>` — AI-generated advisory
 2. `fg-agent` autonomous patch agent
 3. `intel-agent` signature generation
 
-It is never sent to third parties other than Anthropic.
+It is sent only to the configured AI provider and never to any other third party.
 
 ---
 
@@ -1577,7 +1643,7 @@ See `COMPETITIVE.md` for detailed feature matrices. Summary:
 
 ### v1.2.0 — 2026-05-24 — Phase 13: Production Hardening & Release Readiness
 
-See CLAUDE.md Phase 13 entry for the full list of 20 improvements.
+20 production hardening improvements.
 
 ---
 

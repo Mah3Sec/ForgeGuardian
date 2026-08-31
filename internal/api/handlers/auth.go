@@ -116,6 +116,23 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 		return
 	}
 
+	// Issue a fresh token so the current session stays valid; all other
+	// sessions using the old token will expire naturally within sessionTTL.
+	newToken, err := auth.IssueToken(admin.Email, h.cfg.GetSessionSecret(), sessionTTL)
+	if err != nil {
+		h.log.Error("failed to re-issue session token after password change", "error", err)
+	} else {
+		http.SetCookie(c.Writer, &http.Cookie{
+			Name:     sessionCookieName,
+			Value:    newToken,
+			Path:     "/",
+			MaxAge:   int(sessionTTL.Seconds()),
+			Secure:   h.cfg.GetCookieSecure(),
+			HttpOnly: true,
+			SameSite: http.SameSiteStrictMode,
+		})
+	}
+
 	h.log.Info("admin password changed")
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }

@@ -33,10 +33,10 @@ jobs:
           cache: npm
           cache-dependency-path: dashboard/package-lock.json
 
-      - name: Verify license secret is configured
+      - name: Verify license keys are configured
         run: |
-          if [ -z "${{ secrets.FG_LICENSE_SECRET }}" ]; then
-            echo "::error::FG_LICENSE_SECRET repo secret is not set — refusing to cut a release with the public dev-build license secret baked in. Set it under Settings > Secrets and variables > Actions."
+          if [ -z "${{ secrets.FG_LICENSE_PUBLIC_KEY }}" ]; then
+            echo "::error::FG_LICENSE_PUBLIC_KEY repo secret is not set — refusing to cut a release without the license verification key. Generate a keypair with: go run ./cmd/license-gen -keygen"
             exit 1
           fi
 
@@ -56,7 +56,7 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          FG_LICENSE_SECRET: ${{ secrets.FG_LICENSE_SECRET }}
+          FG_LICENSE_PUBLIC_KEY: ${{ secrets.FG_LICENSE_PUBLIC_KEY }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
 
   sign-images:
@@ -93,6 +93,7 @@ jobs:
           provenance: mode=max
           build-args: |
             VERSION=${{ github.ref_name }}
+            FG_LICENSE_PUBLIC_KEY=${{ secrets.FG_LICENSE_PUBLIC_KEY }}
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/forgeguardian:${{ github.ref_name }}
             ghcr.io/${{ env.OWNER_LC }}/forgeguardian:latest
@@ -108,6 +109,9 @@ jobs:
           push: true
           sbom: true
           provenance: mode=max
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            FG_LICENSE_PUBLIC_KEY=${{ secrets.FG_LICENSE_PUBLIC_KEY }}
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/forgeguardian-api:${{ github.ref_name }}
             ghcr.io/${{ env.OWNER_LC }}/forgeguardian-api:latest

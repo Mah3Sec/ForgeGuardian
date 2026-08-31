@@ -28,6 +28,7 @@ import (
 	"github.com/mah3sec/forgeguardian/internal/agent/planner"
 	"github.com/mah3sec/forgeguardian/internal/agent/reviewer"
 	"github.com/mah3sec/forgeguardian/internal/agent/triage"
+	"github.com/mah3sec/forgeguardian/internal/ai"
 )
 
 func main() {
@@ -40,7 +41,9 @@ func main() {
 		skipScanFlag   = flag.Bool("skip-scan", false, "skip scan, use empty findings (for testing triage)")
 		jsonFlag       = flag.Bool("json", false, "output full result as JSON")
 		projectDirFlag = flag.String("project-dir", ".", "project directory containing manifests to patch")
-		apiKeyFlag     = flag.String("api-key", "", "Anthropic API key (default: ANTHROPIC_API_KEY env var)")
+		apiKeyFlag     = flag.String("api-key", "", "AI provider API key (default: auto-detected from env)")
+		providerFlag   = flag.String("provider", "", "AI provider: anthropic|openai|bedrock|gemini|ollama")
+		modelOvFlag    = flag.String("model", "", "AI model override")
 		timeoutFlag    = flag.Duration("timeout", 15*time.Minute, "total agent timeout")
 	)
 	flag.Parse()
@@ -53,14 +56,27 @@ func main() {
 		os.Exit(1)
 	}
 
-	apiKey := *apiKeyFlag
-	if apiKey == "" {
-		apiKey = os.Getenv("ANTHROPIC_API_KEY")
+	cfg := ai.LoadConfig()
+	if *apiKeyFlag != "" {
+		cfg.APIKey = *apiKeyFlag
 	}
-	if apiKey == "" {
-		logger.Error("ANTHROPIC_API_KEY not set — set it or pass --api-key")
+	if *providerFlag != "" {
+		cfg.Provider = *providerFlag
+	}
+	if *modelOvFlag != "" {
+		cfg.Model = *modelOvFlag
+	}
+	if cfg.APIKey == "" && cfg.Provider != ai.ProviderOllama && cfg.Provider != ai.ProviderBedrock {
+		logger.Error("no AI API key configured — set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GOOGLE_API_KEY, or use --provider=ollama for local LLMs")
 		os.Exit(1)
 	}
+
+	aiProvider, err := ai.NewProvider(cfg)
+	if err != nil {
+		logger.Error("AI provider init failed", "error", err)
+		os.Exit(1)
+	}
+	logger.Info("using AI provider", "provider", aiProvider.Name())
 
 	recipe, err := recipes.Get(*recipeFlag)
 	if err != nil {
@@ -108,7 +124,7 @@ func main() {
 
 	// ── Step 3: Triage ───────────────────────────────────────────────────────
 	logger.Info("step 3/5: generating AI triage advisory")
-	triageEngine := triage.New(apiKey)
+	triageEngine := triage.New(aiProvider)
 	advisory, err := triageEngine.Triage(ctx, artifact, findings)
 	if err != nil {
 		logger.Error("triage failed", "error", err)
@@ -120,7 +136,7 @@ func main() {
 
 	// ── Step 4: Plan ─────────────────────────────────────────────────────────
 	logger.Info("step 4/5: planning patch")
-	patchPlanner := planner.New(apiKey)
+	patchPlanner := planner.New(aiProvider)
 	plan, err := patchPlanner.Plan(ctx, advisory)
 	if err != nil {
 		logger.Error("planning failed", "error", err)
@@ -137,7 +153,7 @@ func main() {
 	exec := executor.New(*projectDirFlag, !*applyFlag)
 	execResults := exec.Execute(plan, advisory)
 
-	patchReviewer := reviewer.New(apiKey)
+	patchReviewer := reviewer.New(aiProvider)
 	review, err := patchReviewer.Review(ctx, advisory, plan, execResults)
 	if err != nil {
 		logger.Warn("review failed (non-fatal)", "error", err)

@@ -24,6 +24,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/mah3sec/forgeguardian/internal/agent/triage"
+	"github.com/mah3sec/forgeguardian/internal/ai"
 	dbsqlc "github.com/mah3sec/forgeguardian/internal/api/db/sqlc"
 	"github.com/mah3sec/forgeguardian/internal/auth"
 	"github.com/mah3sec/forgeguardian/internal/core"
@@ -278,7 +279,7 @@ func (h *logCaptureHandler) WithGroup(name string) slog.Handler {
 type Handler struct {
 	cfg           Config
 	log           *slog.Logger
-	db            *dbsqlc.Queries // nil when DATABASE_URL is not set
+	db            dbsqlc.Querier // nil when DATABASE_URL is not set
 	jobs          *jobRegistry
 	cache         *scanCache
 	logs          *logRing
@@ -289,6 +290,15 @@ type Handler struct {
 // New creates a handler suite. pool may be nil; DB-backed endpoints will return
 // 503 gracefully when the database is unavailable.
 func New(cfg Config, log *slog.Logger, pool *pgxpool.Pool) *Handler {
+	var q dbsqlc.Querier
+	if pool != nil {
+		q = dbsqlc.New(pool)
+	}
+	return NewWithDB(cfg, log, q)
+}
+
+// NewWithDB creates a handler suite with any Querier backend (PostgreSQL or SQLite).
+func NewWithDB(cfg Config, log *slog.Logger, q dbsqlc.Querier) *Handler {
 	cachePath := os.Getenv("FG_CACHE_PATH")
 	if cachePath == "" {
 		home, err := os.UserHomeDir()
@@ -297,10 +307,7 @@ func New(cfg Config, log *slog.Logger, pool *pgxpool.Pool) *Handler {
 		}
 		cachePath = filepath.Join(home, ".forgeguardian", "scan-cache.json")
 	}
-	h := &Handler{cfg: cfg, log: log, jobs: newJobRegistry(), cache: newScanCache(cachePath), logs: newLogRing(500)}
-	if pool != nil {
-		h.db = dbsqlc.New(pool)
-	}
+	h := &Handler{cfg: cfg, log: log, db: q, jobs: newJobRegistry(), cache: newScanCache(cachePath), logs: newLogRing(500)}
 	return h
 }
 
@@ -647,6 +654,16 @@ func (h *Handler) ScanUpload(c *gin.Context) {
 		return
 	}
 
+	// Validate file extension
+	fname := strings.ToLower(fileHeader.Filename)
+	validUpload := strings.HasSuffix(fname, ".tar.gz") || strings.HasSuffix(fname, ".tgz") ||
+		strings.HasSuffix(fname, ".zip") || strings.HasSuffix(fname, ".tar") ||
+		strings.HasSuffix(fname, ".tar.bz2") || strings.HasSuffix(fname, ".tar.xz")
+	if !validUpload {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported file type — upload a .tar.gz, .tgz, .zip, or .tar archive"})
+		return
+	}
+
 	// Save upload to temp file synchronously — the multipart body is only
 	// available on this request, so it can't be deferred into the job.
 	src, err := fileHeader.Open()
@@ -803,6 +820,42 @@ func (h *Handler) GetScanResults(c *gin.Context) {
 	})
 }
 
+// ─── AI provider status ──────────────────────────────────────────────────────
+
+func (h *Handler) AIProviderStatus(c *gin.Context) {
+	cfg := ai.LoadConfig()
+	if h.cfg.GetAnthropicKey() != "" {
+		cfg.APIKey = h.cfg.GetAnthropicKey()
+	}
+
+	status := gin.H{
+		"provider":       cfg.Provider,
+		"model":          cfg.Model,
+		"configured":     true,
+		"supports_tools": true,
+	}
+
+	provider, err := ai.NewProvider(cfg)
+	if err != nil {
+		status["configured"] = false
+		status["error"] = err.Error()
+	} else {
+		status["provider"] = provider.Name()
+		status["supports_tools"] = provider.SupportsToolUse()
+	}
+
+	providers := []gin.H{
+		{"id": "anthropic", "name": "Anthropic", "env": "ANTHROPIC_API_KEY"},
+		{"id": "openai", "name": "OpenAI", "env": "OPENAI_API_KEY"},
+		{"id": "bedrock", "name": "AWS Bedrock", "env": "AWS_ACCESS_KEY_ID"},
+		{"id": "gemini", "name": "Google Gemini", "env": "GOOGLE_API_KEY"},
+		{"id": "ollama", "name": "Ollama (Local)", "env": "FG_AI_BASE_URL"},
+	}
+
+	status["available_providers"] = providers
+	c.JSON(http.StatusOK, status)
+}
+
 // ─── Advisory endpoint ────────────────────────────────────────────────────────
 
 // GenerateAdvisory generates an AI advisory for a package.
@@ -818,8 +871,13 @@ func (h *Handler) GenerateAdvisory(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if h.cfg.GetAnthropicKey() == "" {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "ANTHROPIC_API_KEY not configured"})
+	cfg := ai.LoadConfig()
+	if h.cfg.GetAnthropicKey() != "" {
+		cfg.APIKey = h.cfg.GetAnthropicKey()
+	}
+	provider, err := ai.NewProvider(cfg)
+	if err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "No AI provider configured — set ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY, or use FG_AI_PROVIDER=ollama"})
 		return
 	}
 
@@ -836,7 +894,7 @@ func (h *Handler) GenerateAdvisory(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Minute)
 	defer cancel()
 
-	eng := triage.New(h.cfg.GetAnthropicKey())
+	eng := triage.New(provider)
 	advisory, err := eng.Triage(ctx, artifact, req.Findings)
 	if err != nil {
 		h.log.Error("advisory generation failed", "error", err)

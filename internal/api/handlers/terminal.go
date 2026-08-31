@@ -27,7 +27,6 @@ var allowedCommands = map[string]bool{
 	"version":    true,
 	"help":       true,
 	"provenance": true,
-	"config":     true,
 	"intel":      true,
 	"sig":        true,
 	"policy":     true,
@@ -101,6 +100,18 @@ func (h *Handler) TerminalExec(c *gin.Context) {
 	for _, ch := range cmd {
 		if ch == '|' || ch == '&' || ch == ';' || ch == '`' || ch == '$' || ch == '(' || ch == ')' || ch == '{' || ch == '}' || ch == '<' || ch == '>' {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid characters in command"})
+			return
+		}
+	}
+
+	// Block dangerous flags that could be injected as arguments
+	for _, p := range parts[1:] {
+		lower := strings.ToLower(p)
+		if strings.HasPrefix(lower, "--remote") || strings.HasPrefix(lower, "--identity") ||
+			strings.HasPrefix(lower, "--ssh") || strings.HasPrefix(lower, "--host") ||
+			strings.HasPrefix(lower, "--key") || strings.HasPrefix(lower, "--exec") ||
+			strings.HasPrefix(lower, "--output") || strings.HasPrefix(lower, "-o") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "flag not allowed via web terminal"})
 			return
 		}
 	}

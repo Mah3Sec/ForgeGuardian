@@ -28,6 +28,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/mah3sec/forgeguardian/internal/agent/triage"
+	"github.com/mah3sec/forgeguardian/internal/ai"
 	"github.com/mah3sec/forgeguardian/internal/build/recipes"
 	_ "github.com/mah3sec/forgeguardian/internal/build/recipes/all"
 	"github.com/mah3sec/forgeguardian/internal/core"
@@ -42,7 +43,6 @@ import (
 	"github.com/mah3sec/forgeguardian/internal/ui"
 )
 
-// Set via -ldflags at build time; fall back to Go module info for `go install`.
 var (
 	version   = ""
 	commit    = ""
@@ -644,7 +644,9 @@ func runAdvisory(args []string, log *slog.Logger) error {
 	recipeFlag := fs.String("recipe", "", "ecosystem recipe")
 	pkgFlag := fs.String("package", "", "package name")
 	verFlag := fs.String("version", "", "package version")
-	apiKeyFlag := fs.String("api-key", "", "Anthropic API key (default: ANTHROPIC_API_KEY env)")
+	apiKeyFlag := fs.String("api-key", "", "AI provider API key (default: auto-detected from env)")
+	providerFlag := fs.String("provider", "", "AI provider: anthropic|openai|bedrock|gemini|ollama (default: auto-detect)")
+	modelFlag := fs.String("model", "", "AI model override (default: provider default)")
 	skipScanFlag := fs.Bool("skip-scan", false, "skip scan phase")
 	jsonFlag := fs.Bool("json", false, "output JSON")
 	timeoutFlag := fs.Duration("timeout", 10*time.Minute, "total timeout")
@@ -654,13 +656,25 @@ func runAdvisory(args []string, log *slog.Logger) error {
 		return fmt.Errorf("--recipe, --package, and --version are required")
 	}
 
-	apiKey := *apiKeyFlag
-	if apiKey == "" {
-		apiKey = os.Getenv("ANTHROPIC_API_KEY")
+	cfg := ai.LoadConfig()
+	if *apiKeyFlag != "" {
+		cfg.APIKey = *apiKeyFlag
 	}
-	if apiKey == "" {
-		return fmt.Errorf("ANTHROPIC_API_KEY not set — pass --api-key or set the env var")
+	if *providerFlag != "" {
+		cfg.Provider = *providerFlag
 	}
+	if *modelFlag != "" {
+		cfg.Model = *modelFlag
+	}
+	if cfg.APIKey == "" && cfg.Provider != ai.ProviderOllama && cfg.Provider != ai.ProviderBedrock {
+		return fmt.Errorf("no AI API key configured — set an API key for your preferred provider, or use --provider=ollama for local LLMs")
+	}
+
+	provider, err := ai.NewProvider(cfg)
+	if err != nil {
+		return fmt.Errorf("AI provider: %w", err)
+	}
+	log.Info("using AI provider", "provider", provider.Name())
 
 	ctx, cancel := context.WithTimeout(context.Background(), *timeoutFlag)
 	defer cancel()
@@ -680,7 +694,7 @@ func runAdvisory(args []string, log *slog.Logger) error {
 	}
 
 	log.Info("generating AI advisory")
-	eng := triage.New(apiKey)
+	eng := triage.New(provider)
 	advisory, err := eng.Triage(ctx, artifact, findings)
 	if err != nil {
 		return fmt.Errorf("triage: %w", err)
@@ -1531,7 +1545,7 @@ Usage: fgctl <command> [flags]
 
 DETECTION & ANALYSIS
   scan        Multi-engine vulnerability + supply chain risk scan
-  advisory    AI-powered security advisory  (requires ANTHROPIC_API_KEY)
+  advisory    AI-powered security advisory
   audit       Audit globally installed packages across all package managers
 
 SUPPLY CHAIN INTEGRITY
@@ -1541,7 +1555,7 @@ SUPPLY CHAIN INTEGRITY
   provenance  Generate SLSA v1.0 provenance statement
 
 REMEDIATION & MONITORING
-  patch       Autonomous AI-powered dependency patching  (requires ANTHROPIC_API_KEY)
+  patch       Autonomous AI-powered dependency patching
   monitor     Continuous monitoring — detect, notify, quarantine, or block threats
 
 PLATFORM

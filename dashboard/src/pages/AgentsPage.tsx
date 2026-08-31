@@ -1,4 +1,4 @@
-import { Bot, Terminal, Zap, Radio, Trash2 } from 'lucide-react';
+import { Bot, Radio, Trash2 } from 'lucide-react';
 import { useAgentStream } from '../hooks/useAgentStream';
 
 const TYPE_COLOR: Record<string, string> = {
@@ -112,25 +112,7 @@ export function AgentsPage() {
         <code className="text-xs block" style={{ color: 'var(--color-safe)' }}>fgctl patch .                      # patch current project</code>
         <code className="text-xs block" style={{ color: 'var(--color-safe)' }}>fgctl patch . --severity=high      # high+ findings only</code>
         <code className="text-xs block" style={{ color: 'var(--color-safe)' }}>fgctl patch . --dry-run            # preview proposed changes</code>
-        <p className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>Requires <code>ANTHROPIC_API_KEY</code>.</p>
-      </div>
-
-      {/* How it works */}
-      <div className="rounded-lg p-4 space-y-3" style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
-        <p className="text-xs font-mono font-bold" style={{ color: 'var(--color-muted)' }}>HOW IT WORKS</p>
-        {[
-          { icon: Zap,      title: 'Scan',  desc: 'ForgeGuardian scans your project for vulnerable dependencies.' },
-          { icon: Bot,      title: 'Triage', desc: 'Claude AI evaluates each finding with exploit context and fix confidence.' },
-          { icon: Terminal, title: 'Patch',  desc: 'Agent proposes compatible upgrades, validates compatibility, streams progress here.' },
-        ].map(step => (
-          <div key={step.title} className="flex items-start gap-3">
-            <step.icon size={14} style={{ color: 'var(--color-safe)', marginTop: 2 }} />
-            <div>
-              <p className="text-sm font-mono font-medium" style={{ color: 'var(--fg)' }}>{step.title}</p>
-              <p className="text-xs" style={{ color: 'var(--color-muted)' }}>{step.desc}</p>
-            </div>
-          </div>
-        ))}
+        <p className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>Requires an AI provider API key. See Settings for configuration.</p>
       </div>
     </div>
   );

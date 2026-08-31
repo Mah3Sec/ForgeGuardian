@@ -264,6 +264,17 @@ export const generateAdvisory = (
     body: JSON.stringify({ ecosystem, package: pkg, version, findings }),
   });
 
+// AI provider status
+export const getAIStatus = () =>
+  request<{
+    provider: string;
+    model: string;
+    configured: boolean;
+    supports_tools: boolean;
+    error?: string;
+    available_providers: { id: string; name: string; env: string; default_model: string }[];
+  }>('/api/v1/ai/status');
+
 // SBOM — returns raw text (XML or JSON depending on format); uses AbortController for timeout
 export const getSBOM = async (ecosystem: string, pkg: string, version: string, format = 'cyclonedx-json'): Promise<string> => {
   const controller = new AbortController()

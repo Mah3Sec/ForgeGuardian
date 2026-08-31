@@ -41,6 +41,8 @@ func IssueToken(email string, secret []byte, ttl time.Duration) (string, error) 
 	claims := Claims{
 		Email: email,
 		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    "forgeguardian",
+			Audience:  jwt.ClaimStrings{"forgeguardian-dashboard"},
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
 		},
@@ -63,7 +65,10 @@ func ParseToken(tokenString string, secret []byte) (*Claims, error) {
 			return nil, fmt.Errorf("auth: unexpected signing method %v", t.Header["alg"])
 		}
 		return secret, nil
-	})
+	},
+		jwt.WithIssuer("forgeguardian"),
+		jwt.WithAudience("forgeguardian-dashboard"),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("auth: parse token: %w", err)
 	}
