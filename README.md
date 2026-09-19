@@ -78,7 +78,7 @@ fgctl serve
 
 Open **http://localhost:8080** — SOC-style overview with security posture grading, severity trends, real-time alerts, and risk heatmaps.
 
-**Live demo:** [forgeguardian.mahendrapurbia.com](https://forgeguardian.mahendrapurbia.com)
+**Live demo:** [forgeguardian.dev](https://forgeguardian.dev)
 
 ### 30+ pages across 7 categories
 
